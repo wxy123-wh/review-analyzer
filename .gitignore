@@ -1,0 +1,29 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment
+.env
+
+# Java
+backend/target/
+*.class
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Python
+nlp-service/.venv/
+nlp-service/__pycache__/
+nlp-service/.pytest_cache/
+**/__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+*.swp

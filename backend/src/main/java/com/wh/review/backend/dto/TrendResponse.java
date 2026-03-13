@@ -1,0 +1,10 @@
+package com.wh.review.backend.dto;
+
+import java.util.List;
+
+public record TrendResponse(
+        String productCode,
+        String aspect,
+        List<TrendPoint> points
+) {
+}

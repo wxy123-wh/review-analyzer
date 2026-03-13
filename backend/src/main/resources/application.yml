@@ -1,0 +1,13 @@
+server:
+  port: ${BACKEND_PORT:8080}
+
+spring:
+  application:
+    name: wh-backend
+
+integration:
+  onebound:
+    base-url: ${ONEBOUND_BASE_URL:https://api-gw.onebound.cn}
+    api-key: ${ONEBOUND_API_KEY:}
+    api-secret: ${ONEBOUND_API_SECRET:}
+    default-platform: ${ONEBOUND_DEFAULT_PLATFORM:taobao}

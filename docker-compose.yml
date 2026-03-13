@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wh-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-earphone_review}
+      POSTGRES_USER: ${POSTGRES_USER:-earphone}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-earphone_pwd}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-earphone}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: wh-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  nlp-service:
+    build:
+      context: ./nlp-service
+      dockerfile: Dockerfile
+    container_name: wh-nlp-service
+    environment:
+      NLP_PORT: ${NLP_PORT:-8000}
+    ports:
+      - "${NLP_PORT:-8000}:8000"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wh-backend
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      NLP_BASE_URL: ${NLP_BASE_URL:-http://nlp-service:8000}
+      ONEBOUND_BASE_URL: ${ONEBOUND_BASE_URL:-https://api-gw.onebound.cn}
+      ONEBOUND_API_KEY: ${ONEBOUND_API_KEY:-}
+      ONEBOUND_API_SECRET: ${ONEBOUND_API_SECRET:-}
+      ONEBOUND_DEFAULT_PLATFORM: ${ONEBOUND_DEFAULT_PLATFORM:-taobao}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-earphone_review}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-earphone}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-earphone_pwd}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      nlp-service:
+        condition: service_started
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: wh-frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT:-5175}:5175"
+
+volumes:
+  pgdata:
