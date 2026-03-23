@@ -79,13 +79,14 @@ describe('App shell', () => {
     expect(wrapper.text()).toContain('总览')
     expect(wrapper.text()).toContain('问题')
     expect(wrapper.text()).toContain('对比')
-    expect(wrapper.text()).toContain('趋势')
+    expect(wrapper.text()).toContain('趋势图')
+    expect(wrapper.text()).toContain('词云')
     expect(wrapper.text()).toContain('动作')
     expect(wrapper.text()).toContain('验证')
     expect(wrapper.text()).toContain('流水线')
     expect(wrapper.text()).toContain('智能体')
     expect(wrapper.text()).toContain('可解释性')
-    expect(wrapper.text()).toContain('混沌演练')
+    expect(wrapper.text()).not.toContain('混沌演练')
     expect(wrapper.text()).toContain('报告中心')
 
     await wrapper.get('[data-testid="nav-issues"]').trigger('click')
@@ -93,6 +94,10 @@ describe('App shell', () => {
 
     await wrapper.get('[data-testid="nav-compare"]').trigger('click')
     expect(wrapper.text()).toContain('竞品对比概览')
+
+    await wrapper.get('[data-testid="nav-wordcloud"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('词云洞察')
 
     await wrapper.get('[data-testid="nav-showcase-pipeline"]').trigger('click')
     await flushPromises()
@@ -106,10 +111,6 @@ describe('App shell', () => {
     await wrapper.get('[data-testid="nav-showcase-explainability"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('可解释性分析')
-
-    await wrapper.get('[data-testid="nav-showcase-chaos"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('混沌演练剧场')
 
     await wrapper.get('[data-testid="nav-showcase-report-center"]').trigger('click')
     await flushPromises()

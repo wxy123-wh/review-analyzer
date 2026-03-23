@@ -1,12 +1,20 @@
 <template>
   <div class="panel">
     <header>
-      <h3>混沌演练剧场</h3>
+      <h3>混沌演练（评论链路韧性）</h3>
       <span class="badge">{{ formatShowcaseStatus(data?.status) }}</span>
     </header>
     <p class="note">{{ data?.note ?? '加载中...' }}</p>
-    <ul v-if="data?.drills?.length">
-      <li v-for="drill in data.drills" :key="drill.scenario">
+    <section class="mapping">
+      <h4>链路映射</h4>
+      <ul>
+        <li>评论同步延迟上升 -> 趋势与词云刷新滞后</li>
+        <li>接口限流波动 -> 问题识别召回下降</li>
+        <li>任务重试积压 -> 看板更新时间延后</li>
+      </ul>
+    </section>
+    <ul v-if="data?.drills?.length" class="drill-list">
+      <li v-for="drill in data.drills" :key="drill.scenario" class="drill-item">
         <div class="row">
           <strong>{{ drill.scenario }}</strong>
           <span>{{ drill.state }}</span>
@@ -59,7 +67,29 @@ h3 {
   color: #355e77;
 }
 
-ul {
+.mapping {
+  margin-top: 12px;
+  border: 1px solid #d7e8f2;
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(244, 250, 255, 0.85);
+}
+
+.mapping h4 {
+  margin: 0;
+  font-size: 13px;
+  color: #396077;
+}
+
+.mapping ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: #48687e;
+}
+
+.drill-list {
   margin: 14px 0 0;
   padding: 0;
   list-style: none;
@@ -67,7 +97,7 @@ ul {
   gap: 10px;
 }
 
-li {
+.drill-item {
   border: 1px solid #e2edf3;
   border-radius: 10px;
   padding: 10px;

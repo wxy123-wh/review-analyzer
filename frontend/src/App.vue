@@ -23,7 +23,7 @@
     <main class="content">
       <header class="hero">
         <h1>蓝牙耳机评论改进决策系统</h1>
-        <p>V1.5 演示扩展：登录互动、智能体协同、流水线编排、混沌演练、可解释性分析、报告中心</p>
+        <p>V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心</p>
         <span class="user-chip">当前用户：{{ currentUser }}</span>
       </header>
 
@@ -58,7 +58,23 @@
 
         <IssueTable v-else-if="activeModule === 'issues'" :items="issues" />
         <CompareTable v-else-if="activeModule === 'compare'" :items="compareItems" />
-        <TrendList v-else-if="activeModule === 'trends'" :aspect="trendAspect" :points="trendPoints" />
+        <TrendList
+          v-else-if="activeModule === 'trends'"
+          :aspect="trendAspect"
+          :points="trendPoints"
+          :state="trendState"
+          :message="trendMessage"
+          @retry="reloadTrendData"
+        />
+        <WordCloudPanel
+          v-else-if="activeModule === 'wordcloud'"
+          :aspect="wordCloudAspect"
+          :items="wordCloudItems"
+          :state="wordCloudState"
+          :message="wordCloudMessage"
+          :notice="wordCloudNotice"
+          @retry="reloadWordCloudData"
+        />
         <ActionList v-else-if="activeModule === 'actions'" :items="actions" @create-demo="createDemoAction" />
         <ValidationList v-else-if="activeModule === 'validation'" :items="validations" />
 
@@ -100,6 +116,7 @@ import ShowcaseReportCenter from './components/ShowcaseReportCenter.vue'
 import StatusCard from './components/StatusCard.vue'
 import TrendList from './components/TrendList.vue'
 import ValidationList from './components/ValidationList.vue'
+import WordCloudPanel from './components/WordCloudPanel.vue'
 import {
   createAction,
   fetchBackendHealth,
@@ -111,11 +128,13 @@ import {
   fetchShowcasePipeline,
   fetchTrends,
   fetchValidation,
+  fetchWordCloud,
   nlpDemoStatus,
   previewShowcaseReport,
 } from './api/client'
 import type {
   ActionItem,
+  ChartLoadState,
   CompareItem,
   IssueItem,
   ServiceStatus,
@@ -125,7 +144,10 @@ import type {
   ShowcasePipelineData,
   ShowcaseReportPreviewData,
   TrendPoint,
+  TrendResponse,
   ValidationItem,
+  WordCloudResponse,
+  WordCloudItem,
 } from './types/domain'
 
 type ModuleId =
@@ -133,6 +155,7 @@ type ModuleId =
   | 'issues'
   | 'compare'
   | 'trends'
+  | 'wordcloud'
   | 'actions'
   | 'validation'
   | 'showcase-pipeline'
@@ -141,24 +164,52 @@ type ModuleId =
   | 'showcase-chaos'
   | 'showcase-report-center'
 
-const modules: Array<{ id: ModuleId; label: string; icon: string }> = [
+function isFeatureEnabled(rawValue: unknown, defaultValue = false): boolean {
+  if (typeof rawValue !== 'string') {
+    return defaultValue
+  }
+  const normalized = rawValue.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false
+  }
+  return defaultValue
+}
+
+const chaosModuleVisible = isFeatureEnabled(import.meta.env.VITE_SHOW_CHAOS_MODULE, false)
+
+const allModules: Array<{ id: ModuleId; label: string; icon: string }> = [
   { id: 'overview', label: '总览', icon: 'O' },
   { id: 'issues', label: '问题', icon: 'I' },
   { id: 'compare', label: '对比', icon: 'C' },
-  { id: 'trends', label: '趋势', icon: 'T' },
+  { id: 'trends', label: '趋势图', icon: 'T' },
+  { id: 'wordcloud', label: '词云', icon: 'W' },
   { id: 'actions', label: '动作', icon: 'A' },
   { id: 'validation', label: '验证', icon: 'V' },
   { id: 'showcase-pipeline', label: '流水线', icon: 'P' },
   { id: 'showcase-agent-arena', label: '智能体', icon: 'G' },
   { id: 'showcase-explainability', label: '可解释性', icon: 'E' },
-  { id: 'showcase-chaos', label: '混沌演练', icon: 'H' },
+  { id: 'showcase-chaos', label: '韧性演练', icon: 'H' },
   { id: 'showcase-report-center', label: '报告中心', icon: 'R' },
 ]
+
+const modules = computed(() =>
+  allModules.filter((module) => chaosModuleVisible || module.id !== 'showcase-chaos'),
+)
 
 const isAuthenticated = ref(false)
 const currentUser = ref('访客')
 const activeModule = ref<ModuleId>('overview')
 const trendAspect = ref('battery')
+const trendState = ref<ChartLoadState>('idle')
+const trendMessage = ref('')
+const wordCloudAspect = ref('all')
+const wordCloudItems = ref<WordCloudItem[]>([])
+const wordCloudState = ref<ChartLoadState>('idle')
+const wordCloudMessage = ref('')
+const wordCloudNotice = ref('')
 
 const loading = ref(false)
 const loadError = ref('')
@@ -181,6 +232,37 @@ const showcaseReportPreview = ref<ShowcaseReportPreviewData | null>(null)
 
 const topIssue = computed(() => issues.value[0])
 
+function applyTrendResponse(response: TrendResponse): void {
+  trendAspect.value = response.aspect
+  trendPoints.value = response.points
+  trendState.value = response.state
+  if (response.state === 'empty') {
+    trendMessage.value = '暂无趋势数据，建议先初始化演示评论数据。'
+  } else if (response.state === 'timeout') {
+    trendMessage.value = '趋势接口请求超时，请检查网络后重试。'
+  } else if (response.state === 'error') {
+    trendMessage.value = '趋势接口请求失败，请稍后重试。'
+  } else {
+    trendMessage.value = ''
+  }
+}
+
+function applyWordCloudResponse(response: WordCloudResponse): void {
+  wordCloudAspect.value = response.aspect
+  wordCloudItems.value = response.items
+  wordCloudNotice.value = response.notice?.trim() ?? ''
+  wordCloudState.value = response.state
+  if (response.state === 'empty') {
+    wordCloudMessage.value = '暂无词云数据，建议先初始化演示评论数据。'
+  } else if (response.state === 'timeout') {
+    wordCloudMessage.value = '词云接口请求超时，请检查网络后重试。'
+  } else if (response.state === 'error') {
+    wordCloudMessage.value = '词云接口请求失败，请稍后重试。'
+  } else {
+    wordCloudMessage.value = ''
+  }
+}
+
 function handleLogin(payload: { username: string }): void {
   currentUser.value = payload.username
   isAuthenticated.value = true
@@ -193,7 +275,9 @@ function activateModule(moduleId: ModuleId): void {
 }
 
 async function ensureModuleData(moduleId: ModuleId): Promise<void> {
-  if (moduleId === 'showcase-pipeline' && !showcasePipeline.value) {
+  if (moduleId === 'wordcloud' && wordCloudState.value === 'idle') {
+    await reloadWordCloudData()
+  } else if (moduleId === 'showcase-pipeline' && !showcasePipeline.value) {
     showcasePipeline.value = await fetchShowcasePipeline()
   } else if (moduleId === 'showcase-agent-arena' && !showcaseAgentArena.value) {
     showcaseAgentArena.value = await fetchShowcaseAgentArena()
@@ -207,6 +291,7 @@ async function ensureModuleData(moduleId: ModuleId): Promise<void> {
 async function loadDashboard(): Promise<void> {
   loading.value = true
   loadError.value = ''
+  trendState.value = 'loading'
   try {
     const [backendStatus, issueList, compareList, trendResponse, validationList] = await Promise.all([
       fetchBackendHealth(),
@@ -218,13 +303,27 @@ async function loadDashboard(): Promise<void> {
     serviceStatuses.value = [backendStatus, nlpDemoStatus()]
     issues.value = issueList
     compareItems.value = compareList
-    trendPoints.value = trendResponse.points
+    applyTrendResponse(trendResponse)
     validations.value = validationList
   } catch {
     loadError.value = '加载失败，请检查后端服务是否可用。'
+    trendState.value = 'error'
+    trendMessage.value = '趋势接口请求失败，请稍后重试。'
   } finally {
     loading.value = false
   }
+}
+
+async function reloadTrendData(): Promise<void> {
+  trendState.value = 'loading'
+  const response = await fetchTrends(undefined, trendAspect.value)
+  applyTrendResponse(response)
+}
+
+async function reloadWordCloudData(): Promise<void> {
+  wordCloudState.value = 'loading'
+  const response = await fetchWordCloud(undefined, wordCloudAspect.value)
+  applyWordCloudResponse(response)
 }
 
 async function createDemoAction(): Promise<void> {
@@ -438,13 +537,18 @@ async function generateReportPreview(module: string): Promise<void> {
     width: auto;
     display: flex;
     gap: 6px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
   }
 
   .nav-item {
-    width: 52px;
-    padding: 6px 2px;
+    min-width: 58px;
+    min-height: 56px;
+    padding: 8px 4px;
+    touch-action: manipulation;
   }
 
   .label {

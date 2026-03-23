@@ -3,6 +3,7 @@ import axios from 'axios'
 import type {
   ActionCreatePayload,
   ActionItem,
+  ChartLoadState,
   CompareItem,
   IssueItem,
   ServiceStatus,
@@ -11,8 +12,10 @@ import type {
   ShowcaseExplainabilityData,
   ShowcasePipelineData,
   ShowcaseReportPreviewData,
-  TrendPoint,
+  TrendResponse,
   ValidationItem,
+  WordCloudItem,
+  WordCloudResponse,
 } from '../types/domain'
 import { normalizeShowcaseStatus } from '../utils/showcaseCopy'
 
@@ -50,6 +53,19 @@ function normalizeShowcaseData<T extends ShowcasePayloadBase>(payload: T, fallba
     status: normalizeShowcaseStatus(payload.status),
     note: normalizeShowcaseNote(payload.note, fallbackNote),
   }
+}
+
+function resolveRequestState(error: unknown): Extract<ChartLoadState, 'timeout' | 'error'> {
+  if (!axios.isAxiosError(error)) {
+    return 'error'
+  }
+  if (error.code === 'ECONNABORTED') {
+    return 'timeout'
+  }
+  if (error.response?.status === 408 || error.response?.status === 504) {
+    return 'timeout'
+  }
+  return 'error'
 }
 
 export async function fetchBackendHealth(): Promise<ServiceStatus> {
@@ -112,7 +128,7 @@ export async function fetchCompare(productCode = 'demo-earphone'): Promise<Compa
 export async function fetchTrends(
   productCode = 'demo-earphone',
   aspect = 'battery',
-): Promise<{ aspect: string; points: TrendPoint[] }> {
+): Promise<TrendResponse> {
   if (isTestMode) {
     return {
       aspect,
@@ -120,17 +136,89 @@ export async function fetchTrends(
         { period: '2026-W06', negativeRate: 0.31, mentionVolume: 75 },
         { period: '2026-W09', negativeRate: 0.4, mentionVolume: 105 },
       ],
+      state: 'success',
     }
   }
 
   try {
     const response = await apiClient.get('/api/v1/trends', { params: { productCode, aspect } })
+    const points = response.data.points ?? []
     return {
       aspect: response.data.aspect ?? aspect,
-      points: response.data.points ?? [],
+      points,
+      state: points.length > 0 ? 'success' : 'empty',
     }
-  } catch {
-    return { aspect, points: [] }
+  } catch (error) {
+    return { aspect, points: [], state: resolveRequestState(error) }
+  }
+}
+
+function normalizeWordCloudItems(rawItems: unknown): WordCloudItem[] {
+  if (!Array.isArray(rawItems)) {
+    return []
+  }
+  return rawItems
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) {
+        return null
+      }
+      const record = item as Record<string, unknown>
+      const keyword = typeof record.keyword === 'string' ? record.keyword.trim() : ''
+      if (!keyword) {
+        return null
+      }
+      const frequency = typeof record.frequency === 'number' ? record.frequency : 0
+      const weight = typeof record.weight === 'number' ? record.weight : frequency
+      const sentimentTag = typeof record.sentimentTag === 'string' ? record.sentimentTag : 'NEUTRAL'
+      return {
+        keyword,
+        frequency,
+        weight,
+        sentimentTag,
+      }
+    })
+    .filter((item): item is WordCloudItem => item !== null)
+}
+
+export async function fetchWordCloud(
+  productCode = 'demo-earphone',
+  aspect = 'all',
+): Promise<WordCloudResponse> {
+  if (isTestMode) {
+    return {
+      productCode,
+      aspect,
+      items: [
+        { keyword: '续航', frequency: 42, weight: 0.92, sentimentTag: 'POSITIVE' },
+        { keyword: '断连', frequency: 31, weight: 0.85, sentimentTag: 'NEGATIVE' },
+        { keyword: '降噪', frequency: 27, weight: 0.78, sentimentTag: 'POSITIVE' },
+        { keyword: '佩戴', frequency: 24, weight: 0.7, sentimentTag: 'NEUTRAL' },
+      ],
+      notice: '演示模式词云数据',
+      state: 'success',
+    }
+  }
+
+  try {
+    const response = await apiClient.get('/api/v1/wordcloud', {
+      params: { productCode, aspect },
+    })
+    const items = normalizeWordCloudItems(response.data.items)
+    const notice = typeof response.data.notice === 'string' ? response.data.notice : undefined
+    return {
+      productCode: response.data.productCode ?? productCode,
+      aspect: response.data.aspect ?? aspect,
+      items,
+      notice,
+      state: items.length > 0 ? 'success' : 'empty',
+    }
+  } catch (error) {
+    return {
+      productCode,
+      aspect,
+      items: [],
+      state: resolveRequestState(error),
+    }
   }
 }
 
@@ -269,7 +357,7 @@ export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
     return {
       status: '演示数据',
       implemented: false,
-      note: '混沌演练当前使用演示数据剧本。',
+      note: '评论链路韧性演练当前使用演示数据剧本。',
       drills: [
         { scenario: 'db-latency-spike', state: 'PENDING', detail: '模拟 p95 延迟升至 3 秒' },
         { scenario: 'provider-rate-limit', state: 'PENDING', detail: '模拟 OneBound 429 波动' },
@@ -281,13 +369,13 @@ export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
     const response = await apiClient.get('/api/v1/showcase/chaos')
     return normalizeShowcaseData(
       response.data as ShowcaseChaosData,
-      '混沌演练当前使用演示数据剧本。',
+      '评论链路韧性演练当前使用演示数据剧本。',
     )
   } catch {
     return {
       status: '演示数据',
       implemented: false,
-      note: '混沌演练接口暂不可用，已切换为演示数据。',
+      note: '评论链路韧性演练接口暂不可用，已切换为演示数据。',
       drills: [],
     }
   }
