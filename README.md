@@ -156,3 +156,13 @@ Sidebar now includes additional high-visibility demo modules:
 - `可解释性 (Explainability)`: weighted feature contribution bars
 - `混沌演练 (Chaos Drill)`: resilience scenario deck
 - `报告中心 (Report Center)`: placeholder report preview generator
+
+### Suggested Demo Flow
+
+For acceptance/demo sessions, use this sequence to show value quickly:
+
+1. Enter through `WH Quantum Console` login gate (any non-empty username/password).
+2. Show mascot eye-tracking and password-focus privacy animation.
+3. In dashboard, start with `总览` then switch through `流水线 -> 智能体 -> 可解释性 -> 混沌演练`.
+4. Open `报告中心`, trigger preview generation, and highlight placeholder/roadmap notes.
+5. End on `验证` to connect showcase visuals back to action-impact workflow.

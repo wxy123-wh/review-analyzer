@@ -19,6 +19,6 @@
 
 ## 4. Final Verification and Demo Readiness
 
-- [ ] 4.1 Re-run NLP and compose validation checks to confirm no regressions
-- [ ] 4.2 Update README with showcase module and demo flow guidance
-- [ ] 4.3 Report code-size uplift and visual complexity summary for acceptance
+- [x] 4.1 Re-run NLP and compose validation checks to confirm no regressions
+- [x] 4.2 Update README with showcase module and demo flow guidance
+- [x] 4.3 Report code-size uplift and visual complexity summary for acceptance
