@@ -1,9 +1,9 @@
 ## 1. OpenSpec 基线与范围冻结
 
-- [ ] 1.1 评审并确认 `proposal.md` 中 capability 范围与术语定义（演示数据、全中文、模块收敛）
-- [ ] 1.2 评审并确认 `design.md` 中关键决策（数据驱动、图表方案、登录状态机）
-- [ ] 1.3 使用 `openspec validate pm-demo-chinese-overhaul-v1` 校验变更文档完整性
-- [ ] 1.4 在开发前冻结“本次不做项”（生产级鉴权、真实混沌注入平台、复杂 BI）
+- [x] 1.1 评审并确认 `proposal.md` 中 capability 范围与术语定义（演示数据、全中文、模块收敛）
+- [x] 1.2 评审并确认 `design.md` 中关键决策（数据驱动、图表方案、登录状态机）
+- [x] 1.3 使用 `openspec validate pm-demo-chinese-overhaul-v1` 校验变更文档完整性
+- [x] 1.4 在开发前冻结“本次不做项”（生产级鉴权、真实混沌注入平台、复杂 BI）
 
 ## 2. 前端文案与语言统一（全中文）
 
