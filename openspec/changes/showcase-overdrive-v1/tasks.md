@@ -1,7 +1,7 @@
 ## 1. OpenSpec Artifacts
 
-- [ ] 1.1 Finalize proposal, design, and spec documents for showcase-overdrive-v1
-- [ ] 1.2 Validate change artifacts with `openspec validate showcase-overdrive-v1`
+- [x] 1.1 Finalize proposal, design, and spec documents for showcase-overdrive-v1
+- [x] 1.2 Validate change artifacts with `openspec validate showcase-overdrive-v1`
 
 ## 2. Backend Showcase APIs
 
