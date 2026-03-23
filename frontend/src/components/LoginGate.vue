@@ -41,15 +41,15 @@
       </article>
 
       <form class="panel" @submit.prevent="submit">
-        <h1>WH Quantum Console</h1>
-        <p>演示入口：炫技模式已激活。</p>
+        <h1>WH 演示控制台</h1>
+        <p>演示入口：已开启沉浸式交互。</p>
         <label>
           用户名
           <input
             data-testid="login-username"
             v-model.trim="username"
             type="text"
-            placeholder="demo"
+            placeholder="请输入用户名"
             autocomplete="off"
           />
         </label>
@@ -59,7 +59,7 @@
             data-testid="login-password"
             v-model.trim="password"
             type="password"
-            placeholder="demo"
+            placeholder="请输入密码"
             @focus="passwordFocused = true"
             @blur="passwordFocused = false"
           />
@@ -128,7 +128,7 @@ function clearTrail(): void {
 
 function submit(): void {
   if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码（演示账号任意非空）'
+    error.value = '请输入用户名和密码（演示环境任意非空）'
     return
   }
   error.value = ''

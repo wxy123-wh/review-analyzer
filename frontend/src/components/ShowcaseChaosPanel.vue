@@ -1,8 +1,8 @@
 <template>
   <div class="panel">
     <header>
-      <h3>Chaos Drill Theater</h3>
-      <span class="badge">{{ data?.status ?? 'LOADING' }}</span>
+      <h3>混沌演练剧场</h3>
+      <span class="badge">{{ formatShowcaseStatus(data?.status) }}</span>
     </header>
     <p class="note">{{ data?.note ?? '加载中...' }}</p>
     <ul v-if="data?.drills?.length">
@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import type { ShowcaseChaosData } from '../types/domain'
+import { formatShowcaseStatus } from '../utils/showcaseCopy'
 
 defineProps<{
   data: ShowcaseChaosData | null

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run"
+    "check:copy": "node ./scripts/check-banned-copy-terms.mjs",
+    "test": "npm run check:copy && vitest run"
   },
   "dependencies": {
     "axios": "^1.8.1",

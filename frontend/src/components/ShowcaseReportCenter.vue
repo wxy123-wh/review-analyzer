@@ -1,23 +1,23 @@
 <template>
   <div class="panel">
     <header>
-      <h3>Report Center</h3>
-      <span class="badge">{{ data?.status ?? 'READY' }}</span>
+      <h3>报告中心</h3>
+      <span class="badge">{{ data?.status ? formatShowcaseStatus(data.status) : '就绪' }}</span>
     </header>
-    <p class="note">{{ data?.note ?? '支持预览报告段落，导出链路为占位实现。' }}</p>
+    <p class="note">{{ data?.note ?? '支持预览报告段落，导出链路当前为演示数据流程。' }}</p>
 
     <div class="actions">
       <label>
         目标模块
         <select v-model="selectedModule">
-          <option value="overview">overview</option>
-          <option value="issues">issues</option>
-          <option value="compare">compare</option>
-          <option value="trends">trends</option>
-          <option value="showcase">showcase</option>
+          <option value="overview">总览</option>
+          <option value="issues">问题</option>
+          <option value="compare">对比</option>
+          <option value="trends">趋势</option>
+          <option value="showcase">演示模块</option>
         </select>
       </label>
-      <button type="button" @click="$emit('preview', selectedModule)">生成占位报告预览</button>
+      <button type="button" @click="$emit('preview', selectedModule)">生成演示数据报告预览</button>
     </div>
 
     <ul v-if="data?.previewSections?.length">
@@ -31,6 +31,7 @@
 import { ref } from 'vue'
 
 import type { ShowcaseReportPreviewData } from '../types/domain'
+import { formatShowcaseStatus } from '../utils/showcaseCopy'
 
 defineEmits<{
   (event: 'preview', module: string): void

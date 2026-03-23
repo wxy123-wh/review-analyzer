@@ -2,7 +2,7 @@
   <div class="panel">
     <div class="head">
       <h3>改进行动登记</h3>
-      <button type="button" class="create-btn" @click="$emit('create-demo')">登记示例动作</button>
+      <button type="button" class="create-btn" @click="$emit('create-demo')">登记演示数据动作</button>
     </div>
     <ul v-if="items.length > 0">
       <li v-for="item in items" :key="item.actionId">
@@ -11,7 +11,7 @@
         <span>{{ item.status }}</span>
       </li>
     </ul>
-    <p v-else class="empty">暂无动作，点击“登记示例动作”快速创建。</p>
+    <p v-else class="empty">暂无动作，点击“登记演示数据动作”快速创建。</p>
   </div>
 </template>
 

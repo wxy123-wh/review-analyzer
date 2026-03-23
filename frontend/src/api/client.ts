@@ -14,6 +14,7 @@ import type {
   TrendPoint,
   ValidationItem,
 } from '../types/domain'
+import { normalizeShowcaseStatus } from '../utils/showcaseCopy'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const isTestMode = import.meta.env.MODE === 'test'
@@ -22,6 +23,34 @@ export const apiClient = axios.create({
   baseURL,
   timeout: 10000,
 })
+
+type ShowcasePayloadBase = {
+  status?: string
+  note?: string
+}
+
+function normalizeShowcaseNote(note: unknown, fallback: string): string {
+  if (typeof note !== 'string') {
+    return fallback
+  }
+  const trimmed = note.trim()
+  if (!trimmed) {
+    return fallback
+  }
+  const upper = trimmed.toUpperCase()
+  if (upper.includes('PLACE') || upper.includes('DEMO')) {
+    return fallback
+  }
+  return trimmed
+}
+
+function normalizeShowcaseData<T extends ShowcasePayloadBase>(payload: T, fallbackNote: string): T {
+  return {
+    ...payload,
+    status: normalizeShowcaseStatus(payload.status),
+    note: normalizeShowcaseNote(payload.note, fallbackNote),
+  }
+}
 
 export async function fetchBackendHealth(): Promise<ServiceStatus> {
   if (isTestMode) {
@@ -39,7 +68,7 @@ export async function fetchBackendHealth(): Promise<ServiceStatus> {
   }
 }
 
-export function nlpPlaceholderStatus(): ServiceStatus {
+export function nlpDemoStatus(): ServiceStatus {
   return { name: 'NLP Service', status: isTestMode ? 'UP' : 'UNKNOWN' }
 }
 
@@ -148,25 +177,28 @@ export async function fetchValidation(actionId?: string): Promise<ValidationItem
 export async function fetchShowcasePipeline(): Promise<ShowcasePipelineData> {
   if (isTestMode) {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'pipeline orchestration is mocked for acceptance demo',
+      note: '流水线编排当前使用演示数据回放。',
       stages: [
-        { name: 'SYNC', state: 'DONE', detail: 'ingested 12,480 comments' },
-        { name: 'ASPECT_NLP', state: 'RUNNING', detail: 'domain lexicon v0.3 in dry-run mode' },
-        { name: 'SCORING', state: 'QUEUED', detail: 'waiting for batch window close' },
+        { name: 'SYNC', state: 'DONE', detail: '已接入 12,480 条评论样本' },
+        { name: 'ASPECT_NLP', state: 'RUNNING', detail: '领域词典 v0.3 正在演示推演' },
+        { name: 'SCORING', state: 'QUEUED', detail: '等待批处理窗口收敛' },
       ],
     }
   }
 
   try {
     const response = await apiClient.get('/api/v1/showcase/pipeline')
-    return response.data
+    return normalizeShowcaseData(
+      response.data as ShowcasePipelineData,
+      '流水线编排当前使用演示数据回放。',
+    )
   } catch {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'pipeline endpoint unavailable; using safe fallback',
+      note: '流水线接口暂不可用，已切换为演示数据。',
       stages: [],
     }
   }
@@ -175,9 +207,9 @@ export async function fetchShowcasePipeline(): Promise<ShowcasePipelineData> {
 export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData> {
   if (isTestMode) {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'multi-agent collaboration is currently a deterministic simulation',
+      note: '智能体协同当前使用演示数据仿真。',
       agents: [
         { agentName: 'collector-agent', role: 'SYNC', state: 'IDLE', confidence: 0.98 },
         { agentName: 'insight-agent', role: 'ANALYZE', state: 'RUNNING', confidence: 0.86 },
@@ -187,12 +219,15 @@ export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData>
 
   try {
     const response = await apiClient.get('/api/v1/showcase/agent-arena')
-    return response.data
+    return normalizeShowcaseData(
+      response.data as ShowcaseAgentArenaData,
+      '智能体协同当前使用演示数据仿真。',
+    )
   } catch {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'agent-arena endpoint unavailable; using safe fallback',
+      note: '智能体接口暂不可用，已切换为演示数据。',
       agents: [],
     }
   }
@@ -201,9 +236,9 @@ export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData>
 export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabilityData> {
   if (isTestMode) {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'explainability view uses static weighted factors',
+      note: '可解释性分析当前使用演示数据权重。',
       featureContributions: [
         { feature: 'negative_rate', weight: 0.35 },
         { feature: 'mention_volume', weight: 0.25 },
@@ -215,12 +250,15 @@ export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabil
 
   try {
     const response = await apiClient.get('/api/v1/showcase/explainability')
-    return response.data
+    return normalizeShowcaseData(
+      response.data as ShowcaseExplainabilityData,
+      '可解释性分析当前使用演示数据权重。',
+    )
   } catch {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'explainability endpoint unavailable; using safe fallback',
+      note: '可解释性接口暂不可用，已切换为演示数据。',
       featureContributions: [],
     }
   }
@@ -229,24 +267,27 @@ export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabil
 export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
   if (isTestMode) {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'chaos drill playback is static and not connected to runtime infra',
+      note: '混沌演练当前使用演示数据剧本。',
       drills: [
-        { scenario: 'db-latency-spike', state: 'PENDING', detail: 'simulate p95 increase to 3s' },
-        { scenario: 'provider-rate-limit', state: 'PENDING', detail: 'simulate onebound 429 bursts' },
+        { scenario: 'db-latency-spike', state: 'PENDING', detail: '模拟 p95 延迟升至 3 秒' },
+        { scenario: 'provider-rate-limit', state: 'PENDING', detail: '模拟 OneBound 429 波动' },
       ],
     }
   }
 
   try {
     const response = await apiClient.get('/api/v1/showcase/chaos')
-    return response.data
+    return normalizeShowcaseData(
+      response.data as ShowcaseChaosData,
+      '混沌演练当前使用演示数据剧本。',
+    )
   } catch {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'chaos endpoint unavailable; using safe fallback',
+      note: '混沌演练接口暂不可用，已切换为演示数据。',
       drills: [],
     }
   }
@@ -255,25 +296,28 @@ export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
 export async function previewShowcaseReport(module: string): Promise<ShowcaseReportPreviewData> {
   if (isTestMode) {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'real export is disabled in test mode',
+      note: '测试模式下报告导出关闭，当前展示演示数据预览。',
       previewSections: [
-        `Executive summary for module=${module}`,
-        'Top issue snapshot and evidence list',
-        'Simulated KPI trend and next-step checklist',
+        `模块 ${module} 的执行摘要（演示数据）`,
+        '核心问题快照与证据清单',
+        '关键指标趋势与下一步检查项',
       ],
     }
   }
 
   try {
     const response = await apiClient.post('/api/v1/showcase/reports/preview', { module })
-    return response.data
+    return normalizeShowcaseData(
+      response.data as ShowcaseReportPreviewData,
+      '报告中心当前展示演示数据预览。',
+    )
   } catch {
     return {
-      status: 'PLACEHOLDER',
+      status: '演示数据',
       implemented: false,
-      note: 'report preview endpoint unavailable; using safe fallback',
+      note: '报告预览接口暂不可用，已切换为演示数据。',
       previewSections: [],
     }
   }

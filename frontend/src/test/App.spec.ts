@@ -75,24 +75,24 @@ describe('App shell', () => {
 
     await wrapper.get('[data-testid="nav-showcase-pipeline"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Pipeline Orchestration')
-    expect(wrapper.text()).toContain('PLACEHOLDER')
+    expect(wrapper.text()).toContain('流水线编排')
+    expect(wrapper.text()).toContain('演示数据')
 
     await wrapper.get('[data-testid="nav-showcase-agent-arena"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Agent Arena')
+    expect(wrapper.text()).toContain('智能体协同台')
 
     await wrapper.get('[data-testid="nav-showcase-explainability"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Explainability Capsule')
+    expect(wrapper.text()).toContain('可解释性分析')
 
     await wrapper.get('[data-testid="nav-showcase-chaos"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Chaos Drill Theater')
+    expect(wrapper.text()).toContain('混沌演练剧场')
 
     await wrapper.get('[data-testid="nav-showcase-report-center"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Report Center')
-    expect(wrapper.text()).toContain('生成占位报告预览')
+    expect(wrapper.text()).toContain('报告中心')
+    expect(wrapper.text()).toContain('生成演示数据报告预览')
   })
 })

@@ -23,8 +23,8 @@
     <main class="content">
       <header class="hero">
         <h1>蓝牙耳机评论改进决策系统</h1>
-        <p>V1.5 炫技扩展：登陆互动、智能体、流水线、混沌演练、可解释性、报告中心</p>
-        <span class="user-chip">Operator: {{ currentUser }}</span>
+        <p>V1.5 演示扩展：登录互动、智能体协同、流水线编排、混沌演练、可解释性分析、报告中心</p>
+        <span class="user-chip">当前用户：{{ currentUser }}</span>
       </header>
 
       <section class="module-card">
@@ -111,7 +111,7 @@ import {
   fetchShowcasePipeline,
   fetchTrends,
   fetchValidation,
-  nlpPlaceholderStatus,
+  nlpDemoStatus,
   previewShowcaseReport,
 } from './api/client'
 import type {
@@ -156,7 +156,7 @@ const modules: Array<{ id: ModuleId; label: string; icon: string }> = [
 ]
 
 const isAuthenticated = ref(false)
-const currentUser = ref('guest')
+const currentUser = ref('访客')
 const activeModule = ref<ModuleId>('overview')
 const trendAspect = ref('battery')
 
@@ -165,7 +165,7 @@ const loadError = ref('')
 
 const serviceStatuses = ref<ServiceStatus[]>([
   { name: 'Backend API', status: 'UNKNOWN' },
-  nlpPlaceholderStatus(),
+  nlpDemoStatus(),
 ])
 const issues = ref<IssueItem[]>([])
 const compareItems = ref<CompareItem[]>([])
@@ -215,7 +215,7 @@ async function loadDashboard(): Promise<void> {
       fetchTrends(undefined, trendAspect.value),
       fetchValidation(),
     ])
-    serviceStatuses.value = [backendStatus, nlpPlaceholderStatus()]
+    serviceStatuses.value = [backendStatus, nlpDemoStatus()]
     issues.value = issueList
     compareItems.value = compareList
     trendPoints.value = trendResponse.points
