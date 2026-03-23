@@ -27,3 +27,4 @@ nlp-service/.pytest_cache/
 
 # OS files
 *.swp
+.worktrees/
