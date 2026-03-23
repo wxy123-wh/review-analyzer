@@ -114,4 +114,44 @@ class ApiSmokeTest {
                 .andExpect(jsonPath("$.items[0].actionId").value(actionId))
                 .andExpect(jsonPath("$.items[0].summary").isNotEmpty());
     }
+
+    @Test
+    void showcasePlaceholderEndpointsShouldReturnStructuredData() throws Exception {
+        mockMvc.perform(get("/api/v1/showcase/pipeline"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
+                .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.stages").isArray())
+                .andExpect(jsonPath("$.stages[0].name").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/showcase/agent-arena"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
+                .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.agents").isArray())
+                .andExpect(jsonPath("$.agents[0].agentName").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/showcase/explainability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
+                .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.featureContributions").isArray())
+                .andExpect(jsonPath("$.featureContributions[0].feature").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/showcase/chaos"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
+                .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.drills").isArray())
+                .andExpect(jsonPath("$.drills[0].scenario").isNotEmpty());
+
+        mockMvc.perform(post("/api/v1/showcase/reports/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"module\":\"overview\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
+                .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.previewSections").isArray())
+                .andExpect(jsonPath("$.previewSections[0]").isNotEmpty());
+    }
 }

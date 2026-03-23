@@ -120,3 +120,49 @@ Frontend now provides a narrow-sidebar navigation workflow with these modules:
 - `趋势 (Trends)`: aspect-level negative-rate and volume changes
 - `动作 (Actions)`: improvement action registration and list
 - `验证 (Validation)`: before/after impact tracking for actions
+
+## V1.5 Showcase Expansion
+
+### Login Experience
+
+Frontend now includes a cinematic login gate before entering dashboard:
+
+- Interactive cursor trail
+- Mascot eye-tracking interaction
+- Password-focus privacy animation
+
+This login is **demo-oriented** and currently uses non-empty credential checks only.
+
+### Showcase Placeholder APIs
+
+The backend now exposes explicit placeholder endpoints for advanced capabilities:
+
+- `GET /api/v1/showcase/pipeline`
+- `GET /api/v1/showcase/agent-arena`
+- `GET /api/v1/showcase/explainability`
+- `GET /api/v1/showcase/chaos`
+- `POST /api/v1/showcase/reports/preview`
+
+All responses include deterministic payloads with:
+- `status: PLACEHOLDER`
+- `implemented: false`
+
+### Showcase Modules
+
+Sidebar now includes additional high-visibility demo modules:
+
+- `流水线 (Pipeline)`: orchestration-stage visualization
+- `智能体 (Agent Arena)`: multi-agent status table
+- `可解释性 (Explainability)`: weighted feature contribution bars
+- `混沌演练 (Chaos Drill)`: resilience scenario deck
+- `报告中心 (Report Center)`: placeholder report preview generator
+
+### Suggested Demo Flow
+
+For acceptance/demo sessions, use this sequence to show value quickly:
+
+1. Enter through `WH Quantum Console` login gate (any non-empty username/password).
+2. Show mascot eye-tracking and password-focus privacy animation.
+3. In dashboard, start with `总览` then switch through `流水线 -> 智能体 -> 可解释性 -> 混沌演练`.
+4. Open `报告中心`, trigger preview generation, and highlight placeholder/roadmap notes.
+5. End on `验证` to connect showcase visuals back to action-impact workflow.
