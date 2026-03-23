@@ -5,8 +5,8 @@ import App from '../App.vue'
 import LoginGate from '../components/LoginGate.vue'
 
 async function enterDashboard(wrapper: ReturnType<typeof mount>): Promise<void> {
-  await wrapper.get('[data-testid="login-username"]').setValue('demo')
-  await wrapper.get('[data-testid="login-password"]').setValue('demo')
+  await wrapper.get('[data-testid="login-username"]').setValue('wxy')
+  await wrapper.get('[data-testid="login-password"]').setValue('123456')
   await wrapper.get('[data-testid="login-submit"]').trigger('click')
   await flushPromises()
 }
@@ -25,28 +25,49 @@ describe('App shell', () => {
     expect(wrapper.find('[data-testid="narrow-sidebar"]').exists()).toBe(true)
   })
 
-  it('tracks mascot cursor and toggles privacy animation on password focus', async () => {
+  it('renders three monsters and supports tracking, privacy, shake and jump states', async () => {
     const wrapper = mount(LoginGate)
     const gate = wrapper.get('[data-testid="login-gate"]')
+    const monsters = wrapper.findAll('[data-testid="login-monster"]')
+
+    expect(monsters.length).toBe(3)
+    expect(monsters.map((item) => item.attributes('data-monster-id'))).toEqual(['red', 'blue', 'yellow'])
 
     await gate.trigger('mousemove', { clientX: 480, clientY: 320 })
 
-    const cursor = wrapper.get('[data-testid="mascot-cursor-core"]')
-    expect(cursor.attributes('style')).toContain('left: 480px')
-    expect(cursor.attributes('style')).toContain('top: 320px')
-
-    const pupils = wrapper.findAll('[data-testid="mascot-pupil"]')
-    expect(pupils.length).toBe(2)
+    const pupils = wrapper.findAll('[data-testid="monster-pupil"]')
+    expect(pupils.length).toBe(6)
     expect(pupils[0].attributes('style')).toContain('translate(')
 
-    const mascot = wrapper.get('[data-testid="login-mascot"]')
-    expect(mascot.classes()).not.toContain('privacy')
+    monsters.forEach((monster) => {
+      expect(monster.classes()).not.toContain('avoiding')
+    })
 
     await wrapper.get('[data-testid="login-password"]').trigger('focus')
-    expect(mascot.classes()).toContain('privacy')
+    monsters.forEach((monster) => {
+      expect(monster.classes()).toContain('avoiding')
+    })
 
     await wrapper.get('[data-testid="login-password"]').trigger('blur')
-    expect(mascot.classes()).not.toContain('privacy')
+    monsters.forEach((monster) => {
+      expect(monster.classes()).not.toContain('avoiding')
+    })
+
+    await monsters[1].trigger('click')
+    await flushPromises()
+    expect(monsters[1].classes()).toContain('jumping')
+    expect(monsters[0].classes()).not.toContain('jumping')
+    expect(monsters[2].classes()).not.toContain('jumping')
+
+    await wrapper.get('[data-testid="login-username"]').setValue('bad-user')
+    await wrapper.get('[data-testid="login-password"]').setValue('bad-pass')
+    await wrapper.get('[data-testid="login-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="login-error"]').text()).toContain('账号或密码错误')
+    monsters.forEach((monster) => {
+      expect(monster.classes()).toContain('shaking')
+    })
   })
 
   it('renders baseline and showcase modules through navigation', async () => {

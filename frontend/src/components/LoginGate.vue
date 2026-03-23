@@ -1,48 +1,42 @@
 <template>
-  <section
-    data-testid="login-gate"
-    class="login-gate"
-    @mousemove="trackPointer"
-    @mouseleave="clearTrail"
-  >
-    <div class="aurora aurora-a"></div>
-    <div class="aurora aurora-b"></div>
-    <div class="grid"></div>
-
-    <div data-testid="mascot-cursor-core" class="cursor-core" :style="cursorStyle"></div>
-    <span
-      v-for="point in trailPoints"
-      :key="point.id"
-      class="cursor-trail"
-      :style="{ left: `${point.x}px`, top: `${point.y}px`, opacity: point.opacity }"
-    />
-
+  <section data-testid="login-gate" class="login-gate" @mousemove="trackPointer">
     <div class="login-shell">
-      <article
-        data-testid="login-mascot"
-        class="mascot"
-        :class="{ privacy: passwordFocused }"
-        :data-privacy="passwordFocused ? 'on' : 'off'"
-      >
-        <div class="antenna"></div>
-        <div class="head">
-          <div class="eye">
-            <span data-testid="mascot-pupil" class="pupil" :style="pupilStyle"></span>
-          </div>
-          <div class="eye">
-            <span data-testid="mascot-pupil" class="pupil" :style="pupilStyle"></span>
-          </div>
-        </div>
-        <div class="mouth"></div>
-        <div class="arms">
-          <span class="arm left"></span>
-          <span class="arm right"></span>
-        </div>
+      <article class="monster-stage" :data-state="stageState">
+        <button
+          v-for="(monster, index) in monsters"
+          :key="monster.id"
+          data-testid="login-monster"
+          type="button"
+          :data-monster-id="monster.id"
+          class="monster"
+          :class="[
+            `monster-${monster.id}`,
+            `shape-${monster.shape}`,
+            {
+              avoiding: passwordFocused,
+              shaking,
+              jumping: jumpingMonsterId === monster.id,
+            },
+          ]"
+          @click="triggerJump(monster.id)"
+        >
+          <span class="monster-antenna" aria-hidden="true"></span>
+          <span class="monster-head">
+            <span class="eye">
+              <span data-testid="monster-pupil" class="pupil" :style="pupilStyle(index, -1)"></span>
+            </span>
+            <span class="eye">
+              <span data-testid="monster-pupil" class="pupil" :style="pupilStyle(index, 1)"></span>
+            </span>
+          </span>
+          <span class="monster-mouth" aria-hidden="true"></span>
+          <span class="monster-body" aria-hidden="true"></span>
+        </button>
       </article>
 
       <form class="panel" @submit.prevent="submit">
-        <h1>WH 演示控制台</h1>
-        <p>演示入口：已开启沉浸式交互。</p>
+        <h1>评论改进决策系统</h1>
+        <p>请输入演示账号进入系统。</p>
         <label>
           用户名
           <input
@@ -64,315 +58,462 @@
             @blur="passwordFocused = false"
           />
         </label>
-        <p v-if="error" class="error">{{ error }}</p>
-        <button data-testid="login-submit" type="button" @click="submit">进入演示大厅</button>
+        <p v-if="error" data-testid="login-error" class="error">{{ error }}</p>
+        <button data-testid="login-submit" type="button" @click="submit">进入系统</button>
       </form>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 const emit = defineEmits<{
   (event: 'enter', payload: { username: string }): void
 }>()
 
-type TrailPoint = {
-  id: number
-  x: number
-  y: number
-  opacity: number
+type MonsterId = 'red' | 'blue' | 'yellow'
+
+type MonsterShape = 'crest' | 'horn' | 'round'
+
+type MonsterConfig = {
+  id: MonsterId
+  shape: MonsterShape
 }
+
+const DEMO_USERNAME = 'wxy'
+const DEMO_PASSWORD = '123456'
+
+const monsters: MonsterConfig[] = [
+  { id: 'red', shape: 'crest' },
+  { id: 'blue', shape: 'horn' },
+  { id: 'yellow', shape: 'round' },
+]
 
 const username = ref('')
 const password = ref('')
 const error = ref('')
 const passwordFocused = ref(false)
-const pointerX = ref(300)
-const pointerY = ref(240)
-const trailPoints = ref<TrailPoint[]>([])
+const pointerX = ref(viewportCenter().x)
+const pointerY = ref(viewportCenter().y)
+const shaking = ref(false)
+const jumpingMonsterId = ref<MonsterId | null>(null)
 
-const cursorStyle = computed(() => ({
-  left: `${pointerX.value}px`,
-  top: `${pointerY.value}px`,
-}))
+let shakeTimer: ReturnType<typeof setTimeout> | undefined
+let jumpTimer: ReturnType<typeof setTimeout> | undefined
 
-const pupilStyle = computed(() => {
-  const x = Math.max(-5, Math.min(5, (pointerX.value - window.innerWidth / 2) / 40))
-  const y = Math.max(-5, Math.min(5, (pointerY.value - window.innerHeight / 2) / 40))
-  return {
-    transform: `translate(${x}px, ${y}px)`,
+const stageState = computed(() => {
+  if (passwordFocused.value) {
+    return 'typing'
   }
+  if (shaking.value) {
+    return 'error'
+  }
+  if (jumpingMonsterId.value) {
+    return 'jumping'
+  }
+  return 'tracking'
 })
 
 function trackPointer(event: MouseEvent): void {
   pointerX.value = event.clientX
   pointerY.value = event.clientY
+}
 
-  const nextPoint: TrailPoint = {
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    x: event.clientX,
-    y: event.clientY,
-    opacity: 0.45,
+function pupilStyle(monsterIndex: number, eyeOffset: number): { transform: string } {
+  if (passwordFocused.value) {
+    return {
+      transform: 'translate(-7px, -2px)',
+    }
   }
-  trailPoints.value = [nextPoint, ...trailPoints.value.slice(0, 11)].map((point, index) => ({
-    ...point,
-    opacity: Math.max(0, 0.45 - index * 0.04),
-  }))
+
+  const center = viewportCenter()
+  const horizontalOffset = [-140, 0, 140][monsterIndex] ?? 0
+  const x = clamp((pointerX.value - center.x + horizontalOffset + eyeOffset * 8) / 44, -6, 6)
+  const y = clamp((pointerY.value - center.y + monsterIndex * 8) / 48, -5, 5)
+  return {
+    transform: `translate(${x}px, ${y}px)`,
+  }
 }
 
-function clearTrail(): void {
-  trailPoints.value = []
+async function triggerShake(): Promise<void> {
+  if (shakeTimer) {
+    clearTimeout(shakeTimer)
+  }
+  shaking.value = false
+  await nextTick()
+  shaking.value = true
+  shakeTimer = setTimeout(() => {
+    shaking.value = false
+  }, 460)
 }
 
-function submit(): void {
-  if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码（演示环境任意非空）'
+async function triggerJump(monsterId: MonsterId): Promise<void> {
+  if (jumpTimer) {
+    clearTimeout(jumpTimer)
+  }
+  jumpingMonsterId.value = null
+  await nextTick()
+  jumpingMonsterId.value = monsterId
+  jumpTimer = setTimeout(() => {
+    if (jumpingMonsterId.value === monsterId) {
+      jumpingMonsterId.value = null
+    }
+  }, 420)
+}
+
+async function submit(): Promise<void> {
+  const valid = username.value === DEMO_USERNAME && password.value === DEMO_PASSWORD
+  if (!valid) {
+    error.value = '账号或密码错误，请使用演示账号 wxy / 123456。'
+    await triggerShake()
     return
   }
   error.value = ''
   emit('enter', { username: username.value })
+}
+
+onBeforeUnmount(() => {
+  if (shakeTimer) {
+    clearTimeout(shakeTimer)
+  }
+  if (jumpTimer) {
+    clearTimeout(jumpTimer)
+  }
+})
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function viewportCenter(): { x: number; y: number } {
+  if (typeof window === 'undefined') {
+    return { x: 400, y: 280 }
+  }
+  return {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  }
 }
 </script>
 
 <style scoped>
 .login-gate {
   min-height: 100vh;
-  position: relative;
-  overflow: hidden;
   background:
-    radial-gradient(circle at 15% 15%, #2cc8a3 0%, transparent 28%),
-    radial-gradient(circle at 82% 20%, #37a9ff 0%, transparent 33%),
-    radial-gradient(circle at 50% 88%, #ffd166 0%, transparent 34%),
-    linear-gradient(140deg, #041026 0%, #0b1e3f 60%, #102d53 100%);
-}
-
-.grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(139, 194, 255, 0.16) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 194, 255, 0.16) 1px, transparent 1px);
-  background-size: 38px 38px;
-  mask-image: radial-gradient(circle at center, black 25%, transparent 80%);
-}
-
-.aurora {
-  position: absolute;
-  width: 56vmax;
-  height: 56vmax;
-  filter: blur(48px);
-  opacity: 0.4;
-  border-radius: 50%;
-  animation: drift 10s ease-in-out infinite alternate;
-}
-
-.aurora-a {
-  top: -20vmax;
-  left: -18vmax;
-  background: #5fffd0;
-}
-
-.aurora-b {
-  bottom: -24vmax;
-  right: -20vmax;
-  background: #6ec0ff;
-  animation-delay: 1s;
-}
-
-.cursor-core {
-  position: fixed;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0 18px rgba(120, 217, 255, 0.85);
-}
-
-.cursor-trail {
-  position: fixed;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  background: rgba(141, 231, 255, 0.8);
-  box-shadow: 0 0 14px rgba(105, 212, 255, 0.85);
+    radial-gradient(circle at 12% 18%, rgba(216, 236, 255, 0.55), transparent 34%),
+    radial-gradient(circle at 84% 12%, rgba(255, 244, 203, 0.45), transparent 30%),
+    #ffffff;
 }
 
 .login-shell {
-  position: relative;
   min-height: 100vh;
   display: grid;
   place-items: center;
-  gap: 26px;
-  padding: 24px;
+  gap: 22px;
+  padding: 28px 16px;
 }
 
-.mascot {
+.monster-stage {
+  width: min(680px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 14px;
+}
+
+.monster {
+  --skin: #5f8db7;
+  --skin-light: #dfeefa;
+  --outline: #2e4d67;
+  --body: #edf4fb;
   position: relative;
-  width: 160px;
-  height: 168px;
-}
-
-.antenna {
-  position: absolute;
-  top: -28px;
-  left: calc(50% - 2px);
-  width: 4px;
-  height: 28px;
-  background: #9fcbff;
-}
-
-.head {
+  border: 0;
+  padding: 0;
   width: 100%;
-  height: 112px;
-  border-radius: 24px;
-  border: 2px solid rgba(151, 214, 255, 0.8);
-  background: rgba(11, 29, 58, 0.76);
+  display: grid;
+  justify-items: center;
+  background: transparent;
+  cursor: pointer;
+  outline-offset: 4px;
+  transition: transform 0.18s ease;
+}
+
+.monster:focus-visible {
+  outline: 2px solid #245c8d;
+}
+
+.monster-antenna {
+  position: absolute;
+  top: -22px;
+  width: 5px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--outline);
+}
+
+.monster-head {
+  position: relative;
+  width: 118px;
+  height: 92px;
+  border: 2px solid var(--outline);
+  background: linear-gradient(180deg, var(--skin-light), #ffffff 78%);
+  border-radius: 26px;
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 14px;
   align-items: center;
-  box-shadow: 0 0 22px rgba(97, 196, 255, 0.38);
-}
-
-.eye {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #f4fbff;
-}
-
-.pupil {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #0d3467;
-  transition: transform 0.08s linear;
-}
-
-.mouth {
-  margin: 10px auto 0;
-  width: 62px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(135, 211, 255, 0.8);
-}
-
-.arms {
-  position: relative;
-  margin-top: 12px;
-  height: 38px;
-}
-
-.arm {
-  position: absolute;
-  width: 48px;
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(180, 223, 255, 0.9);
-  top: 10px;
+  box-shadow: 0 8px 18px rgba(33, 60, 87, 0.14);
   transition: transform 0.2s ease;
 }
 
-.left {
-  left: 20px;
+.eye {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(43, 68, 91, 0.22);
+  background: #ffffff;
 }
 
-.right {
-  right: 20px;
+.pupil {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #1f364c;
+  transition: transform 0.09s linear;
 }
 
-.mascot.privacy .left {
-  transform: translate(15px, -32px) rotate(38deg);
+.monster-mouth {
+  margin-top: 8px;
+  width: 46px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--skin);
 }
 
-.mascot.privacy .right {
-  transform: translate(-15px, -32px) rotate(-38deg);
+.monster-body {
+  margin-top: 10px;
+  width: 88px;
+  height: 46px;
+  border-radius: 20px 20px 24px 24px;
+  border: 2px solid var(--outline);
+  background: linear-gradient(180deg, var(--body), #ffffff);
+  transition: transform 0.2s ease;
+}
+
+.monster-red {
+  --skin: #d95858;
+  --skin-light: #ffe3e3;
+  --outline: #7a2020;
+  --body: #fff0ef;
+}
+
+.monster-blue {
+  --skin: #3d88cb;
+  --skin-light: #deefff;
+  --outline: #1c4d79;
+  --body: #ebf6ff;
+}
+
+.monster-yellow {
+  --skin: #d2a11b;
+  --skin-light: #fff2cb;
+  --outline: #6e5404;
+  --body: #fff8dd;
+}
+
+.shape-crest .monster-head {
+  border-radius: 34px 34px 22px 22px;
+}
+
+.shape-crest .monster-antenna {
+  top: -26px;
+  height: 28px;
 }
 
 .panel {
-  width: min(430px, 100%);
-  border: 1px solid rgba(147, 210, 255, 0.45);
-  border-radius: 20px;
-  background: rgba(9, 25, 49, 0.68);
-  box-shadow: 0 14px 38px rgba(7, 23, 53, 0.45);
-  backdrop-filter: blur(8px);
-  padding: 26px;
+  width: min(420px, 100%);
+  border: 1px solid #cad8e4;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(43, 66, 92, 0.1);
+  padding: 24px;
   display: grid;
   gap: 14px;
-  color: #ebf6ff;
+  color: #1f2d3d;
 }
 
 .panel h1 {
   margin: 0;
-  font-size: 28px;
-  letter-spacing: 1px;
+  font-size: 30px;
+  line-height: 1.2;
 }
 
 .panel p {
   margin: 0;
-  color: #b7d8ff;
+  color: #4a5d70;
 }
 
 .panel label {
   display: grid;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
+  color: #25384a;
 }
 
 .panel input {
   height: 42px;
-  border-radius: 12px;
-  border: 1px solid rgba(143, 205, 255, 0.5);
-  background: rgba(8, 19, 40, 0.78);
-  color: #f2f8ff;
+  border-radius: 10px;
+  border: 1px solid #b9c8d7;
+  background: #ffffff;
+  color: #132332;
   padding: 0 12px;
 }
 
 .panel input:focus {
   outline: none;
-  border-color: #8be8ff;
-  box-shadow: 0 0 0 2px rgba(126, 228, 255, 0.24);
+  border-color: #2e6d9f;
+  box-shadow: 0 0 0 2px rgba(46, 109, 159, 0.18);
 }
 
 .panel button {
   height: 44px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #00c2ff, #38e9c4);
-  color: #073159;
+  background: #1e5c89;
+  color: #ffffff;
   font-weight: 700;
   cursor: pointer;
 }
 
 .error {
-  color: #ffd0d0;
+  color: #b51c1c;
 }
 
-@keyframes drift {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
+.monster.avoiding .monster-head {
+  transform: translateX(-7px) rotate(-10deg);
+}
+
+.monster.avoiding .monster-body {
+  transform: translateX(-3px);
+}
+
+.monster.shaking .monster-head {
+  animation: head-shake 0.45s ease;
+}
+
+.monster.jumping {
+  animation: monster-bounce 0.4s ease;
+}
+
+.shape-horn .monster-head {
+  border-radius: 16px 16px 28px 28px;
+}
+
+.shape-horn .monster-antenna {
+  width: 0;
+  height: 0;
+  border: 0;
+}
+
+.shape-horn .monster-head::before,
+.shape-horn .monster-head::after {
+  content: '';
+  position: absolute;
+  top: -14px;
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--outline);
+}
+
+.shape-horn .monster-head::before {
+  left: 32px;
+  transform: rotate(-18deg);
+}
+
+.shape-horn .monster-head::after {
+  right: 32px;
+  transform: rotate(18deg);
+}
+
+.shape-round .monster-head {
+  width: 116px;
+  border-radius: 40% 60% 48% 52%;
+}
+
+.shape-round .monster-antenna {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  top: -18px;
+}
+
+.shape-round .monster-body {
+  width: 96px;
+  border-radius: 28px 28px 18px 18px;
+}
+
+@keyframes head-shake {
+  0% {
+    transform: rotate(0deg);
   }
-  to {
-    transform: translate3d(3vmax, -2vmax, 0) scale(1.06);
+  25% {
+    transform: rotate(-11deg);
+  }
+  50% {
+    transform: rotate(11deg);
+  }
+  75% {
+    transform: rotate(-9deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes monster-bounce {
+  0% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-12px);
+  }
+  70% {
+    transform: translateY(2px);
+  }
+  100% {
+    transform: translateY(0);
   }
 }
 
 @media (max-width: 780px) {
+  .monster-stage {
+    gap: 8px;
+  }
+
+  .monster-head {
+    width: 98px;
+    height: 84px;
+  }
+
+  .monster-body {
+    width: 74px;
+    height: 40px;
+  }
+
   .panel h1 {
     font-size: 24px;
   }
+}
 
-  .cursor-core,
-  .cursor-trail {
-    display: none;
+@media (prefers-reduced-motion: reduce) {
+  .monster,
+  .monster *,
+  .panel button {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
   }
 }
 </style>
