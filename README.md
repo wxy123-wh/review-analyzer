@@ -128,8 +128,14 @@ The backend currently exposes these V1 baseline endpoints:
 - `GET /api/v1/issues`
 - `GET /api/v1/compare`
 - `GET /api/v1/trends`
+- `GET /api/v1/wordcloud`
 - `POST /api/v1/actions`
 - `GET /api/v1/validation`
+
+## 演示洞察接口契约（中文）
+
+- 词云、趋势、问题与验证接口的中文字段说明与示例响应见：
+  - `docs/2026-03-24-insight-wordcloud-api-contract.md`
 
 ## Dashboard Modules
 
