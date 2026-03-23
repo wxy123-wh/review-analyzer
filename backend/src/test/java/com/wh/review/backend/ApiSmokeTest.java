@@ -1,13 +1,13 @@
 package com.wh.review.backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -77,51 +77,62 @@ class ApiSmokeTest {
 
     @Test
     void compareTrendActionAndValidationEndpointsShouldReturnStructuredData() throws Exception {
+        String productCode = "demo-earphone-smoke-" + UUID.randomUUID().toString().substring(0, 8);
+
         mockMvc.perform(post("/api/v1/demo-data/init")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "productCode": "demo-earphone"
+                                  "productCode": "%s"
                                 }
-                                """))
+                                """.formatted(productCode)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seedKey").value("demo-comments"))
+                .andExpect(jsonPath("$.productCode").value(productCode))
+                .andExpect(jsonPath("$.targetReviewCount").value(100))
+                .andExpect(jsonPath("$.insertedReviewCount").value(100))
+                .andExpect(jsonPath("$.updatedReviewCount").value(0))
                 .andExpect(jsonPath("$.totalReviewCount").value(100));
 
         mockMvc.perform(get("/api/v1/compare")
-                        .queryParam("productCode", "demo-earphone"))
+                        .queryParam("productCode", productCode))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items[0].aspect").isNotEmpty())
                 .andExpect(jsonPath("$.items[0].ourScore").isNumber());
 
         mockMvc.perform(get("/api/v1/trends")
-                        .queryParam("productCode", "demo-earphone")
+                        .queryParam("productCode", productCode)
                         .queryParam("aspect", "battery"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.aspect").value("battery"))
                 .andExpect(jsonPath("$.points").isArray())
                 .andExpect(jsonPath("$.points[0].negativeRate").isNumber());
 
         mockMvc.perform(get("/api/v1/wordcloud")
-                        .queryParam("productCode", "demo-earphone")
+                        .queryParam("productCode", productCode)
                         .queryParam("aspect", "battery"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.aspect").value("battery"))
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items[0].keyword").isNotEmpty())
                 .andExpect(jsonPath("$.items[0].frequency").isNumber())
+                .andExpect(jsonPath("$.items[0].weight").isNumber())
                 .andExpect(jsonPath("$.items[0].sentimentTag").isNotEmpty());
 
         MvcResult actionResult = mockMvc.perform(post("/api/v1/actions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "productCode": "demo-earphone",
+                                  "productCode": "%s",
                                   "issueId": "iss-battery-001",
                                   "actionName": "Battery firmware optimization",
                                   "actionDesc": "Tune low-power mode for long idle use"
                                 }
-                                """))
+                                """.formatted(productCode)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.actionId").isNotEmpty())
                 .andExpect(jsonPath("$.status").value("PLANNED"))
@@ -179,18 +190,22 @@ class ApiSmokeTest {
 
     @Test
     void demoDataInitEndpointShouldReturnSeedStats() throws Exception {
+        String productCode = "demo-earphone-init-" + UUID.randomUUID().toString().substring(0, 8);
+
         MvcResult seedResult = mockMvc.perform(post("/api/v1/demo-data/init")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "productCode": "demo-earphone"
+                                  "productCode": "%s"
                                 }
-                                """))
+                                """.formatted(productCode)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.seedKey").value("demo-comments"))
-                .andExpect(jsonPath("$.productCode").value("demo-earphone"))
+                .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.dataVersion").value("demo-comments-v1"))
                 .andExpect(jsonPath("$.targetReviewCount").value(100))
+                .andExpect(jsonPath("$.insertedReviewCount").value(100))
+                .andExpect(jsonPath("$.updatedReviewCount").value(0))
                 .andExpect(jsonPath("$.totalReviewCount").value(100))
                 .andExpect(jsonPath("$.durationMs").isNumber())
                 .andReturn();
@@ -198,7 +213,6 @@ class ApiSmokeTest {
         String body = seedResult.getResponse().getContentAsString();
         int inserted = JsonPath.read(body, "$.insertedReviewCount");
         int updated = JsonPath.read(body, "$.updatedReviewCount");
-        assertTrue(inserted == 100 || inserted == 0, "insertedReviewCount should be 100 (首轮) or 0 (重复执行)");
         assertEquals(100, inserted + updated, "insertedReviewCount + updatedReviewCount should equal target count");
     }
 }
