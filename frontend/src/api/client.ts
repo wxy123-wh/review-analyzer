@@ -6,6 +6,11 @@ import type {
   CompareItem,
   IssueItem,
   ServiceStatus,
+  ShowcaseAgentArenaData,
+  ShowcaseChaosData,
+  ShowcaseExplainabilityData,
+  ShowcasePipelineData,
+  ShowcaseReportPreviewData,
   TrendPoint,
   ValidationItem,
 } from '../types/domain'
@@ -137,5 +142,139 @@ export async function fetchValidation(actionId?: string): Promise<ValidationItem
     return response.data.items ?? []
   } catch {
     return []
+  }
+}
+
+export async function fetchShowcasePipeline(): Promise<ShowcasePipelineData> {
+  if (isTestMode) {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'pipeline orchestration is mocked for acceptance demo',
+      stages: [
+        { name: 'SYNC', state: 'DONE', detail: 'ingested 12,480 comments' },
+        { name: 'ASPECT_NLP', state: 'RUNNING', detail: 'domain lexicon v0.3 in dry-run mode' },
+        { name: 'SCORING', state: 'QUEUED', detail: 'waiting for batch window close' },
+      ],
+    }
+  }
+
+  try {
+    const response = await apiClient.get('/api/v1/showcase/pipeline')
+    return response.data
+  } catch {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'pipeline endpoint unavailable; using safe fallback',
+      stages: [],
+    }
+  }
+}
+
+export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData> {
+  if (isTestMode) {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'multi-agent collaboration is currently a deterministic simulation',
+      agents: [
+        { agentName: 'collector-agent', role: 'SYNC', state: 'IDLE', confidence: 0.98 },
+        { agentName: 'insight-agent', role: 'ANALYZE', state: 'RUNNING', confidence: 0.86 },
+      ],
+    }
+  }
+
+  try {
+    const response = await apiClient.get('/api/v1/showcase/agent-arena')
+    return response.data
+  } catch {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'agent-arena endpoint unavailable; using safe fallback',
+      agents: [],
+    }
+  }
+}
+
+export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabilityData> {
+  if (isTestMode) {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'explainability view uses static weighted factors',
+      featureContributions: [
+        { feature: 'negative_rate', weight: 0.35 },
+        { feature: 'mention_volume', weight: 0.25 },
+        { feature: 'trend_growth', weight: 0.2 },
+        { feature: 'competitor_gap', weight: 0.2 },
+      ],
+    }
+  }
+
+  try {
+    const response = await apiClient.get('/api/v1/showcase/explainability')
+    return response.data
+  } catch {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'explainability endpoint unavailable; using safe fallback',
+      featureContributions: [],
+    }
+  }
+}
+
+export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
+  if (isTestMode) {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'chaos drill playback is static and not connected to runtime infra',
+      drills: [
+        { scenario: 'db-latency-spike', state: 'PENDING', detail: 'simulate p95 increase to 3s' },
+        { scenario: 'provider-rate-limit', state: 'PENDING', detail: 'simulate onebound 429 bursts' },
+      ],
+    }
+  }
+
+  try {
+    const response = await apiClient.get('/api/v1/showcase/chaos')
+    return response.data
+  } catch {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'chaos endpoint unavailable; using safe fallback',
+      drills: [],
+    }
+  }
+}
+
+export async function previewShowcaseReport(module: string): Promise<ShowcaseReportPreviewData> {
+  if (isTestMode) {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'real export is disabled in test mode',
+      previewSections: [
+        `Executive summary for module=${module}`,
+        'Top issue snapshot and evidence list',
+        'Simulated KPI trend and next-step checklist',
+      ],
+    }
+  }
+
+  try {
+    const response = await apiClient.post('/api/v1/showcase/reports/preview', { module })
+    return response.data
+  } catch {
+    return {
+      status: 'PLACEHOLDER',
+      implemented: false,
+      note: 'report preview endpoint unavailable; using safe fallback',
+      previewSections: [],
+    }
   }
 }
