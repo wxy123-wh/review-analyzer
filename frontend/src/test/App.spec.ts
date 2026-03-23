@@ -17,12 +17,18 @@ describe('App shell', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="login-gate"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('评论改进决策系统')
+    expect(wrapper.text()).toContain('请输入演示账号进入系统。')
+    expect(wrapper.get('[data-testid="login-username"]').attributes('placeholder')).toBe('请输入用户名')
+    expect(wrapper.get('[data-testid="login-password"]').attributes('placeholder')).toBe('请输入密码')
+    expect(wrapper.get('[data-testid="login-submit"]').text()).toBe('进入系统')
     expect(wrapper.find('[data-testid="narrow-sidebar"]').exists()).toBe(false)
 
     await enterDashboard(wrapper)
 
     expect(wrapper.find('[data-testid="login-gate"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="narrow-sidebar"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('当前用户：wxy')
   })
 
   it('renders three monsters and supports tracking, privacy, shake and jump states', async () => {
@@ -65,6 +71,7 @@ describe('App shell', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="login-error"]').text()).toContain('账号或密码错误')
+    expect(wrapper.get('[data-testid="login-error"]').text()).toContain('wxy / 123456')
     monsters.forEach((monster) => {
       expect(monster.classes()).toContain('shaking')
     })
