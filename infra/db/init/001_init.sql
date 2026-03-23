@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS reviews_raw (
     content TEXT NOT NULL,
     review_time TIMESTAMPTZ,
     anonymized_author_id VARCHAR(128),
+    demo_data_version VARCHAR(32),
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(source, source_review_id)
 );
@@ -105,4 +106,14 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ,
     error_message TEXT
+);
+
+CREATE TABLE IF NOT EXISTS demo_seed_versions (
+    id BIGSERIAL PRIMARY KEY,
+    seed_key VARCHAR(64) NOT NULL,
+    product_code VARCHAR(64) NOT NULL,
+    data_version VARCHAR(32) NOT NULL,
+    target_count INTEGER NOT NULL,
+    last_seeded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(seed_key, product_code)
 );

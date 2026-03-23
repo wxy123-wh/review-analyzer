@@ -154,4 +154,24 @@ class ApiSmokeTest {
                 .andExpect(jsonPath("$.previewSections").isArray())
                 .andExpect(jsonPath("$.previewSections[0]").isNotEmpty());
     }
+
+    @Test
+    void demoDataInitEndpointShouldReturnSeedStats() throws Exception {
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "demo-earphone"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seedKey").value("demo-comments"))
+                .andExpect(jsonPath("$.productCode").value("demo-earphone"))
+                .andExpect(jsonPath("$.dataVersion").value("demo-comments-v1"))
+                .andExpect(jsonPath("$.targetReviewCount").value(100))
+                .andExpect(jsonPath("$.insertedReviewCount").value(100))
+                .andExpect(jsonPath("$.updatedReviewCount").value(0))
+                .andExpect(jsonPath("$.totalReviewCount").value(100))
+                .andExpect(jsonPath("$.durationMs").isNumber());
+    }
 }

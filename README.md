@@ -30,6 +30,8 @@ This repository provides a runnable technical framework for the system described
 - `improvement_actions`
 - `sync_jobs`
 - `analysis_jobs`
+- `reviews_raw` (demo seed comments)
+- `demo_seed_versions` (demo seed version marker)
 
 You can inspect data with:
 
@@ -52,6 +54,24 @@ curl -X POST http://localhost:8080/api/v1/sync/start \
   -H "Content-Type: application/json" \
   -d '{"provider":"onebound","platform":"taobao","targetProductCode":"600530677643"}'
 ```
+
+### Demo Data Initialization
+
+Use this endpoint to initialize deterministic demo comments (single product, 100 rows, idempotent):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/demo-data/init \
+  -H "Content-Type: application/json" \
+  -d '{"productCode":"demo-earphone"}'
+```
+
+Response includes:
+- `targetReviewCount`
+- `insertedReviewCount`
+- `updatedReviewCount`
+- `totalReviewCount`
+- `dataVersion`
+- `durationMs`
 
 ## Local Test Commands
 
@@ -104,6 +124,7 @@ The backend currently exposes these V1 baseline endpoints:
 - `GET /api/v1/sync/jobs/{id}`
 - `POST /api/v1/analysis/start`
 - `GET /api/v1/analysis/jobs/{id}`
+- `POST /api/v1/demo-data/init`
 - `GET /api/v1/issues`
 - `GET /api/v1/compare`
 - `GET /api/v1/trends`
