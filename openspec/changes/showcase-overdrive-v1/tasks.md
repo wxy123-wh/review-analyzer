@@ -5,10 +5,10 @@
 
 ## 2. Backend Showcase APIs
 
-- [ ] 2.1 Add failing smoke tests for `/api/v1/showcase/*` endpoints
-- [ ] 2.2 Implement showcase DTOs and deterministic placeholder service
-- [ ] 2.3 Implement showcase controller and wire routes under `/api/v1/showcase`
-- [ ] 2.4 Re-run backend tests in an available environment
+- [x] 2.1 Add failing smoke tests for `/api/v1/showcase/*` endpoints
+- [x] 2.2 Implement showcase DTOs and deterministic placeholder service
+- [x] 2.3 Implement showcase controller and wire routes under `/api/v1/showcase`
+- [x] 2.4 Re-run backend tests in an available environment
 
 ## 3. Frontend Showcase UI
 
