@@ -12,10 +12,10 @@
 
 ## 3. Frontend Showcase UI
 
-- [ ] 3.1 Add failing tests for login gate and showcase navigation
-- [ ] 3.2 Implement cinematic login gate with mascot and cursor interaction
-- [ ] 3.3 Implement showcase modules and API integration with placeholder badges
-- [ ] 3.4 Re-run frontend tests
+- [x] 3.1 Add failing tests for login gate and showcase navigation
+- [x] 3.2 Implement cinematic login gate with mascot and cursor interaction
+- [x] 3.3 Implement showcase modules and API integration with placeholder badges
+- [x] 3.4 Re-run frontend tests
 
 ## 4. Final Verification and Demo Readiness
 

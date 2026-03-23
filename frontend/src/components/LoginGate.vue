@@ -9,7 +9,7 @@
     <div class="aurora aurora-b"></div>
     <div class="grid"></div>
 
-    <div class="cursor-core" :style="cursorStyle"></div>
+    <div data-testid="mascot-cursor-core" class="cursor-core" :style="cursorStyle"></div>
     <span
       v-for="point in trailPoints"
       :key="point.id"
@@ -18,14 +18,19 @@
     />
 
     <div class="login-shell">
-      <article class="mascot" :class="{ privacy: passwordFocused }">
+      <article
+        data-testid="login-mascot"
+        class="mascot"
+        :class="{ privacy: passwordFocused }"
+        :data-privacy="passwordFocused ? 'on' : 'off'"
+      >
         <div class="antenna"></div>
         <div class="head">
           <div class="eye">
-            <span class="pupil" :style="pupilStyle"></span>
+            <span data-testid="mascot-pupil" class="pupil" :style="pupilStyle"></span>
           </div>
           <div class="eye">
-            <span class="pupil" :style="pupilStyle"></span>
+            <span data-testid="mascot-pupil" class="pupil" :style="pupilStyle"></span>
           </div>
         </div>
         <div class="mouth"></div>
