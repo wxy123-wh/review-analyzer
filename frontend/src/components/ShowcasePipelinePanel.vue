@@ -1,8 +1,8 @@
 <template>
   <div class="panel">
     <header>
-      <h3>Pipeline Orchestration</h3>
-      <span class="badge">{{ data?.status ?? 'LOADING' }}</span>
+      <h3>流水线编排</h3>
+      <span class="badge">{{ formatShowcaseStatus(data?.status) }}</span>
     </header>
     <p class="note">{{ data?.note ?? '加载中...' }}</p>
     <ul v-if="data?.stages?.length">
@@ -18,6 +18,7 @@
 
 <script setup lang="ts">
 import type { ShowcasePipelineData } from '../types/domain'
+import { formatShowcaseStatus } from '../utils/showcaseCopy'
 
 defineProps<{
   data: ShowcasePipelineData | null

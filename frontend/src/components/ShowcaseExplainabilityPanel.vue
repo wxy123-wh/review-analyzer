@@ -1,8 +1,8 @@
 <template>
   <div class="panel">
     <header>
-      <h3>Explainability Capsule</h3>
-      <span class="badge">{{ data?.status ?? 'LOADING' }}</span>
+      <h3>可解释性分析</h3>
+      <span class="badge">{{ formatShowcaseStatus(data?.status) }}</span>
     </header>
     <p class="note">{{ data?.note ?? '加载中...' }}</p>
     <ul v-if="data?.featureContributions?.length">
@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import type { ShowcaseExplainabilityData } from '../types/domain'
+import { formatShowcaseStatus } from '../utils/showcaseCopy'
 
 defineProps<{
   data: ShowcaseExplainabilityData | null

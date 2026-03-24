@@ -9,6 +9,7 @@ import com.jayway.jsonpath.JsonPath;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,6 +99,74 @@ class PersistenceIntegrationTest {
                     "SELECT COUNT(*) FROM analysis_jobs WHERE id = ?")) {
                 analysisPs.setLong(1, analysisJobId);
                 try (ResultSet rs = analysisPs.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(1L, rs.getLong(1));
+                }
+            }
+        }
+    }
+
+    @Test
+    void demoCommentSeedShouldBeIdempotent() throws Exception {
+        String productCode = "demo-earphone-persist-" + UUID.randomUUID().toString().substring(0, 8);
+
+        MvcResult firstSeedResult = mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        MvcResult secondSeedResult = mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertEquals(100, (Integer) JsonPath.read(firstSeedResult.getResponse().getContentAsString(), "$.insertedReviewCount"));
+        assertEquals(0, (Integer) JsonPath.read(firstSeedResult.getResponse().getContentAsString(), "$.updatedReviewCount"));
+        assertEquals(100, (Integer) JsonPath.read(firstSeedResult.getResponse().getContentAsString(), "$.totalReviewCount"));
+
+        assertEquals(0, (Integer) JsonPath.read(secondSeedResult.getResponse().getContentAsString(), "$.insertedReviewCount"));
+        assertEquals(100, (Integer) JsonPath.read(secondSeedResult.getResponse().getContentAsString(), "$.updatedReviewCount"));
+        assertEquals(100, (Integer) JsonPath.read(secondSeedResult.getResponse().getContentAsString(), "$.totalReviewCount"));
+
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement reviewPs = connection.prepareStatement(
+                    """
+                    SELECT COUNT(*)
+                    FROM reviews_raw r
+                    JOIN products p ON p.id = r.product_id
+                    WHERE p.product_code = ?
+                      AND r.source = ?
+                    """)) {
+                reviewPs.setString(1, productCode);
+                reviewPs.setString(2, "demo-seed");
+                try (ResultSet rs = reviewPs.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(100L, rs.getLong(1));
+                }
+            }
+
+            try (PreparedStatement seedVersionPs = connection.prepareStatement(
+                    """
+                    SELECT COUNT(*)
+                    FROM demo_seed_versions
+                    WHERE seed_key = ?
+                      AND product_code = ?
+                      AND data_version = ?
+                    """)) {
+                seedVersionPs.setString(1, "demo-comments");
+                seedVersionPs.setString(2, productCode);
+                seedVersionPs.setString(3, "demo-comments-v1");
+                try (ResultSet rs = seedVersionPs.executeQuery()) {
                     assertTrue(rs.next());
                     assertEquals(1L, rs.getLong(1));
                 }

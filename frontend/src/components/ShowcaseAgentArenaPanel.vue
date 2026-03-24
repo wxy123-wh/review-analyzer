@@ -1,8 +1,8 @@
 <template>
   <div class="panel">
     <header>
-      <h3>Agent Arena</h3>
-      <span class="badge">{{ data?.status ?? 'LOADING' }}</span>
+      <h3>智能体协同台</h3>
+      <span class="badge">{{ formatShowcaseStatus(data?.status) }}</span>
     </header>
     <p class="note">{{ data?.note ?? '加载中...' }}</p>
     <table v-if="data?.agents?.length">
@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import type { ShowcaseAgentArenaData } from '../types/domain'
+import { formatShowcaseStatus } from '../utils/showcaseCopy'
 
 defineProps<{
   data: ShowcaseAgentArenaData | null

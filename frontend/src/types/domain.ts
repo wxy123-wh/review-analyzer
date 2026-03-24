@@ -24,6 +24,29 @@ export type TrendPoint = {
   mentionVolume: number
 }
 
+export type ChartLoadState = 'idle' | 'loading' | 'success' | 'empty' | 'error' | 'timeout'
+
+export type TrendResponse = {
+  aspect: string
+  points: TrendPoint[]
+  state: ChartLoadState
+}
+
+export type WordCloudItem = {
+  keyword: string
+  frequency: number
+  weight: number
+  sentimentTag: string
+}
+
+export type WordCloudResponse = {
+  productCode: string
+  aspect: string
+  items: WordCloudItem[]
+  notice?: string
+  state: ChartLoadState
+}
+
 export type ActionItem = {
   actionId: string
   productCode: string

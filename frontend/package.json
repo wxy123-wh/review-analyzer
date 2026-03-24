@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run"
+    "check:copy": "node ./scripts/check-banned-copy-terms.mjs",
+    "test": "npm run check:copy && vitest run"
   },
   "dependencies": {
+    "@antv/g2plot": "^2.4.35",
     "axios": "^1.8.1",
     "vue": "^3.5.13"
   },

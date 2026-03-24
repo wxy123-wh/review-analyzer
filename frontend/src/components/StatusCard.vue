@@ -1,7 +1,7 @@
 <template>
   <article class="status-card" :class="statusClass">
     <h3>{{ name }}</h3>
-    <p>Status: {{ status }}</p>
+    <p>状态：{{ statusLabel }}</p>
   </article>
 </template>
 
@@ -19,6 +19,12 @@ const statusClass = computed(() => {
   if (props.status === 'UP') return 'up'
   if (props.status === 'DOWN') return 'down'
   return 'unknown'
+})
+
+const statusLabel = computed(() => {
+  if (props.status === 'UP') return '正常'
+  if (props.status === 'DOWN') return '异常'
+  return '未知'
 })
 </script>
 
