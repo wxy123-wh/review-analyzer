@@ -1,519 +1,352 @@
 <template>
-  <section data-testid="login-gate" class="login-gate" @mousemove="trackPointer">
-    <div class="login-shell">
-      <article class="monster-stage" :data-state="stageState">
-        <button
-          v-for="(monster, index) in monsters"
-          :key="monster.id"
-          data-testid="login-monster"
-          type="button"
-          :data-monster-id="monster.id"
-          class="monster"
-          :class="[
-            `monster-${monster.id}`,
-            `shape-${monster.shape}`,
-            {
-              avoiding: passwordFocused,
-              shaking,
-              jumping: jumpingMonsterId === monster.id,
-            },
-          ]"
-          @click="triggerJump(monster.id)"
-        >
-          <span class="monster-antenna" aria-hidden="true"></span>
-          <span class="monster-head">
-            <span class="eye">
-              <span data-testid="monster-pupil" class="pupil" :style="pupilStyle(index, -1)"></span>
-            </span>
-            <span class="eye">
-              <span data-testid="monster-pupil" class="pupil" :style="pupilStyle(index, 1)"></span>
-            </span>
-          </span>
-          <span class="monster-mouth" aria-hidden="true"></span>
-          <span class="monster-body" aria-hidden="true"></span>
-        </button>
-      </article>
+  <section data-testid="login-gate" class="container">
+    <div class="left-panel">
+      <div class="left-spacer"></div>
+      <div class="characters-area">
+        <AnimatedCharacters
+          :is-typing="isTyping"
+          :show-password="showPassword"
+          :password-length="password.length"
+        />
+      </div>
+      <div class="left-spacer bottom"></div>
+    </div>
 
-      <form class="panel" @submit.prevent="submit">
-        <h1>评论改进决策系统</h1>
-        <p>请输入演示账号进入系统。</p>
-        <label>
-          用户名
+    <div class="right-panel">
+      <div class="form-wrapper">
+      <form class="form" @submit.prevent="submit">
+        <label class="field-label" for="login-username-input">账号</label>
+        <div class="input-affix-wrapper" :class="{ focused: usernameFocused }">
+          <span class="prefix-icon" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21a8 8 0 0 0-16 0"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </span>
           <input
+            id="login-username-input"
             data-testid="login-username"
             v-model.trim="username"
             type="text"
-            placeholder="请输入用户名"
             autocomplete="off"
+            placeholder="输入您的账号"
+            @focus="handleUsernameFocus"
+            @blur="handleUsernameBlur"
           />
-        </label>
-        <label>
-          密码
+        </div>
+
+        <label class="field-label" for="login-password-input">密码</label>
+        <div class="input-affix-wrapper" :class="{ focused: passwordFocused }">
+          <span class="prefix-icon" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </span>
           <input
+            id="login-password-input"
             data-testid="login-password"
             v-model.trim="password"
-            type="password"
-            placeholder="请输入密码"
-            @focus="passwordFocused = true"
-            @blur="passwordFocused = false"
+            :type="showPassword ? 'text' : 'password'"
+            placeholder="输入您的密码"
+            @focus="handlePasswordFocus"
+            @blur="handlePasswordBlur"
           />
-        </label>
-        <p v-if="error" data-testid="login-error" class="error">{{ error }}</p>
-        <button data-testid="login-submit" type="button" @click="submit">进入系统</button>
+          <button
+            type="button"
+            class="eye-toggle"
+            aria-label="切换密码可见性"
+            @click="showPassword = !showPassword"
+          >
+            <svg
+              v-if="showPassword"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg
+              v-else
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19C5 19 1 12 1 12a21.8 21.8 0 0 1 5.06-6.94"></path>
+              <path d="M9.9 4.24A10.87 10.87 0 0 1 12 4c7 0 11 8 11 8a22.77 22.77 0 0 1-2.16 3.19"></path>
+              <path d="M1 1l22 22"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="error" data-testid="login-error" class="error-box">{{ error }}</div>
+
+        <button data-testid="login-submit" type="submit" class="submit-btn" :disabled="loading">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
       </form>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { ref } from 'vue'
+
+import AnimatedCharacters from './AnimatedCharacters.vue'
 
 const emit = defineEmits<{
   (event: 'enter', payload: { username: string }): void
 }>()
 
-type MonsterId = 'red' | 'blue' | 'yellow'
-
-type MonsterShape = 'crest' | 'horn' | 'round'
-
-type MonsterConfig = {
-  id: MonsterId
-  shape: MonsterShape
-}
-
 const DEMO_USERNAME = 'wxy'
 const DEMO_PASSWORD = '123456'
 
-const monsters: MonsterConfig[] = [
-  { id: 'red', shape: 'crest' },
-  { id: 'blue', shape: 'horn' },
-  { id: 'yellow', shape: 'round' },
-]
-
 const username = ref('')
 const password = ref('')
+const loading = ref(false)
 const error = ref('')
+const showPassword = ref(false)
+const isTyping = ref(false)
+const usernameFocused = ref(false)
 const passwordFocused = ref(false)
-const pointerX = ref(viewportCenter().x)
-const pointerY = ref(viewportCenter().y)
-const shaking = ref(false)
-const jumpingMonsterId = ref<MonsterId | null>(null)
 
-let shakeTimer: ReturnType<typeof setTimeout> | undefined
-let jumpTimer: ReturnType<typeof setTimeout> | undefined
-
-const stageState = computed(() => {
-  if (passwordFocused.value) {
-    return 'typing'
-  }
-  if (shaking.value) {
-    return 'error'
-  }
-  if (jumpingMonsterId.value) {
-    return 'jumping'
-  }
-  return 'tracking'
-})
-
-function trackPointer(event: MouseEvent): void {
-  pointerX.value = event.clientX
-  pointerY.value = event.clientY
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function pupilStyle(monsterIndex: number, eyeOffset: number): { transform: string } {
-  if (passwordFocused.value) {
-    return {
-      transform: 'translate(-7px, -2px)',
-    }
-  }
-
-  const center = viewportCenter()
-  const horizontalOffset = [-140, 0, 140][monsterIndex] ?? 0
-  const x = clamp((pointerX.value - center.x + horizontalOffset + eyeOffset * 8) / 44, -6, 6)
-  const y = clamp((pointerY.value - center.y + monsterIndex * 8) / 48, -5, 5)
-  return {
-    transform: `translate(${x}px, ${y}px)`,
-  }
+function handleUsernameFocus(): void {
+  usernameFocused.value = true
+  isTyping.value = true
 }
 
-async function triggerShake(): Promise<void> {
-  if (shakeTimer) {
-    clearTimeout(shakeTimer)
-  }
-  shaking.value = false
-  await nextTick()
-  shaking.value = true
-  shakeTimer = setTimeout(() => {
-    shaking.value = false
-  }, 460)
+function handleUsernameBlur(): void {
+  usernameFocused.value = false
+  isTyping.value = false
 }
 
-async function triggerJump(monsterId: MonsterId): Promise<void> {
-  if (jumpTimer) {
-    clearTimeout(jumpTimer)
-  }
-  jumpingMonsterId.value = null
-  await nextTick()
-  jumpingMonsterId.value = monsterId
-  jumpTimer = setTimeout(() => {
-    if (jumpingMonsterId.value === monsterId) {
-      jumpingMonsterId.value = null
-    }
-  }, 420)
+function handlePasswordFocus(): void {
+  passwordFocused.value = true
+}
+
+function handlePasswordBlur(): void {
+  passwordFocused.value = false
 }
 
 async function submit(): Promise<void> {
-  const valid = username.value === DEMO_USERNAME && password.value === DEMO_PASSWORD
-  if (!valid) {
-    error.value = '账号或密码错误，请使用演示账号 wxy / 123456。'
-    await triggerShake()
+  error.value = ''
+
+  if (!username.value || username.value.length < 3) {
+    error.value = '请输入账号'
     return
   }
-  error.value = ''
+
+  if (!password.value || password.value.length < 6) {
+    error.value = '请输入密码'
+    return
+  }
+
+  loading.value = true
+  await wait(800)
+
+  const valid = username.value === DEMO_USERNAME && password.value === DEMO_PASSWORD
+  if (!valid) {
+    error.value = '账号或密码有误，请重新输入'
+    loading.value = false
+    return
+  }
+
+  loading.value = false
   emit('enter', { username: username.value })
-}
-
-onBeforeUnmount(() => {
-  if (shakeTimer) {
-    clearTimeout(shakeTimer)
-  }
-  if (jumpTimer) {
-    clearTimeout(jumpTimer)
-  }
-})
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
-
-function viewportCenter(): { x: number; y: number } {
-  if (typeof window === 'undefined') {
-    return { x: 400, y: 280 }
-  }
-  return {
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
-  }
 }
 </script>
 
 <style scoped>
-.login-gate {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(216, 236, 255, 0.55), transparent 34%),
-    radial-gradient(circle at 84% 12%, rgba(255, 244, 203, 0.45), transparent 30%),
-    #ffffff;
-}
-
-.login-shell {
+.container {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  gap: 22px;
-  padding: 28px 16px;
+  grid-template-columns: 1fr 1fr;
+  background-color: #fff;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+  background-size: 44px 44px;
 }
 
-.monster-stage {
-  width: min(680px, 100%);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 14px;
-}
-
-.monster {
-  --skin: #5f8db7;
-  --skin-light: #dfeefa;
-  --outline: #2e4d67;
-  --body: #edf4fb;
-  position: relative;
-  border: 0;
-  padding: 0;
-  width: 100%;
-  display: grid;
-  justify-items: center;
-  background: transparent;
-  cursor: pointer;
-  outline-offset: 4px;
-  transition: transform 0.18s ease;
-}
-
-.monster:focus-visible {
-  outline: 2px solid #245c8d;
-}
-
-.monster-antenna {
-  position: absolute;
-  top: -22px;
-  width: 5px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--outline);
-}
-
-.monster-head {
-  position: relative;
-  width: 118px;
-  height: 92px;
-  border: 2px solid var(--outline);
-  background: linear-gradient(180deg, var(--skin-light), #ffffff 78%);
-  border-radius: 26px;
+.left-panel {
   display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px;
+}
+
+.left-spacer {
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.left-spacer.bottom {
+  height: 26px;
+}
+
+.characters-area {
+  display: flex;
+  align-items: flex-end;
   justify-content: center;
-  gap: 14px;
+  height: 500px;
+}
+
+.right-panel {
+  display: flex;
   align-items: center;
-  box-shadow: 0 8px 18px rgba(33, 60, 87, 0.14);
-  transition: transform 0.2s ease;
+  justify-content: center;
+  padding: 32px;
 }
 
-.eye {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+.form-wrapper {
+  width: 100%;
+  max-width: 400px;
+}
+
+.form {
   display: grid;
-  place-items: center;
-  border: 1px solid rgba(43, 68, 91, 0.22);
-  background: #ffffff;
+  gap: 10px;
+  margin-top: 94px;
 }
 
-.pupil {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #1f364c;
-  transition: transform 0.09s linear;
+.field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
 }
 
-.monster-mouth {
-  margin-top: 8px;
-  width: 46px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--skin);
-}
-
-.monster-body {
-  margin-top: 10px;
-  width: 88px;
-  height: 46px;
-  border-radius: 20px 20px 24px 24px;
-  border: 2px solid var(--outline);
-  background: linear-gradient(180deg, var(--body), #ffffff);
-  transition: transform 0.2s ease;
-}
-
-.monster-red {
-  --skin: #d95858;
-  --skin-light: #ffe3e3;
-  --outline: #7a2020;
-  --body: #fff0ef;
-}
-
-.monster-blue {
-  --skin: #3d88cb;
-  --skin-light: #deefff;
-  --outline: #1c4d79;
-  --body: #ebf6ff;
-}
-
-.monster-yellow {
-  --skin: #d2a11b;
-  --skin-light: #fff2cb;
-  --outline: #6e5404;
-  --body: #fff8dd;
-}
-
-.shape-crest .monster-head {
-  border-radius: 34px 34px 22px 22px;
-}
-
-.shape-crest .monster-antenna {
-  top: -26px;
-  height: 28px;
-}
-
-.panel {
-  width: min(420px, 100%);
-  border: 1px solid #cad8e4;
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(43, 66, 92, 0.1);
-  padding: 24px;
-  display: grid;
-  gap: 14px;
-  color: #1f2d3d;
-}
-
-.panel h1 {
-  margin: 0;
-  font-size: 30px;
-  line-height: 1.2;
-}
-
-.panel p {
-  margin: 0;
-  color: #4a5d70;
-}
-
-.panel label {
-  display: grid;
-  gap: 8px;
-  font-size: 14px;
-  color: #25384a;
-}
-
-.panel input {
-  height: 42px;
+.input-affix-wrapper {
+  height: 48px;
+  background: #fff;
+  border: 1px solid #dce2e9;
   border-radius: 10px;
-  border: 1px solid #b9c8d7;
-  background: #ffffff;
-  color: #132332;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
   padding: 0 12px;
 }
 
-.panel input:focus {
+.input-affix-wrapper:hover {
+  border-color: #b8c3d3;
+}
+
+.input-affix-wrapper.focused {
+  border-color: #5a6c87;
+  box-shadow: 0 0 0 3px rgba(90, 108, 135, 0.12);
+}
+
+.input-affix-wrapper input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  color: #1e293b;
   outline: none;
-  border-color: #2e6d9f;
-  box-shadow: 0 0 0 2px rgba(46, 109, 159, 0.18);
 }
 
-.panel button {
-  height: 44px;
+.input-affix-wrapper input::placeholder {
+  color: #94a3b8;
+}
+
+.prefix-icon {
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+.eye-toggle {
   border: 0;
-  border-radius: 999px;
-  background: #1e5c89;
-  color: #ffffff;
-  font-weight: 700;
+  background: transparent;
+  color: #6b7280;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-.error {
-  color: #b51c1c;
+.eye-toggle:hover {
+  color: #334155;
 }
 
-.monster.avoiding .monster-head {
-  transform: translateX(-7px) rotate(-10deg);
+.error-box {
+  margin-top: 4px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #dc2626;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
 }
 
-.monster.avoiding .monster-body {
-  transform: translateX(-3px);
-}
-
-.monster.shaking .monster-head {
-  animation: head-shake 0.45s ease;
-}
-
-.monster.jumping {
-  animation: monster-bounce 0.4s ease;
-}
-
-.shape-horn .monster-head {
-  border-radius: 16px 16px 28px 28px;
-}
-
-.shape-horn .monster-antenna {
-  width: 0;
-  height: 0;
+.submit-btn {
+  margin-top: 6px;
+  height: 48px;
   border: 0;
+  border-radius: 10px;
+  background: #334155;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
 }
 
-.shape-horn .monster-head::before,
-.shape-horn .monster-head::after {
-  content: '';
-  position: absolute;
-  top: -14px;
-  width: 4px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--outline);
+.submit-btn:hover:not(:disabled) {
+  background: #1e293b;
 }
 
-.shape-horn .monster-head::before {
-  left: 32px;
-  transform: rotate(-18deg);
+.submit-btn:active:not(:disabled) {
+  opacity: 0.88;
 }
 
-.shape-horn .monster-head::after {
-  right: 32px;
-  transform: rotate(18deg);
+.submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
-.shape-round .monster-head {
-  width: 116px;
-  border-radius: 40% 60% 48% 52%;
-}
-
-.shape-round .monster-antenna {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  top: -18px;
-}
-
-.shape-round .monster-body {
-  width: 96px;
-  border-radius: 28px 28px 18px 18px;
-}
-
-@keyframes head-shake {
-  0% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(-11deg);
-  }
-  50% {
-    transform: rotate(11deg);
-  }
-  75% {
-    transform: rotate(-9deg);
-  }
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-@keyframes monster-bounce {
-  0% {
-    transform: translateY(0);
-  }
-  35% {
-    transform: translateY(-12px);
-  }
-  70% {
-    transform: translateY(2px);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 780px) {
-  .monster-stage {
-    gap: 8px;
+@media (max-width: 1024px) {
+  .container {
+    grid-template-columns: 1fr;
   }
 
-  .monster-head {
-    width: 98px;
-    height: 84px;
+  .left-panel {
+    padding: 26px 18px 0;
   }
 
-  .monster-body {
-    width: 74px;
-    height: 40px;
+  .left-spacer {
+    display: none;
   }
 
-  .panel h1 {
-    font-size: 24px;
+  .characters-area {
+    height: 360px;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .monster,
-  .monster *,
-  .panel button {
-    animation: none !important;
-    transition-duration: 0.01ms !important;
+  .right-panel {
+    padding: 12px 18px 28px;
+  }
+
+  .form-wrapper {
+    width: min(420px, 100%);
+  }
+
+  .form {
+    margin-top: 0;
   }
 }
 </style>
