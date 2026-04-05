@@ -1,0 +1,84 @@
+- generic [ref=e83]:
+  - complementary [ref=e85]:
+    - generic [ref=e87]:
+      - generic [ref=e88]: WH
+      - generic [ref=e89]:
+        - strong [ref=e90]: Workbench
+        - generic [ref=e91]: Dashboard shell
+    - navigation [ref=e92]:
+      - generic [ref=e93]:
+        - paragraph [ref=e94]: 核心模块
+        - generic [ref=e95]:
+          - button "O 总览" [ref=e96] [cursor=pointer]:
+            - generic [ref=e98]: O
+            - generic [ref=e99]: 总览
+          - button "I 问题" [ref=e100] [cursor=pointer]:
+            - generic [ref=e102]: I
+            - generic [ref=e103]: 问题
+          - button "C 对比" [ref=e104] [cursor=pointer]:
+            - generic [ref=e106]: C
+            - generic [ref=e107]: 对比
+          - button "T 趋势图" [ref=e108] [cursor=pointer]:
+            - generic [ref=e110]: T
+            - generic [ref=e111]: 趋势图
+          - button "W 词云" [ref=e112] [cursor=pointer]:
+            - generic [ref=e114]: W
+            - generic [ref=e115]: 词云
+          - button "A 动作" [ref=e116] [cursor=pointer]:
+            - generic [ref=e118]: A
+            - generic [ref=e119]: 动作
+          - button "V 验证" [ref=e120] [cursor=pointer]:
+            - generic [ref=e122]: V
+            - generic [ref=e123]: 验证
+      - generic [ref=e124]:
+        - paragraph [ref=e125]: 演示场景
+        - generic [ref=e126]:
+          - button "P 流水线" [ref=e127] [cursor=pointer]:
+            - generic [ref=e129]: P
+            - generic [ref=e130]: 流水线
+          - button "G 智能体" [ref=e131] [cursor=pointer]:
+            - generic [ref=e133]: G
+            - generic [ref=e134]: 智能体
+          - button "E 可解释性" [ref=e135] [cursor=pointer]:
+            - generic [ref=e137]: E
+            - generic [ref=e138]: 可解释性
+          - button "R 报告中心" [ref=e139] [cursor=pointer]:
+            - generic [ref=e141]: R
+            - generic [ref=e142]: 报告中心
+  - main [ref=e143]:
+    - generic [ref=e144]:
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - generic [ref=e148]: 控制台视图
+          - generic [ref=e149]: 已接入演示模块导航
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - heading "蓝牙耳机评论改进决策系统" [level=1] [ref=e152]
+            - paragraph [ref=e153]: V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心
+          - generic [ref=e154]: 当前用户：wxy
+      - generic [ref=e155]:
+        - generic [ref=e156]:
+          - article [ref=e157]:
+            - generic [ref=e158]:
+              - generic [ref=e159]: 状态总览
+              - generic [ref=e160]: 异常
+            - generic [ref=e161]:
+              - heading "Backend API" [level=3] [ref=e162]
+              - paragraph [ref=e163]: 状态：异常
+          - article [ref=e164]:
+            - generic [ref=e165]:
+              - generic [ref=e166]: 状态总览
+              - generic [ref=e167]: 未知
+            - generic [ref=e168]:
+              - heading "NLP Service" [level=3] [ref=e169]
+              - paragraph [ref=e170]: 状态：未知
+        - generic [ref=e171]:
+          - article [ref=e172]:
+            - heading "高优先级问题" [level=3] [ref=e173]
+            - paragraph [ref=e174]: 暂无
+          - article [ref=e175]:
+            - heading "问题数量" [level=3] [ref=e176]
+            - paragraph [ref=e177]: "0"
+          - article [ref=e178]:
+            - heading "已登记动作" [level=3] [ref=e179]
+            - paragraph [ref=e180]: "0"

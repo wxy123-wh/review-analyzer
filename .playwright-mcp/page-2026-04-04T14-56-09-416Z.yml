@@ -1,0 +1,14 @@
+- generic [ref=e32]:
+  - generic [ref=e33]: 账号
+  - generic [ref=e34]:
+    - img [ref=e36]
+    - textbox "账号" [ref=e39]:
+      - /placeholder: 输入您的账号
+  - generic [ref=e40]: 密码
+  - generic [ref=e41]:
+    - img [ref=e43]
+    - textbox "密码" [ref=e46]:
+      - /placeholder: 输入您的密码
+    - button "切换密码可见性" [ref=e47] [cursor=pointer]:
+      - img [ref=e48]
+  - button "登录" [ref=e52] [cursor=pointer]

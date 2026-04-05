@@ -1,0 +1,165 @@
+Total messages: 2 (Errors: 0, Warnings: 0)
+Returning 162 messages for level "error"
+
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://www.googletagmanager.com/gtm.js?id=GTM-WL5C7MWT:0
+[ERROR] Failed to load resource: the server responded with a status of 404 () @ https://app.infisical.com/api/v1/auth/token:0
+[ERROR] Failed to load resource: the server responded with a status of 404 () @ https://app.infisical.com/api/v1/auth/token:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/wordcloud?productCode=demo-earphone&aspect=all' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/wordcloud?productCode=demo-earphone&aspect=all:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/showcase/pipeline' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/showcase/pipeline:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/showcase/agent-arena' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/showcase/agent-arena:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/showcase/explainability' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/showcase/explainability:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error during WebSocket handshake: net::ERR_CONNECTION_RESET @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4175/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4175/@vite/client:1034
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/health' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/health:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/issues?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/issues?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/compare?productCode=demo-earphone' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/compare?productCode=demo-earphone:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/trends?productCode=demo-earphone&aspect=battery:0
+[ERROR] Access to XMLHttpRequest at 'http://localhost:8080/api/v1/validation' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ http://localhost:8080/api/v1/validation:0

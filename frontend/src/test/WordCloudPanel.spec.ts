@@ -10,7 +10,7 @@ const items: WordCloudItem[] = [
 ]
 
 describe('WordCloudPanel', () => {
-  it('renders fallback chip list and summary in success state', () => {
+  it('renders fallback chip list, legend, and summary in success state', () => {
     const wrapper = mount(WordCloudPanel, {
       props: {
         aspect: 'all',
@@ -21,6 +21,10 @@ describe('WordCloudPanel', () => {
     })
 
     expect(wrapper.text()).toContain('词云洞察（全部）')
+    expect(wrapper.text()).toContain('颜色仅承担情绪分组')
+    expect(wrapper.text()).toContain('正向')
+    expect(wrapper.text()).toContain('中性')
+    expect(wrapper.text()).toContain('负向')
     expect(wrapper.find('.chart').exists()).toBe(false)
     const chips = wrapper.findAll('.chip-list li')
     expect(chips).toHaveLength(2)
@@ -28,9 +32,24 @@ describe('WordCloudPanel', () => {
     expect(chips[1].classes()).toContain('negative')
     expect(wrapper.text()).toContain('词频 28')
     expect(wrapper.text()).toContain('当前高频词')
-    expect(wrapper.text()).toContain('续航')
-    expect(wrapper.text()).toContain('正向')
+    expect(wrapper.find('.summary').text()).toContain('续航')
+    expect(wrapper.find('.summary').text()).toContain('正向')
     expect(wrapper.text()).toContain('演示数据已按词频聚合。')
+    expect(wrapper.text()).toContain('触控提示：轻触词项可查看关键词与词频详情。')
+  })
+
+  it('normalizes unknown sentiment tags to neutral fallback copy and class', () => {
+    const wrapper = mount(WordCloudPanel, {
+      props: {
+        aspect: 'audio',
+        items: [{ keyword: '延迟', frequency: 12, weight: 20, sentimentTag: 'mystery' }],
+        state: 'success',
+      },
+    })
+
+    const chip = wrapper.get('.chip-list li')
+    expect(chip.classes()).toContain('neutral')
+    expect(wrapper.find('.summary').text()).toContain('中性')
   })
 
   it('shows empty state and emits retry', async () => {
@@ -47,6 +66,23 @@ describe('WordCloudPanel', () => {
     const refreshButton = wrapper.findAll('button').find((button) => button.text() === '刷新数据')
     expect(refreshButton).toBeDefined()
     await refreshButton!.trigger('click')
+    expect(wrapper.emitted('retry')).toHaveLength(1)
+  })
+
+  it('shows timeout fallback message and emits retry', async () => {
+    const wrapper = mount(WordCloudPanel, {
+      props: {
+        aspect: 'call',
+        items: [],
+        state: 'timeout',
+      },
+    })
+
+    expect(wrapper.text()).toContain('接口状态')
+    expect(wrapper.text()).toContain('词云接口请求超时，请检查网络后重试。')
+    const reloadButton = wrapper.findAll('button').find((button) => button.text() === '重新加载')
+    expect(reloadButton).toBeDefined()
+    await reloadButton!.trigger('click')
     expect(wrapper.emitted('retry')).toHaveLength(1)
   })
 

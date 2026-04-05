@@ -1,33 +1,20 @@
 <template>
   <LoginGate v-if="!isAuthenticated" @enter="handleLogin" />
 
-  <div v-else class="shell">
-    <aside data-testid="narrow-sidebar" class="sidebar">
-      <div class="brand">WH</div>
-      <nav class="nav">
-        <button
-          v-for="module in modules"
-          :key="module.id"
-          :data-testid="`nav-${module.id}`"
-          type="button"
-          class="nav-item"
-          :class="{ active: activeModule === module.id }"
-          @click="activateModule(module.id)"
-        >
-          <span class="dot">{{ module.icon }}</span>
-          <span class="label">{{ module.label }}</span>
-        </button>
-      </nav>
-    </aside>
+  <AppShellFrame v-else>
+    <template #sidebar>
+      <AppShellSidebar
+        :items="modules"
+        :active-module="activeModule"
+        @select="activateModule($event as ModuleId)"
+      />
+    </template>
 
-    <main class="content">
-      <header class="hero">
-        <h1>蓝牙耳机评论改进决策系统</h1>
-        <p>V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心</p>
-        <span class="user-chip">当前用户：{{ currentUser }}</span>
-      </header>
+    <template #header>
+      <AppShellHeader :current-user="currentUser" />
+    </template>
 
-      <section class="module-card">
+    <section class="module-card" data-motion-reveal style="--motion-delay: 120ms">
         <p v-if="loading" class="hint">加载中...</p>
         <p v-else-if="loadError" class="hint error">{{ loadError }}</p>
 
@@ -96,15 +83,17 @@
           :data="showcaseReportPreview"
           @preview="generateReportPreview"
         />
-      </section>
-    </main>
-  </div>
+    </section>
+  </AppShellFrame>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
 import ActionList from './components/ActionList.vue'
+import AppShellFrame from './components/AppShellFrame.vue'
+import AppShellHeader from './components/AppShellHeader.vue'
+import AppShellSidebar from './components/AppShellSidebar.vue'
 import CompareTable from './components/CompareTable.vue'
 import IssueTable from './components/IssueTable.vue'
 import LoginGate from './components/LoginGate.vue'
@@ -132,6 +121,7 @@ import {
   nlpDemoStatus,
   previewShowcaseReport,
 } from './api/client'
+import { useMotionPreferences } from './motion/preferences'
 import type {
   ActionItem,
   ChartLoadState,
@@ -149,6 +139,8 @@ import type {
   WordCloudResponse,
   WordCloudItem,
 } from './types/domain'
+
+useMotionPreferences()
 
 type ModuleId =
   | 'overview'
@@ -351,216 +343,115 @@ async function generateReportPreview(module: string): Promise<void> {
 </script>
 
 <style scoped>
-:root {
-  --bg-main: #eef4f8;
-  --bg-card: rgba(255, 255, 255, 0.92);
-  --line: #d0dfeb;
-  --ink: #22323f;
-  --muted: #587083;
-  --brand: #1f84af;
-  --brand-soft: #d5eefd;
-}
-
-.shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 104px 1fr;
-  background:
-    radial-gradient(circle at 10% 10%, #d7f2ea 0%, transparent 35%),
-    radial-gradient(circle at 90% 20%, #dfeeff 0%, transparent 30%),
-    linear-gradient(180deg, #f7fbff, #eef6fc);
-  color: var(--ink);
-  font-family: 'Segoe UI', 'PingFang SC', sans-serif;
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  padding: 18px 10px;
-  border-right: 1px solid #c5dbee;
-  background: rgba(244, 250, 255, 0.92);
-  backdrop-filter: blur(6px);
-}
-
-.brand {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  letter-spacing: 1px;
-  background: linear-gradient(140deg, #1f84af, #2cc1b5);
-  color: #fff;
-}
-
-.nav {
-  width: 100%;
-  display: grid;
-  gap: 8px;
-}
-
-.nav-item {
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 12px;
-  padding: 8px 4px;
-  color: #36596d;
-  cursor: pointer;
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-}
-
-.nav-item:hover {
-  background: rgba(59, 153, 197, 0.11);
-}
-
-.nav-item.active {
-  border-color: #acd7ef;
-  background: var(--brand-soft);
-}
-
-.dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-  background: rgba(31, 132, 175, 0.14);
-}
-
-.label {
-  font-size: 12px;
-}
-
-.content {
-  padding: 26px 28px;
-}
-
-.hero {
-  display: grid;
-  gap: 6px;
-}
-
-.hero h1 {
-  margin: 0;
-  font-size: 32px;
-}
-
-.hero p {
-  margin: 0;
-  color: var(--muted);
-}
-
-.user-chip {
-  width: fit-content;
-  margin-top: 6px;
-  border-radius: 999px;
-  border: 1px solid #aed6ea;
-  background: rgba(255, 255, 255, 0.82);
-  color: #1f5d7b;
-  font-size: 12px;
-  padding: 6px 12px;
-}
-
 .module-card {
-  margin-top: 20px;
-  border-radius: 16px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid #d2e2ee;
-  min-height: 360px;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  background:
+    linear-gradient(135deg, rgba(122, 184, 255, 0.05), transparent 32%),
+    linear-gradient(180deg, rgba(16, 29, 49, 0.96), rgba(8, 16, 29, 0.98));
+  border: 1px solid var(--color-border-default);
+  min-height: 420px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
+}
+
+.module-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 12%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 20% 80%, rgba(255, 255, 255, 0.02));
+}
+
+.module-card > * {
+  position: relative;
+  z-index: var(--z-raised);
 }
 
 .hint {
   margin: 0;
-  color: #5f7482;
+  color: var(--color-text-secondary);
 }
 
 .hint.error {
-  color: #9a3e3e;
+  color: var(--color-semantic-down);
 }
 
 .status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .overview-grid {
-  margin-top: 14px;
+  margin-top: var(--space-5);
   display: grid;
-  gap: 12px;
+  gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .metric {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px;
-  background: var(--bg-card);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: linear-gradient(180deg, rgba(19, 34, 58, 0.96), rgba(10, 18, 32, 0.98));
+  box-shadow: var(--shadow-raised);
+}
+
+.metric::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(122, 184, 255, 0.08), transparent 46%);
 }
 
 .metric h3 {
+  position: relative;
+  z-index: var(--z-raised);
   margin: 0;
-  font-size: 13px;
-  color: #4f6675;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.04em;
 }
 
 .metric p {
-  margin: 8px 0 0;
-  font-size: 18px;
+  position: relative;
+  z-index: var(--z-raised);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xl);
   font-weight: 700;
+  color: var(--color-text-primary);
 }
 
 @media (max-width: 980px) {
-  .shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  .sidebar {
-    border-right: 0;
-    border-bottom: 1px solid #c5dbee;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 12px;
-  }
-
-  .nav {
-    width: auto;
-    display: flex;
-    gap: 6px;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: thin;
-  }
-
-  .nav-item {
-    min-width: 58px;
-    min-height: 56px;
-    padding: 8px 4px;
-    touch-action: manipulation;
-  }
-
-  .label {
-    font-size: 10px;
-  }
-
-  .content {
-    padding: 18px;
-  }
-
-  .hero h1 {
-    font-size: 24px;
+  .module-card {
+    min-height: 360px;
+    padding: var(--space-4);
   }
 }
+
+@media (max-width: 720px) {
+  .module-card {
+    min-height: 0;
+    padding: var(--space-3);
+    backdrop-filter: none;
+  }
+
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+html[data-motion='reduce'] .module-card,
+html[data-motion='none'] .module-card {
+  backdrop-filter: none;
+}
+
 </style>

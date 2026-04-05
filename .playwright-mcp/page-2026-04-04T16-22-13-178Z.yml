@@ -1,0 +1,49 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Demo auth entry
+      - heading "把演示登录做成值得记住的第一眼。" [level=1] [ref=e7]
+      - paragraph [ref=e8]: 这里仍然只是本地前端演示入口：账号密码校验、错误提示与进入事件都保持原样，但体验被重组成更沉稳、更可信的旗舰首屏。
+    - generic [ref=e10]:
+      - generic [ref=e11]: 旗舰视觉识别
+      - generic [ref=e12]: 四只角色继续承担注意力与交互反馈
+    - generic [ref=e37]:
+      - article [ref=e38]:
+        - generic [ref=e39]: 体验说明
+        - paragraph [ref=e40]: 不接入真实单点登录，不伪装企业集成，只展示当前仓库里已存在的演示鉴权流程。
+      - article [ref=e41]:
+        - generic [ref=e42]: 交互锚点
+        - paragraph [ref=e43]: 输入时角色联动、鼠标驱动瞳孔追踪、点击跳跃、双击提亮，以及密码可见性反馈全部保留。
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e47]: 演示访问
+      - generic [ref=e48]: 仅用于本地体验
+    - generic [ref=e49]:
+      - heading "使用既有演示账号进入看板" [level=2] [ref=e50]
+      - paragraph [ref=e51]:
+        - text: 凭据与校验规则保持不变，登录成功后仍会触发现有的
+        - code [ref=e52]: enter
+        - text: 事件。
+    - generic [ref=e53]:
+      - generic [ref=e54]: 演示凭据
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]: 账号
+          - strong [ref=e58]: wxy
+        - generic [ref=e59]:
+          - generic [ref=e60]: 密码
+          - strong [ref=e61]: "123456"
+    - generic [ref=e62]:
+      - generic [ref=e63]: 账号
+      - generic [ref=e64]:
+        - img [ref=e66]
+        - textbox "账号" [ref=e69]:
+          - /placeholder: 输入您的账号
+      - generic [ref=e70]: 密码
+      - generic [ref=e71]:
+        - img [ref=e73]
+        - textbox "密码" [ref=e76]:
+          - /placeholder: 输入您的密码
+        - button "切换密码可见性" [ref=e77] [cursor=pointer]:
+          - img [ref=e78]
+      - button "登录" [ref=e82] [cursor=pointer]

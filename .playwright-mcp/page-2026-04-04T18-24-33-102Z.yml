@@ -1,0 +1,101 @@
+- generic [ref=e84]:
+  - complementary [ref=e86]:
+    - generic [ref=e88]:
+      - generic [ref=e89]: WH
+      - generic [ref=e90]:
+        - strong [ref=e91]: Workbench
+        - generic [ref=e92]: Dashboard shell
+    - navigation [ref=e93]:
+      - generic [ref=e94]:
+        - paragraph [ref=e95]: 核心模块
+        - generic [ref=e96]:
+          - button "O 总览" [ref=e97] [cursor=pointer]:
+            - generic [ref=e99]: O
+            - generic [ref=e100]: 总览
+          - button "I 问题" [ref=e101] [cursor=pointer]:
+            - generic [ref=e103]: I
+            - generic [ref=e104]: 问题
+          - button "C 对比" [ref=e105] [cursor=pointer]:
+            - generic [ref=e107]: C
+            - generic [ref=e108]: 对比
+          - button "T 趋势图" [ref=e109] [cursor=pointer]:
+            - generic [ref=e111]: T
+            - generic [ref=e112]: 趋势图
+          - button "W 词云" [ref=e113] [cursor=pointer]:
+            - generic [ref=e115]: W
+            - generic [ref=e116]: 词云
+          - button "A 动作" [ref=e117] [cursor=pointer]:
+            - generic [ref=e119]: A
+            - generic [ref=e120]: 动作
+          - button "V 验证" [ref=e121] [cursor=pointer]:
+            - generic [ref=e123]: V
+            - generic [ref=e124]: 验证
+      - generic [ref=e125]:
+        - paragraph [ref=e126]: 演示场景
+        - generic [ref=e127]:
+          - button "P 流水线" [ref=e128] [cursor=pointer]:
+            - generic [ref=e130]: P
+            - generic [ref=e131]: 流水线
+          - button "G 智能体" [ref=e132] [cursor=pointer]:
+            - generic [ref=e134]: G
+            - generic [ref=e135]: 智能体
+          - button "E 可解释性" [ref=e136] [cursor=pointer]:
+            - generic [ref=e138]: E
+            - generic [ref=e139]: 可解释性
+          - button "R 报告中心" [active] [ref=e140] [cursor=pointer]:
+            - generic [ref=e142]: R
+            - generic [ref=e143]: 报告中心
+  - main [ref=e144]:
+    - generic [ref=e145]:
+      - generic [ref=e147]:
+        - generic [ref=e148]:
+          - generic [ref=e149]: 控制台视图
+          - generic [ref=e150]: 已接入演示模块导航
+        - generic [ref=e151]:
+          - generic [ref=e152]:
+            - heading "蓝牙耳机评论改进决策系统" [level=1] [ref=e153]
+            - paragraph [ref=e154]: V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心
+          - generic [ref=e155]: 当前用户：wxy
+      - generic [ref=e244]:
+        - generic [ref=e245]:
+          - generic [ref=e246]:
+            - generic [ref=e247]:
+              - generic [ref=e248]: Report preview
+              - generic [ref=e249]: 就绪
+            - heading "报告中心" [level=3] [ref=e250]
+            - paragraph [ref=e251]: 支持预览报告段落，导出链路当前为演示数据流程。
+          - generic [ref=e252]:
+            - article [ref=e253]:
+              - generic [ref=e254]: 目标模块
+              - strong [ref=e255]: 总览
+              - paragraph [ref=e256]: 当前预览将沿用既有模块选择路径。
+            - article [ref=e257]:
+              - generic [ref=e258]: 预览段落
+              - strong [ref=e259]: "0"
+              - paragraph [ref=e260]: 仅聚焦现有演示数据输出的章节数。
+            - article [ref=e261]:
+              - generic [ref=e262]: 当前状态
+              - strong [ref=e263]: 就绪
+              - paragraph [ref=e264]: 等待触发预览动作
+        - generic [ref=e265]:
+          - article [ref=e266]:
+            - generic [ref=e267]:
+              - generic [ref=e268]: Preview control
+              - heading "预览触发器" [level=4] [ref=e269]
+            - generic [ref=e270]:
+              - generic [ref=e271]:
+                - generic [ref=e272]: 目标模块
+                - combobox "目标模块" [ref=e273]:
+                  - option "总览" [selected]
+                  - option "问题"
+                  - option "对比"
+                  - option "趋势"
+                  - option "演示模块"
+              - button "生成演示数据报告预览" [ref=e274] [cursor=pointer]
+          - article [ref=e275]:
+            - generic [ref=e276]:
+              - generic [ref=e277]:
+                - generic [ref=e278]: Preview section
+                - heading "报告段落预览" [level=4] [ref=e279]
+              - generic [ref=e280]: 总览
+            - paragraph [ref=e281]: 暂未生成报告预览

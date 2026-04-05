@@ -1,0 +1,54 @@
+﻿
+> wh-frontend@0.1.0 test
+> npm run check:copy && vitest run
+
+
+> wh-frontend@0.1.0 check:copy
+> node ./scripts/check-banned-copy-terms.mjs
+
+[copy-guard] 禁用词检查通过
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/code/review-analyzer/frontend[39m
+
+ [32m✓[39m src/test/StatusCard.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 39[2mms[22m[39m
+ [32m✓[39m src/test/WordCloudPanel.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 73[2mms[22m[39m
+ [32m✓[39m src/test/TrendList.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 73[2mms[22m[39m
+ [32m✓[39m src/test/App.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2685[2mms[22m[39m
+   [33m[2m✓[22m[39m App shell[2m > [22mpreserves login-character interactions, password toggling, loading state, and validation messaging [33m2487[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 07:51:07
+[2m   Duration [22m 5.63s[2m (transform 2.04s, setup 0ms, collect 3.47s, tests 2.87s, environment 3.35s, prepare 608ms)[22m
+
+
+--- BUILD ---
+
+> wh-frontend@0.1.0 build
+> vite build
+
+[36mvite v6.4.1 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 904 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.40 kB[22m[1m[22m[2m │ gzip:   0.28 kB[22m
+[2mdist/[22m[35massets/index-hf-KC9Fy.css  [39m[1m[2m 85.46 kB[22m[1m[22m[2m │ gzip:  10.83 kB[22m
+[2mdist/[22m[36massets/index-CdgF8x60.js   [39m[1m[2m  4.17 kB[22m[1m[22m[2m │ gzip:   1.71 kB[22m
+[2mdist/[22m[36massets/index-BYe1kjzp.js   [39m[1m[2m 10.63 kB[22m[1m[22m[2m │ gzip:   4.86 kB[22m
+[2mdist/[22m[36massets/index-B47Vfu2L.js   [39m[1m[2m239.39 kB[22m[1m[22m[2m │ gzip:  89.67 kB[22m
+[2mdist/[22m[36massets/point-B26XFLO_.js   [39m[1m[33m627.96 kB[39m[22m[2m │ gzip: 179.30 kB[22m
+[32m✓ built in 3.43s[39m
+node.exe : [33m
+At line:1 char:1
++ & "C:\Users\wxy\AppData\Local\Volta\tools\image\node\24.14.0/node.exe ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([33m:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-m
+anualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+

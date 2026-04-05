@@ -1,0 +1,36 @@
+erDiagram
+    PRODUCTS ||--o{ REVIEWS_RAW : contains
+    PRODUCTS ||--o{ ISSUE_CLUSTERS : aggregates
+    ISSUE_CLUSTERS ||--o{ ISSUE_SCORES : scores
+    PRODUCTS ||--o{ IMPROVEMENT_ACTIONS : owns
+    ISSUE_CLUSTERS ||--o{ IMPROVEMENT_ACTIONS : references
+    IMPROVEMENT_ACTIONS ||--o{ VALIDATION_METRICS : validates
+    REVIEWS_RAW ||--o{ REVIEW_ASPECTS : derives
+    PRODUCTS ||--o{ COMPETITORS : maps
+    PRODUCTS ||--o{ SYNC_JOBS : targets
+    PRODUCTS ||--o{ ANALYSIS_JOBS : targets
+    PRODUCTS ||--o{ DEMO_SEED_VERSIONS : tracks
+
+    PRODUCTS {
+      bigint id PK
+      varchar product_code UK
+      varchar product_name
+      varchar brand
+    }
+    REVIEWS_RAW {
+      bigint id PK
+      bigint product_id FK
+      varchar source
+      varchar source_review_id
+      numeric rating
+      text content
+      timestamptz review_time
+    }
+    IMPROVEMENT_ACTIONS {
+      bigint id PK
+      bigint product_id FK
+      bigint issue_cluster_id FK
+      varchar issue_ref
+      varchar action_name
+      varchar status
+    }

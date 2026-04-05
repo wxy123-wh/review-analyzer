@@ -79,6 +79,9 @@
 import gsap from 'gsap'
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 
+import { useMotionPreferences } from '../motion/preferences'
+import { useMotionLifecycle } from '../motion/runtime'
+
 const props = withDefaults(
   defineProps<{
     isTyping?: boolean
@@ -135,6 +138,8 @@ const yellowMouthRef = ref<HTMLDivElement | null>(null)
 
 const characterIds: CharacterId[] = ['purple', 'black', 'orange', 'yellow']
 const SINGLE_CLICK_DELAY_MS = 220
+const { suppressNonEssentialMotion } = useMotionPreferences()
+const motion = useMotionLifecycle()
 
 const baseCharacterColors: Record<CharacterId, string> = {
   purple: '#6c3ff5',
@@ -177,19 +182,12 @@ const isHidingPassword = computed(() => (props.passwordLength ?? 0) > 0 && !prop
 const isShowingPassword = computed(() => (props.passwordLength ?? 0) > 0 && !!props.showPassword)
 
 let rafId = 0
-let purpleBlinkTimer: ReturnType<typeof setTimeout> | undefined
-let blackBlinkTimer: ReturnType<typeof setTimeout> | undefined
-let purplePeekTimer: ReturnType<typeof setTimeout> | undefined
-let lookingTimer: ReturnType<typeof setTimeout> | undefined
-let onMoveHandler: ((event: MouseEvent) => void) | null = null
-const clickTimers: Partial<Record<CharacterId, ReturnType<typeof setTimeout>>> = {}
-const jumpStateTimers: Partial<Record<CharacterId, ReturnType<typeof setTimeout>>> = {}
-
-function clearTimer(timer: ReturnType<typeof setTimeout> | undefined): void {
-  if (timer) {
-    clearTimeout(timer)
-  }
-}
+let purpleBlinkTimer: number | undefined
+let blackBlinkTimer: number | undefined
+let purplePeekTimer: number | undefined
+let lookingTimer: number | undefined
+const clickTimers: Partial<Record<CharacterId, number>> = {}
+const jumpStateTimers: Partial<Record<CharacterId, number>> = {}
 
 watchEffect(() => {
   state.isTyping = !!props.isTyping
@@ -258,7 +256,7 @@ function triggerJump(characterId: CharacterId): void {
 
   const pendingJumpStateTimer = jumpStateTimers[characterId]
   if (pendingJumpStateTimer) {
-    clearTimeout(pendingJumpStateTimer)
+    motion.clearTrackedTimeout(pendingJumpStateTimer)
   }
 
   jumpingCharacters.value[characterId] = true
@@ -279,7 +277,7 @@ function triggerJump(characterId: CharacterId): void {
     },
   )
 
-  jumpStateTimers[characterId] = setTimeout(() => {
+  jumpStateTimers[characterId] = motion.setTrackedTimeout(() => {
     jumpingCharacters.value[characterId] = false
     jumpStateTimers[characterId] = undefined
   }, 360)
@@ -288,7 +286,7 @@ function triggerJump(characterId: CharacterId): void {
 function handleCharacterDoubleClick(characterId: CharacterId): void {
   const pendingClickTimer = clickTimers[characterId]
   if (pendingClickTimer) {
-    clearTimeout(pendingClickTimer)
+    motion.clearTrackedTimeout(pendingClickTimer)
     clickTimers[characterId] = undefined
   }
   lightenedCharacters.value[characterId] = true
@@ -302,9 +300,9 @@ function handleCharacterClick(characterId: CharacterId): void {
 
   const pendingClickTimer = clickTimers[characterId]
   if (pendingClickTimer) {
-    clearTimeout(pendingClickTimer)
+    motion.clearTrackedTimeout(pendingClickTimer)
   }
-  clickTimers[characterId] = setTimeout(() => {
+  clickTimers[characterId] = motion.setTrackedTimeout(() => {
     triggerJump(characterId)
     clickTimers[characterId] = undefined
   }, SINGLE_CLICK_DELAY_MS)
@@ -350,7 +348,7 @@ function tick(): void {
   const container = containerRef.value
   const qt = quickToRef.value
   if (!container || !qt) {
-    rafId = requestAnimationFrame(tick)
+    rafId = motion.requestTrackedAnimationFrame(tick)
     return
   }
 
@@ -442,7 +440,7 @@ function tick(): void {
     }
   }
 
-  rafId = requestAnimationFrame(tick)
+  rafId = motion.requestTrackedAnimationFrame(tick)
 }
 
 function setEyePupils(target: HTMLDivElement | null, x: number, y: number): void {
@@ -530,19 +528,23 @@ function applyShowPassword(): void {
 function scheduleBlink(
   targetRef: { value: HTMLDivElement | null },
   fallbackSize: number,
-  setTimer: (timer: ReturnType<typeof setTimeout>) => void,
+  setTimer: (timer: number) => void,
 ): void {
+  if (suppressNonEssentialMotion.value) {
+    return
+  }
+
   const eyeballs = targetRef.value?.querySelectorAll<HTMLElement>('.eyeball')
   if (!eyeballs || !eyeballs.length) {
     return
   }
 
-  const timer = setTimeout(() => {
+  const timer = motion.setTrackedTimeout(() => {
     eyeballs.forEach((el) => {
       gsap.to(el, { height: 2, duration: 0.08, ease: 'power2.in' })
     })
 
-    setTimeout(() => {
+    motion.setTrackedTimeout(() => {
       eyeballs.forEach((el) => {
         const size = Number(el.style.width.replace('px', '')) || fallbackSize
         gsap.to(el, { height: size, duration: 0.08, ease: 'power2.out' })
@@ -557,13 +559,20 @@ function scheduleBlink(
 watch(
   [() => props.isTyping, isShowingPassword],
   ([typing, showing]) => {
+    motion.clearTrackedTimeout(lookingTimer)
+
+    if (suppressNonEssentialMotion.value) {
+      isLookingRef.value = false
+      state.isLooking = false
+      return
+    }
+
     if (typing && !showing) {
       isLookingRef.value = true
       state.isLooking = true
       applyLookAtEachOther()
 
-      clearTimer(lookingTimer)
-      lookingTimer = setTimeout(() => {
+      lookingTimer = motion.setTrackedTimeout(() => {
         isLookingRef.value = false
         state.isLooking = false
         purpleRef.value?.querySelectorAll<HTMLElement>('.eyeball-pupil').forEach((pupil) => {
@@ -573,7 +582,6 @@ watch(
       return
     }
 
-    clearTimer(lookingTimer)
     isLookingRef.value = false
     state.isLooking = false
   },
@@ -597,8 +605,8 @@ watch(
 watch(
   [isShowingPassword, () => props.passwordLength],
   ([showing, passwordLength]) => {
-    clearTimer(purplePeekTimer)
-    if (!showing || (passwordLength ?? 0) <= 0) {
+    motion.clearTrackedTimeout(purplePeekTimer)
+    if (suppressNonEssentialMotion.value || !showing || (passwordLength ?? 0) <= 0) {
       return
     }
 
@@ -608,7 +616,7 @@ watch(
     }
 
     const schedulePeek = (): void => {
-      purplePeekTimer = setTimeout(() => {
+      purplePeekTimer = motion.setTrackedTimeout(() => {
         purplePupils.forEach((pupil) => {
           gsap.to(pupil, {
             x: 4,
@@ -625,7 +633,7 @@ watch(
           qt.purpleFaceTop(35)
         }
 
-        setTimeout(() => {
+        motion.setTrackedTimeout(() => {
           purplePupils.forEach((pupil) => {
             gsap.to(pupil, {
               x: -4,
@@ -660,10 +668,12 @@ onMounted(() => {
     mouse.x = event.clientX
     mouse.y = event.clientY
   }
-  onMoveHandler = onMove
 
   window.addEventListener('mousemove', onMove, { passive: true })
-  rafId = requestAnimationFrame(tick)
+  motion.registerCleanup(() => {
+    window.removeEventListener('mousemove', onMove)
+  })
+  rafId = motion.requestTrackedAnimationFrame(tick)
 
   scheduleBlink(purpleRef, 18, (timer) => {
     purpleBlinkTimer = timer
@@ -675,27 +685,24 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (onMoveHandler) {
-    window.removeEventListener('mousemove', onMoveHandler)
-  }
-  cancelAnimationFrame(rafId)
+  motion.cancelTrackedAnimationFrame(rafId)
   characterIds.forEach((characterId) => {
     const clickTimer = clickTimers[characterId]
     if (clickTimer) {
-      clearTimeout(clickTimer)
+      motion.clearTrackedTimeout(clickTimer)
       clickTimers[characterId] = undefined
     }
 
     const jumpTimer = jumpStateTimers[characterId]
     if (jumpTimer) {
-      clearTimeout(jumpTimer)
+      motion.clearTrackedTimeout(jumpTimer)
       jumpStateTimers[characterId] = undefined
     }
   })
-  clearTimer(purpleBlinkTimer)
-  clearTimer(blackBlinkTimer)
-  clearTimer(purplePeekTimer)
-  clearTimer(lookingTimer)
+  motion.clearTrackedTimeout(purpleBlinkTimer)
+  motion.clearTrackedTimeout(blackBlinkTimer)
+  motion.clearTrackedTimeout(purplePeekTimer)
+  motion.clearTrackedTimeout(lookingTimer)
 })
 </script>
 
@@ -704,6 +711,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 550px;
   height: 400px;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.26));
 }
 
 .character {
@@ -712,7 +720,11 @@ onBeforeUnmount(() => {
   transform-origin: bottom center;
   will-change: transform;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition:
+    background-color var(--motion-medium) var(--easing-standard),
+    filter var(--motion-fast) var(--easing-standard),
+    box-shadow var(--motion-medium) var(--easing-standard);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .character.jumping {
@@ -720,7 +732,10 @@ onBeforeUnmount(() => {
 }
 
 .character.lightened {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 18px 28px rgba(0, 0, 0, 0.16);
 }
 
 .purple {
@@ -836,6 +851,29 @@ onBeforeUnmount(() => {
   border-radius: 9999px;
   background: #2d2d2d;
   will-change: transform;
+}
+
+.animated-characters::before,
+.animated-characters::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.animated-characters::before {
+  inset: auto 32px 2px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(102, 224, 194, 0.18) 0%, rgba(122, 184, 255, 0.1) 38%, transparent 74%);
+  filter: blur(10px);
+}
+
+.animated-characters::after {
+  inset: 10px 58px auto;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(122, 184, 255, 0.12) 0%, transparent 70%);
+  filter: blur(14px);
 }
 
 @media (max-width: 1200px) {

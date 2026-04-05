@@ -1,0 +1,39 @@
+sequenceDiagram
+    autonumber
+    actor User as 用户
+    participant FE as 前端控制台
+    participant SC as SyncController
+    participant SJS as SyncJobService
+    participant OBC as OneBoundReviewClient
+    participant OB as OneBound API
+    participant SJR as SyncJobRepository
+    participant DB as PostgreSQL
+
+    User->>FE: 触发开始同步
+    FE->>SC: POST /api/v1/sync/start
+    SC->>SJS: createJob(provider, platform, targetProductCode)
+    SJS->>SJS: 归一化 provider/platform
+    SJS->>SJS: 初始化 QUEUED 响应
+
+    alt provider = onebound
+        SJS->>OBC: fetchFirstPageReviewCount(platform, targetProductCode)
+        OBC->>OB: 请求 /{platform}/item_review
+        OB-->>OBC: 评论数据或错误
+        alt 请求成功
+            OBC-->>SJS: 返回第一页评论数
+            SJS->>SJS: 组装 SUCCEEDED 响应
+        else 请求失败
+            OBC-->>SJS: 抛出异常
+            SJS->>SJS: 组装 FAILED 响应并脱敏错误信息
+        end
+    else provider ≠ onebound
+        SJS->>SJS: 保持 QUEUED，不发起真实同步
+    end
+
+    SJS->>SJR: create(response, finishedAt)
+    SJR->>DB: 写入 sync_jobs
+    DB-->>SJR: 返回 jobId
+    SJR-->>SJS: SyncJobResponse
+    SJS-->>SC: SyncJobResponse
+    SC-->>FE: 202 Accepted + job 数据
+    FE-->>User: 展示同步结果

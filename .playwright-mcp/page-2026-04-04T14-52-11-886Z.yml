@@ -1,0 +1,60 @@
+- generic [ref=e53]:
+  - complementary [ref=e54]:
+    - generic [ref=e55]: WH
+    - navigation [ref=e56]:
+      - button "O 总览" [ref=e57] [cursor=pointer]:
+        - generic [ref=e58]: O
+        - generic [ref=e59]: 总览
+      - button "I 问题" [ref=e60] [cursor=pointer]:
+        - generic [ref=e61]: I
+        - generic [ref=e62]: 问题
+      - button "C 对比" [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]: C
+        - generic [ref=e65]: 对比
+      - button "T 趋势图" [ref=e66] [cursor=pointer]:
+        - generic [ref=e67]: T
+        - generic [ref=e68]: 趋势图
+      - button "W 词云" [ref=e69] [cursor=pointer]:
+        - generic [ref=e70]: W
+        - generic [ref=e71]: 词云
+      - button "A 动作" [ref=e72] [cursor=pointer]:
+        - generic [ref=e73]: A
+        - generic [ref=e74]: 动作
+      - button "V 验证" [ref=e75] [cursor=pointer]:
+        - generic [ref=e76]: V
+        - generic [ref=e77]: 验证
+      - button "P 流水线" [ref=e78] [cursor=pointer]:
+        - generic [ref=e79]: P
+        - generic [ref=e80]: 流水线
+      - button "G 智能体" [ref=e81] [cursor=pointer]:
+        - generic [ref=e82]: G
+        - generic [ref=e83]: 智能体
+      - button "E 可解释性" [ref=e84] [cursor=pointer]:
+        - generic [ref=e85]: E
+        - generic [ref=e86]: 可解释性
+      - button "R 报告中心" [ref=e87] [cursor=pointer]:
+        - generic [ref=e88]: R
+        - generic [ref=e89]: 报告中心
+  - main [ref=e90]:
+    - generic [ref=e91]:
+      - heading "蓝牙耳机评论改进决策系统" [level=1] [ref=e92]
+      - paragraph [ref=e93]: V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心
+      - generic [ref=e94]: 当前用户：wxy
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - article [ref=e97]:
+          - heading "Backend API" [level=3] [ref=e98]
+          - paragraph [ref=e99]: 状态：异常
+        - article [ref=e100]:
+          - heading "NLP Service" [level=3] [ref=e101]
+          - paragraph [ref=e102]: 状态：未知
+      - generic [ref=e103]:
+        - article [ref=e104]:
+          - heading "高优先级问题" [level=3] [ref=e105]
+          - paragraph [ref=e106]: 暂无
+        - article [ref=e107]:
+          - heading "问题数量" [level=3] [ref=e108]
+          - paragraph [ref=e109]: "0"
+        - article [ref=e110]:
+          - heading "已登记动作" [level=3] [ref=e111]
+          - paragraph [ref=e112]: "0"

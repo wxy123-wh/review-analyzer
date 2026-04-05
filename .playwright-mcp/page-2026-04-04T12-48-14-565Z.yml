@@ -1,0 +1,62 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - button "跳至内容" [ref=e4] [cursor=pointer]:
+      - generic [ref=e6]: 跳至内容
+    - button "辅助功能反馈" [ref=e7] [cursor=pointer]:
+      - generic [ref=e9]: 辅助功能反馈
+    - generic [ref=e10]:
+      - link "返回到必应搜索" [ref=e11] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "返回到必应搜索" [level=1] [ref=e12]
+      - search [ref=e13]:
+        - button "搜索" [ref=e16] [cursor=pointer]
+        - searchbox "在此处输入你的搜索 — 输入时会显示搜索建议" [ref=e17]: executive audience plain language visual communication internal tool plan testing incremental delivery
+    - complementary "帐户奖励和偏好设置" [ref=e18]:
+      - button "Microsoft Rewards" [ref=e19] [cursor=pointer]
+      - link "登录" [ref=e20] [cursor=pointer]:
+        - /url: javascript:void(0)
+        - generic "登录" [ref=e21]
+    - generic:
+      - generic "国内版" [ref=e22]
+      - generic "国际版" [ref=e23] [cursor=pointer]
+    - navigation "主菜单" [ref=e24]:
+      - list [ref=e25]:
+        - listitem [ref=e26]:
+          - link "网页" [ref=e27] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=e28]:
+          - link "图片" [ref=e29] [cursor=pointer]:
+            - /url: /images/search?q=executive+audience+plain+language+visual+communication+internal+tool+plan+testing+incremental+delivery&FORM=HDRSC2
+        - listitem [ref=e30]:
+          - link "视频" [ref=e31] [cursor=pointer]:
+            - /url: /videos/search?q=executive+audience+plain+language+visual+communication+internal+tool+plan+testing+incremental+delivery&FORM=HDRSC3
+        - listitem [ref=e32]:
+          - link "学术" [ref=e33] [cursor=pointer]:
+            - /url: /academic/search?q=executive+audience+plain+language+visual+communication+internal+tool+plan+testing+incremental+delivery&FORM=HDRSC4
+        - listitem [ref=e34]:
+          - link "词典" [ref=e35] [cursor=pointer]:
+            - /url: /dict/search?q=executive+audience+plain+language+visual+communication+internal+tool+plan+testing+incremental+delivery&FORM=HDRSC6
+        - listitem [ref=e36]:
+          - link "地图" [ref=e37] [cursor=pointer]:
+            - /url: /maps?q=executive+audience+plain+language+visual+communication+internal+tool+plan+testing+incremental+delivery&FORM=HDRSC7
+        - listitem [ref=e38]:
+          - button "更多" [ref=e39] [cursor=pointer]:
+            - img [ref=e41]
+            - text: 更多
+  - contentinfo [ref=e43]:
+    - list [ref=e45]:
+      - listitem [ref=e46]:
+        - link "增值电信业务经营许可证：合字B2-20090007" [ref=e47] [cursor=pointer]:
+          - /url: https://dxzhgl.miit.gov.cn/dxxzsp/xkz/xkzgl/resource/qiyereport.jsp?num=caf04fa4-bd8a-4d9e-80b6-2aa1b86c1509&type=yreport
+      - listitem [ref=e48]:
+        - link "京ICP备10036305号-7" [ref=e49] [cursor=pointer]:
+          - /url: https://beian.miit.gov.cn
+      - listitem [ref=e50]:
+        - link "京公网安备11010802047360号" [ref=e51] [cursor=pointer]:
+          - /url: https://beian.mps.gov.cn/#/query/webSearch?code=11010802047360
+      - listitem [ref=e52]:
+        - link "隐私" [ref=e53] [cursor=pointer]:
+          - /url: http://go.microsoft.com/fwlink/?LinkId=521839
+      - listitem [ref=e54]:
+        - link "条款" [ref=e55] [cursor=pointer]:
+          - /url: http://go.microsoft.com/fwlink/?LinkID=246338

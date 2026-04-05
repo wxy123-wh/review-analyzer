@@ -1,0 +1,64 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - img
+      - generic [ref=e11]:
+        - link [ref=e12] [cursor=pointer]:
+          - /url: https://dub.co
+          - img [ref=e13]
+        - generic [ref=e15]:
+          - generic [ref=e17]:
+            - heading "Log in to your Dub account" [level=3] [ref=e18]
+            - generic [ref=e23]:
+              - generic [ref=e24]:
+                - generic [ref=e25]:
+                  - generic [ref=e26]:
+                    - generic [ref=e27]: Email
+                    - textbox "Email" [active] [ref=e28]:
+                      - /placeholder: panic@thedis.co
+                  - button "Log in with email" [ref=e29] [cursor=pointer]:
+                    - generic [ref=e30]: Log in with email
+                - generic [ref=e33]: or
+              - button "Continue with Google" [ref=e36] [cursor=pointer]:
+                - img [ref=e37]
+                - generic [ref=e43]: Continue with Google
+              - button "Continue with GitHub" [ref=e45] [cursor=pointer]:
+                - img [ref=e46]
+                - generic [ref=e48]: Continue with GitHub
+              - button "Continue with SAML SSO" [ref=e51] [cursor=pointer]:
+                - img [ref=e52]
+                - generic [ref=e55]: Continue with SAML SSO
+            - paragraph [ref=e56]:
+              - text: Don't have an account?
+              - link "Sign up" [ref=e57] [cursor=pointer]:
+                - /url: register
+            - link "Looking for your Dub partner account? Log in at partners.dub.co" [ref=e59] [cursor=pointer]:
+              - /url: https://partners.dub.co/login
+              - img
+              - generic [ref=e60]:
+                - paragraph [ref=e61]: Looking for your Dub partner account?
+                - generic [ref=e62]: Log in at partners.dub.co
+          - paragraph [ref=e64]:
+            - text: By continuing, you agree to Dub’s
+            - link "Terms of Service" [ref=e65] [cursor=pointer]:
+              - /url: https://dub.co/legal/terms
+            - text: and
+            - link "Privacy Policy" [ref=e66] [cursor=pointer]:
+              - /url: https://dub.co/legal/privacy
+    - generic [ref=e67]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - img "Framer team" [ref=e76]
+          - img "Framer"
+        - paragraph [ref=e77]: Learn how Framer manages $500K+ in monthly affiliate payouts with Dub
+        - link "Read more" [ref=e78] [cursor=pointer]:
+          - /url: https://dub.co/customers/framer
+      - generic [ref=e79]:
+        - img "Framer"
+        - img "Granola"
+        - img "Buffer"
+        - img "Copper"
+        - img "Perplexity"
+        - img "Wispr Flow"
+  - alert [ref=e80]

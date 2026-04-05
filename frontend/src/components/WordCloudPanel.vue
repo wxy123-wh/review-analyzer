@@ -1,37 +1,52 @@
 <template>
-  <div class="panel">
+  <section class="panel">
     <header class="head">
-      <h3>词云洞察（{{ aspectLabel }}）</h3>
+      <div class="title-block">
+        <span class="eyebrow">Keyword pulse</span>
+        <div class="title-copy">
+          <h3>词云洞察（{{ aspectLabel }}）</h3>
+          <p class="support">保留词云为主视图，说明、情绪图例与补充结论收拢到图外，提升信息分层。</p>
+        </div>
+      </div>
       <button v-if="canRetry" type="button" class="retry-btn" @click="emit('retry')">重试</button>
     </header>
 
-    <p v-if="state === 'loading'" class="hint">正在加载词云，请稍候...</p>
-    <div v-else-if="chartRenderError" class="state-block">
+    <div v-if="state === 'loading'" class="state-shell">
+      <span class="state-label">加载中</span>
+      <p class="hint">正在加载词云，请稍候...</p>
+    </div>
+    <div v-else-if="chartRenderError" class="state-shell state-shell--error">
+      <span class="state-label">渲染异常</span>
       <p class="hint error">{{ chartRenderError }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
     </div>
-    <div v-else-if="state === 'error' || state === 'timeout'" class="state-block">
+    <div v-else-if="state === 'error' || state === 'timeout'" class="state-shell state-shell--error">
+      <span class="state-label">接口状态</span>
       <p class="hint error">{{ stateMessage }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
     </div>
-    <div v-else-if="state === 'empty'" class="state-block">
+    <div v-else-if="state === 'empty'" class="state-shell">
+      <span class="state-label">暂无数据</span>
       <p class="hint">{{ stateMessage }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">刷新数据</button>
     </div>
     <template v-else>
-      <div class="legend">
-        <span class="legend-item">
-          <i class="swatch positive"></i>
-          正向
-        </span>
-        <span class="legend-item">
-          <i class="swatch neutral"></i>
-          中性
-        </span>
-        <span class="legend-item">
-          <i class="swatch negative"></i>
-          负向
-        </span>
+      <div class="chart-meta">
+        <p class="support support--chart">颜色仅承担情绪分组，补充说明和高频词摘要保持紧凑，避免盖过词项本身。</p>
+        <div class="legend">
+          <span class="legend-item">
+            <i class="swatch positive"></i>
+            正向
+          </span>
+          <span class="legend-item">
+            <i class="swatch neutral"></i>
+            中性
+          </span>
+          <span class="legend-item">
+            <i class="swatch negative"></i>
+            负向
+          </span>
+        </div>
       </div>
 
       <div v-if="renderChart" ref="chartContainer" class="chart" />
@@ -43,7 +58,10 @@
       </ul>
 
       <article v-if="topWord" class="summary">
-        <h4>当前高频词</h4>
+        <div class="summary-head">
+          <span class="summary-kicker">Top term</span>
+          <h4>当前高频词</h4>
+        </div>
         <p>
           <strong>{{ topWord.keyword }}</strong>
           <span>
@@ -55,7 +73,7 @@
       <p v-if="notice" class="notice">{{ notice }}</p>
       <p class="touch-tip">触控提示：轻触词项可查看关键词与词频详情。</p>
     </template>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -80,9 +98,9 @@ const sentimentText: Record<string, string> = {
 }
 
 const sentimentColor: Record<string, string> = {
-  POSITIVE: '#2d9a62',
-  NEGATIVE: '#d45252',
-  NEUTRAL: '#4d75ad',
+  POSITIVE: '#4fd08b',
+  NEGATIVE: '#ff7b85',
+  NEUTRAL: '#7ab8ff',
 }
 
 const isTestMode = import.meta.env.MODE === 'test'
@@ -240,188 +258,334 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .panel {
-  border: 1px solid #c7deea;
-  border-radius: 14px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 58%),
+    var(--gradient-surface);
+  box-shadow: var(--shadow-raised);
+}
+
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(102, 224, 194, 0.08), transparent 34%);
+}
+
+.head,
+.state-shell,
+.chart-meta,
+.chart,
+.chip-list,
+.summary,
+.notice,
+.touch-tip {
+  position: relative;
+  z-index: var(--z-raised);
 }
 
 .head {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title-block,
+.title-copy,
+.summary-head {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.eyebrow,
+.state-label,
+.legend-item,
+.summary-kicker {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  width: fit-content;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-overlay);
+  box-shadow: var(--shadow-inset-soft);
+  font-size: var(--font-size-xs);
+}
+
+.eyebrow,
+.summary-kicker {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: var(--color-accent-secondary);
+}
+
+h3,
+.summary h4 {
+  margin: 0;
+  color: var(--color-text-primary);
 }
 
 h3 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.summary h4 {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-snug);
+}
+
+.support,
+.hint,
+.notice,
+.touch-tip {
   margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+}
+
+.support--chart {
+  max-width: 38rem;
 }
 
 .retry-btn {
-  border: 1px solid #81b6d3;
-  border-radius: 999px;
-  background: #f4faff;
-  color: #1b5f81;
-  font-size: 12px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, rgba(122, 184, 255, 0.16), rgba(102, 224, 194, 0.16));
+  color: var(--color-text-primary);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
   line-height: 1;
-  padding: 8px 12px;
   cursor: pointer;
+  box-shadow: var(--shadow-inset-soft);
+  transition:
+    border-color var(--motion-medium) var(--easing-standard),
+    box-shadow var(--motion-medium) var(--easing-standard),
+    transform var(--motion-fast) var(--easing-standard);
 }
 
-.state-block {
-  margin-top: 14px;
+.retry-btn:hover {
+  border-color: var(--color-accent-primary);
+  box-shadow: var(--shadow-glow);
+}
+
+.retry-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.state-shell,
+.chart,
+.summary,
+.notice {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(8, 16, 29, 0.56);
+  box-shadow: var(--shadow-inset-soft);
+}
+
+.state-shell {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
   justify-items: start;
+  padding: var(--space-4);
 }
 
-.hint {
-  margin: 14px 0 0;
-  color: #4f6778;
+.state-shell--error {
+  border-color: rgba(255, 123, 133, 0.24);
+  background: rgba(38, 12, 20, 0.36);
+}
+
+.state-label {
+  color: var(--color-text-secondary);
 }
 
 .hint.error {
-  color: #9b4343;
+  color: var(--color-semantic-down);
+}
+
+.chart-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .legend {
-  margin-top: 10px;
   display: flex;
-  gap: 12px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #4e6879;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
 }
 
 .swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
 }
 
-.positive {
-  background: #2d9a62;
+.legend .positive,
+.chip-list .positive {
+  background: rgba(79, 208, 139, 0.14);
 }
 
-.neutral {
-  background: #4d75ad;
+.legend .neutral,
+.chip-list .neutral {
+  background: rgba(122, 184, 255, 0.14);
 }
 
-.negative {
-  background: #d45252;
+.legend .negative,
+.chip-list .negative {
+  background: rgba(255, 123, 133, 0.14);
+}
+
+.legend .positive {
+  box-shadow: 0 0 0 0.2rem rgba(79, 208, 139, 0.14);
+}
+
+.legend .neutral {
+  box-shadow: 0 0 0 0.2rem rgba(122, 184, 255, 0.14);
+}
+
+.legend .negative {
+  box-shadow: 0 0 0 0.2rem rgba(255, 123, 133, 0.14);
 }
 
 .chart {
-  margin-top: 12px;
   min-height: 220px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(232, 246, 255, 0.5), rgba(255, 255, 255, 0.95));
+  padding: var(--space-2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 65%),
+    rgba(8, 16, 29, 0.72);
 }
 
 .chip-list {
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .chip-list li {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border: 1px solid #dce9f2;
-  border-radius: 999px;
-  padding: 8px 12px;
-  background: #f7fbff;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(8, 16, 29, 0.56);
+  box-shadow: var(--shadow-inset-soft);
 }
 
 .chip-list strong {
-  font-size: 14px;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
 }
 
 .chip-list span {
-  font-size: 12px;
-  color: #537083;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .chip-list .positive {
-  border-color: #b8e3cb;
-  background: rgba(232, 251, 240, 0.9);
+  border-color: rgba(79, 208, 139, 0.24);
+  color: var(--color-semantic-up);
 }
 
 .chip-list .neutral {
-  border-color: #bfd5ed;
-  background: rgba(239, 246, 255, 0.9);
+  border-color: rgba(122, 184, 255, 0.24);
+  color: var(--color-accent-primary);
 }
 
 .chip-list .negative {
-  border-color: #efc7c7;
-  background: rgba(255, 242, 242, 0.9);
+  border-color: rgba(255, 123, 133, 0.24);
+  color: var(--color-semantic-down);
 }
 
 .summary {
-  margin-top: 14px;
-  border: 1px solid #d5e8f3;
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: rgba(243, 251, 255, 0.75);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }
 
-.summary h4 {
-  margin: 0;
-  font-size: 13px;
-  color: #396077;
+.summary-kicker {
+  color: var(--color-accent-secondary);
 }
 
 .summary p {
-  margin: 8px 0 0;
+  margin: 0;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .summary strong {
-  font-size: 18px;
-  color: #223744;
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
 }
 
 .summary span {
-  font-size: 12px;
-  color: #567183;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .notice {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #4f6778;
+  padding: var(--space-3);
+  border-style: dashed;
 }
 
 .touch-tip {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #607785;
+  padding-left: var(--space-1);
+  font-size: var(--font-size-sm);
 }
 
 @media (max-width: 768px) {
   .panel {
-    padding: 14px;
+    padding: var(--space-3);
+  }
+
+  .head {
+    flex-direction: column;
+  }
+
+  .retry-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .chip-list strong {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
   }
+}
 
-  .touch-tip {
-    font-size: 11px;
+@media (prefers-reduced-motion: reduce) {
+  .retry-btn {
+    transition: none;
   }
 }
 </style>

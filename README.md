@@ -1,63 +1,103 @@
-# Bluetooth Earphone Review Decision System (Framework Bootstrap)
+# 操作手册
 
-This repository provides a runnable technical framework for the system described in:
-`docs/2026-03-12-bluetooth-earphone-review-system-design-v1.0.md`.
+本文只依据当前仓库代码、配置、脚本和测试编写。
 
-## Repository Layout
+配套文档：
+- 代码文档：`docs/代码文档.md`
+- 接口文档：`docs/接口文档.md`
 
-- `backend/`: Spring Boot API service (business orchestration + async task 演示数据流程)
-- `nlp-service/`: FastAPI NLP service (analysis 演示数据流程)
-- `frontend/`: Vue 3 dashboard shell
-- `infra/db/init/`: PostgreSQL initialization scripts
-- `docs/`: design and planning documents
+## 1. 安装
 
-## Quick Start
+### 1.1 代码仓库内已确认的运行时
+- Docker / Docker Compose：由 `docker-compose.yml` 和 `docker-compose.prod.yml` 可确认。
+- Java 21：由 `backend/pom.xml` 可确认。
+- Maven：由 `backend/pom.xml` 与 `backend/Dockerfile` 可确认。
+- Node.js 20：由 `frontend/Dockerfile` 与 `frontend/Dockerfile.prod` 可确认。
+- Python 3.11：由 `nlp-service/Dockerfile` 可确认。
 
-1. Copy env template:
-   - PowerShell: `Copy-Item .env.example .env`
-   - Bash: `cp .env.example .env`
-2. Start all services:
-   - `docker compose up --build`
-3. Open apps:
-   - Frontend: `http://localhost:5175`
-   - Backend Health: `http://localhost:8080/api/v1/health`
-   - NLP Health: `http://localhost:8000/health`
+### 1.2 本地安装依赖命令
+- backend
+  - `mvn -f backend/pom.xml test`
+- frontend
+  - `npm --prefix frontend install`
+  - `npm --prefix frontend test`
+- nlp-service
+  - `python -m pip install -r nlp-service/requirements.txt`
+  - `python -m pytest nlp-service/tests -q`
 
-### Persistence Notes
+## 2. 配置
 
-`actions/sync/analysis` now persist into PostgreSQL tables instead of in-memory maps:
-
-- `improvement_actions`
-- `sync_jobs`
-- `analysis_jobs`
-- `reviews_raw` (demo seed comments)
-- `demo_seed_versions` (demo seed version marker)
-
-You can inspect data with:
+### 2.1 环境变量
+复制模板：
 
 ```bash
-docker exec -it wh-postgres psql -U earphone -d earphone_review
+cp .env.example .env
 ```
 
-### OneBound Configuration
+或 PowerShell：
 
-To enable real comment sync from OneBound, set these variables in `.env`:
+```powershell
+Copy-Item .env.example .env
+```
 
-- `ONEBOUND_API_KEY`
-- `ONEBOUND_API_SECRET` (if your account uses a separate secret)
-- Optional: `ONEBOUND_BASE_URL`, `ONEBOUND_DEFAULT_PLATFORM`
+当前代码中可确认的变量如下：
 
-Then trigger sync with provider `onebound`:
+| 分类 | 变量 |
+|---|---|
+| Postgres | `POSTGRES_DB` `POSTGRES_USER` `POSTGRES_PASSWORD` `POSTGRES_PORT` |
+| Redis | `REDIS_PORT` |
+| Backend | `BACKEND_PORT` `NLP_BASE_URL` `ONEBOUND_BASE_URL` `ONEBOUND_API_KEY` `ONEBOUND_API_SECRET` `ONEBOUND_DEFAULT_PLATFORM` |
+| NLP | `NLP_PORT` |
+| Frontend | `FRONTEND_PORT` `VITE_API_BASE_URL` `VITE_SHOW_CHAOS_MODULE` `PUBLIC_PORT` |
+
+### 2.2 默认值
+- backend 端口：`8080`
+- frontend 开发端口：`5175`
+- nlp-service 端口：`8000`
+- postgres 端口：`5432`
+- redis 端口：`6379`
+- 前端默认 API 基地址：`http://localhost:8080`
+- chaos 模块默认：隐藏（`VITE_SHOW_CHAOS_MODULE=false`）
+
+### 2.3 OneBound 配置
+- 要走真实 OneBound 同步，必须配置 `ONEBOUND_API_KEY`。
+- `ONEBOUND_API_SECRET` 为空时，后端会退回使用 API Key 作为 secret。
+- 如果缺少 key，`provider=onebound` 的同步会失败。
+
+## 3. 启动
+
+### 3.1 开发栈启动
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/sync/start \
-  -H "Content-Type: application/json" \
-  -d '{"provider":"onebound","platform":"taobao","targetProductCode":"600530677643"}'
+docker compose up --build
 ```
 
-### Demo Data Initialization
+当前代码中的服务启动顺序可确认如下：
+1. `postgres`
+2. `redis`
+3. `nlp-service`
+4. `backend`
+5. `frontend`
 
-Use this endpoint to initialize deterministic demo comments (single product, 100 rows, idempotent):
+### 3.2 开发栈访问地址
+- Frontend：`http://localhost:5175`
+- Backend Health：`http://localhost:8080/api/v1/health`
+- NLP Health：`http://localhost:8000/health`
+
+### 3.3 生产栈启动
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+生产栈中：
+- 只有 frontend 对外暴露端口，默认 `80`
+- backend 与 nlp-service 只在容器网络内部暴露
+- Nginx 会把 `/api/` 代理到 `http://backend:8080`
+
+## 4. 使用
+
+### 4.1 初始化演示数据
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/demo-data/init \
@@ -65,138 +105,175 @@ curl -X POST http://localhost:8080/api/v1/demo-data/init \
   -d '{"productCode":"demo-earphone"}'
 ```
 
-Response includes:
-- `targetReviewCount`
-- `insertedReviewCount`
-- `updatedReviewCount`
-- `totalReviewCount`
-- `dataVersion`
-- `durationMs`
+关键行为：
+- 目标评论数固定为 `100`
+- 可重复执行
+- 重复执行时会更新已有演示评论，而不是无限新增
 
-## Local Test Commands
+### 4.2 查看后端健康状态
 
-- Backend:
-  - With local Maven: `mvn -f backend/pom.xml test`
-  - Without local Maven (PowerShell): `docker run --rm -v ${PWD}/backend:/workspace -w /workspace maven:3.9-eclipse-temurin-21 mvn test`
-- NLP:
-  - `python -m pip install -r nlp-service/requirements.txt`
-  - `python -m pytest nlp-service/tests -q`
-- Frontend:
-  - `npm --prefix frontend install`
-  - `npm --prefix frontend test`
+```bash
+curl http://localhost:8080/api/v1/health
+```
 
-## Current Scope
+### 4.3 演示登录
+- 前端演示账号：`wxy`
+- 前端演示密码：`123456`
+- 这是前端硬编码演示登录，不是后端鉴权。
 
-This is a technical framework skeleton for V1.0:
-- API contracts and service boundaries are in place.
-- Core domain schema is initialized.
-- Feature logic remains intentionally minimal and ready for iterative development.
-- Key action/sync/analysis records are persisted to PostgreSQL.
+### 4.4 真实 OneBound 同步
 
-## Production Deployment (ECS / Cloud VM)
+```bash
+curl -X POST http://localhost:8080/api/v1/sync/start \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"onebound","platform":"taobao","targetProductCode":"600530677643"}'
+```
 
-For a complete and detailed step-by-step guide to deploying this system to cloud servers (such as Aliyun ECS, AWS EC2, or Tencent CVM), please refer to our dedicated deployment guide:
-[**Cloud Deployment Guide (`docs/CLOUD_DEPLOY_GUIDE.md`)**](docs/CLOUD_DEPLOY_GUIDE.md)
+注意：
+- 只有 `provider=onebound` 会触发真实外部调用。
+- 其他 provider 当前只会创建 `QUEUED` 任务。
 
-### Quick Summary
+### 4.5 看板已实现模块
+- 总览
+- 问题
+- 对比
+- 趋势图
+- 词云
+- 动作
+- 验证
+- 流水线
+- 智能体
+- 可解释性
+- 报告中心
+- 韧性演练（默认隐藏，需显式开启）
 
-Use the production compose file to avoid Vite dev server in cloud:
+### 4.6 当前范围说明
+- `compare` 当前返回静态数据。
+- 所有 `showcase/*` 接口当前返回占位演示数据，`implemented=false`。
+- analysis job 当前只会创建 `QUEUED` 记录。
 
-1. Prepare env:
-   - `cp .env.example .env`
-   - fill `ONEBOUND_API_KEY`, `ONEBOUND_API_SECRET`
-2. Start production stack:
-   - `docker compose -f docker-compose.prod.yml up --build -d`
-3. Access:
-   - Frontend + API gateway: `http://<server-ip>:${PUBLIC_PORT:-80}`
-4. Health checks:
-   - `curl http://<server-ip>:${PUBLIC_PORT:-80}/api/v1/health`
-   - `curl http://<server-ip>:${PUBLIC_PORT:-80}/api/v1/issues`
+## 5. 排障
 
-The production frontend image serves static files via Nginx and proxies `/api/*` to backend service.
+### 5.1 前端打不开或接口全失败
+检查：
+- backend 是否已启动：访问 `GET /api/v1/health`
+- `VITE_API_BASE_URL` 是否指向正确后端
+- frontend 请求默认超时为 10 秒；超时会在趋势/词云等模块显示 timeout 提示
 
-## V1 Baseline API Coverage
+### 5.2 OneBound 同步失败
+检查：
+- `.env` 是否配置 `ONEBOUND_API_KEY`
+- `ONEBOUND_API_SECRET` 是否为空或错误
+- `provider` 是否确实传了 `onebound`
+- 查询 `GET /api/v1/sync/jobs/{id}` 查看 `status`、`fetchedCount`、`errorMessage`
 
-The backend currently exposes these V1 baseline endpoints:
+### 5.3 趋势图或词云没有数据
+检查：
+- 是否先执行了 `POST /api/v1/demo-data/init`
+- 查询参数 `productCode`、`aspect` 是否落在当前代码支持范围内
+- 若无数据，后端会返回空数组并带 `notice`
 
-- `GET /api/v1/health`
-- `POST /api/v1/sync/start`
-- `GET /api/v1/sync/jobs/{id}`
-- `POST /api/v1/analysis/start`
-- `GET /api/v1/analysis/jobs/{id}`
-- `POST /api/v1/demo-data/init`
-- `GET /api/v1/issues`
-- `GET /api/v1/compare`
-- `GET /api/v1/trends`
-- `GET /api/v1/wordcloud`
-- `POST /api/v1/actions`
-- `GET /api/v1/validation`
+### 5.4 验证模块没有结果
+检查：
+- 是否已经创建动作
+- `actionId` 是否存在
+- 演示评论是否足够形成前后对比
 
-## 演示洞察接口契约（中文）
+### 5.5 登录失败
+检查：
+- 账号是否为 `wxy`
+- 密码是否为 `123456`
+- 账号长度是否至少 3，密码长度是否至少 6
 
-- 词云、趋势、问题与验证接口的中文字段说明与示例响应见：
-  - `docs/2026-03-24-insight-wordcloud-api-contract.md`
+## 6. 日志
 
-## Dashboard Modules
+当前代码中可确认的日志点：
+- `DemoDataInitializationService`：初始化演示数据时输出 `info`
+- `InsightQueryService`：聚合失败时输出 `warn`
+- 前端禁用词检查脚本会向控制台输出违规项
 
-Frontend now provides a narrow-sidebar navigation workflow with these modules:
+无法从当前代码确认：
+- 日志文件路径
+- 日志轮转
+- 日志保留策略
+- 集中式日志采集
 
-- `总览 (Overview)`: service status and key metrics
-- `问题 (Issues)`: priority-ranked issue table with evidence summary
-- `对比 (Compare)`: product vs competitor score comparison
-- `趋势 (Trends)`: aspect-level negative-rate and volume changes
-- `动作 (Actions)`: improvement action registration and list
-- `验证 (Validation)`: before/after impact tracking for actions
+## 7. 部署
 
-## V1.5 演示扩展
+### 7.1 开发部署
+- 直接使用 `docker-compose.yml`。
 
-### 项目经理说明（中文）
+### 7.2 生产部署
+- 直接使用 `docker-compose.prod.yml`。
+- frontend 生产镜像会先构建静态文件，再用 Nginx 提供服务。
+- `/api/` 由 Nginx 反向代理到 backend。
 
-- 目标：在不扩大集成范围的前提下，形成可演示、可讲解、可复盘的 V1.5 前端体验。
-- 交付：统一中文文案和术语（统一为“演示数据”），并保留可持续校验机制。
-- 价值：支持评审与路演时快速说明当前能力边界，以及后续从演示数据平滑过渡到真实链路。
+### 7.3 部署前检查
+- `.env` 是否存在
+- `PUBLIC_PORT` 是否符合目标环境要求
+- 若要使用 OneBound，相关凭据是否已配置
 
-### 登录体验
+无法从当前代码确认：
+- Kubernetes / Helm / Terraform / ECS 任务定义
+- CI/CD 流水线
+- 云厂商安全组或负载均衡配置
 
-前端在进入看板前提供沉浸式登录页：
+## 8. 调试
 
-- 光标轨迹互动
-- 吉祥物视线追踪
-- 密码聚焦隐私动作
+### 8.1 backend
 
-当前登录用于演示流程，用户名和密码均为非空即可进入。
+```bash
+mvn -f backend/pom.xml test
+```
 
-### 演示能力 API
+测试可确认覆盖：
+- health
+- sync
+- analysis
+- demo-data init
+- compare
+- trends
+- wordcloud
+- actions
+- validation
+- showcase 占位接口
 
-后端提供以下演示能力接口：
+### 8.2 frontend
 
-- `GET /api/v1/showcase/pipeline`
-- `GET /api/v1/showcase/agent-arena`
-- `GET /api/v1/showcase/explainability`
-- `GET /api/v1/showcase/chaos`
-- `POST /api/v1/showcase/reports/preview`
+```bash
+npm --prefix frontend test
+```
 
-前端统一展示为确定性返回，并约定：
+注意：
+- 该命令会先执行禁用词检查脚本
+- `README.md` 也在检查范围内；具体禁用词请以 `frontend/scripts/check-banned-copy-terms.mjs` 中的当前实现为准，避免把被禁用词直接写回本文档
 
-- `status: 演示数据`
-- `implemented: false`
+### 8.3 nlp-service
 
-### 演示模块
+```bash
+python -m pytest nlp-service/tests -q
+```
 
-侧边栏包含以下高可见模块：
+## 9. 维护
 
-- `流水线`: 编排阶段可视化
-- `智能体`: 协同状态表格
-- `可解释性`: 权重贡献条形展示
-- `混沌演练`: 韧性场景剧本
-- `报告中心`: 演示数据报告预览
+### 9.1 演示数据维护
+- 需要刷新演示数据时，重复调用 `POST /api/v1/demo-data/init` 即可。
+- 该操作是幂等更新，不是无限追加。
 
-### 建议演示流程
+### 9.2 文案维护
+- 修改 frontend 文案或本文件后，运行：
 
-用于验收或路演时，推荐如下顺序：
+```bash
+npm --prefix frontend test
+```
 
-1. 从 `WH 演示控制台` 登录（任意非空用户名与密码）。
-2. 展示吉祥物视线追踪和密码聚焦隐私动作。
-3. 在看板从 `总览` 切换至 `流水线 -> 智能体 -> 可解释性 -> 混沌演练`。
-4. 打开 `报告中心` 触发预览，说明当前为演示数据与后续路线。
-5. 最后切到 `验证`，把演示链路与行动效果闭环关联起来。
+- 以确保禁用词检查通过。
+
+### 9.3 数据库维护
+- 当前代码依赖 PostgreSQL 表结构与 backend 启动自检。
+- 如果数据库为空，可通过 compose 挂载 SQL 和 backend 启动自建双重确保核心表存在。
+
+### 9.4 无法从当前代码确认
+- 无法从当前代码确认备份恢复方案。
+- 无法从当前代码确认定时清理、归档、自动巡检任务。
+- 无法从当前代码确认监控、告警、指标采集方案。

@@ -1,0 +1,145 @@
+{
+  "active_plan": "D:\\code\\review-analyzer\\.sisyphus\\plans\\flashy-showcase-ui.md",
+  "started_at": "2026-03-31T18:32:18.111Z",
+  "session_ids": [
+    "ses_2bae581e0ffeGvXMZj2JaTdBFE",
+    "ses_2a747daa0ffeEONC3hgP3wnLYD",
+    "ses_2a73fb4fcffe3BKRUio2O2DdUw",
+    "ses_2a73fb41affeBBgKuAmHM5GfcM",
+    "ses_2a7434e24ffeCiA4FbZ5eowROF",
+    "ses_2a73b7ec0ffemnr6ZiMHL4TL5l",
+    "ses_2a713a0e2ffegyQVUTgVkPTTIZ",
+    "ses_2a713a410ffexPr8T3eqi4NBHA",
+    "ses_2a712acd4ffenv35YNstumAk4H",
+    "ses_2a713a0caffe3XEhDEeXsiR1cs",
+    "ses_2a712abafffeN6Kl3JzA44PRMQ",
+    "ses_2a70c9a58ffejr5OyzeQKdmClA",
+    "ses_2a6ff449cffeA6Tvca66wQ1rqO",
+    "ses_2a6ff467cffexx43AGGnc98H2o",
+    "ses_2a6d6964dffeK5ip6hEI7k5gj5",
+    "ses_2a6d69630ffeTuIQPacA74OOqN",
+    "ses_2a6d10ec3ffepuLhvovfn5LYX5",
+    "ses_2a6c8dc9fffef6qdPqEBbJk24G",
+    "ses_2a6c8d721ffehfJcU0rsHRsRBX",
+    "ses_2a6c48621ffezH0iHOao3ovo0F",
+    "ses_2a6badc88ffeWYIBlReKmWiVIY",
+    "ses_2a6badc7cffeguc0dLIo01k9FS",
+    "ses_2a6b80ffdffeYZo4690pHN229k",
+    "ses_2a6af336dffeFQLOs31vDaL7tC",
+    "ses_2a6af3376ffe6Zenn4yxhW5GYR",
+    "ses_2a6ac46c4ffekiKAXKDWTijAbn",
+    "ses_2a69ffaceffeoLJYCkFDs3WPWv",
+    "ses_2a69ff056ffeNgnpQOyFYlFULs",
+    "ses_2a6542cedffe161MUrwKv02A11",
+    "ses_2a65427f4ffePDgQw2qbwhZQCX",
+    "ses_2a64f6e95ffeNpBRLJhMxdhCeI",
+    "ses_2a544c73dffeV7dvN8o6whButi",
+    "ses_2a54371aeffeFk1XXhPC2zYMWs",
+    "ses_2a5338060ffeKg3cSWmI6sedRe",
+    "ses_2a52c182affeDRwzxNDWt6CG76",
+    "ses_2a51f4981ffejyNau7oE9BnagE"
+  ],
+  "plan_name": "flashy-showcase-ui",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Extract shell structure from `App.vue`",
+      "session_id": "ses_2a73b7ec0ffemnr6ZiMHL4TL5l",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-04T14:04:50.147Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Introduce a tokenized dark premium visual foundation",
+      "session_id": "ses_2a70c9a58ffejr5OyzeQKdmClA",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-04T14:50:37.333Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Redesign the login/auth experience as the flagship entry flow",
+      "session_id": "ses_2a6d10ec3ffepuLhvovfn5LYX5",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-04T15:53:44.824Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Rebuild the authenticated shell and navigation chrome",
+      "session_id": "ses_2a6c48621ffezH0iHOao3ovo0F",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-04T16:09:16.162Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Restyle shared cards, lists, and small dashboard primitives",
+      "session_id": "ses_2a6b80ffdffeYZo4690pHN229k",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-04T16:20:23.810Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Redesign dense data tables for premium readability",
+      "session_id": "ses_2a6ac46c4ffekiKAXKDWTijAbn",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-04T16:35:07.340Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Recompose all showcase panels into staged premium experiences",
+      "session_id": "ses_2a64f6e95ffeNpBRLJhMxdhCeI",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-04T18:18:55.224Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "Harden responsiveness, accessibility, and performance boundaries",
+      "session_id": "ses_2a54371aeffeFk1XXhPC2zYMWs",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-04T23:11:45.971Z"
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "Expand Vitest coverage for redesigned shell, auth, and visual states",
+      "session_id": "ses_2a5338060ffeKg3cSWmI6sedRe",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-04T23:27:06.535Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Capture final evidence and align the full experience to one visual language",
+      "session_id": "ses_2a52c182affeDRwzxNDWt6CG76",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-04T23:40:35.279Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit — oracle",
+      "session_id": "ses_2a51f4981ffejyNau7oE9BnagE",
+      "agent": "oracle",
+      "category": "",
+      "updated_at": "2026-04-04T23:45:27.949Z"
+    }
+  }
+}

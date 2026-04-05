@@ -1,0 +1,13 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]: Login screen
+    - img "Final login screen" [ref=e5]
+  - generic [ref=e6]:
+    - generic [ref=e7]: Authenticated shell overview
+    - img "Final shell overview" [ref=e8]
+  - generic [ref=e9]:
+    - generic [ref=e10]: Dense data screen
+    - img "Final dense data issues screen" [ref=e11]
+  - generic [ref=e12]:
+    - generic [ref=e13]: Showcase-heavy screen
+    - img "Final showcase explainability screen" [ref=e14]

@@ -1,0 +1,28 @@
+flowchart TD
+    A[输入 productCode] --> B[加载评论集合]
+    B --> C{评论是否为空}
+    C -- 是 --> D[返回无数据兜底问题]
+    C -- 否 --> E[按 aspect 分组]
+    E --> F[计算 maxMentionCount]
+    F --> G[遍历每个 aspect]
+    G --> H{aspect 是否为 unknown}
+    H -- 是 --> G
+    H -- 否 --> I[计算 mentionCount]
+    I --> J[计算 negativeCount]
+    J --> K[计算 negativeRate]
+    K --> L[计算 mentionVolume]
+    L --> M[按前后两个窗口切分评论]
+    M --> N[计算 previousNegativeRate]
+    N --> O[计算 recentNegativeRate]
+    O --> P[计算 trendDelta]
+    P --> Q[计算 trendGrowth]
+    Q --> R[计算 competitorGap]
+    R --> S[按固定权重计算 priorityScore]
+    S --> T{negativeRate 是否大于 0}
+    T -- 否 --> G
+    T -- 是 --> U[构造 IssueItem]
+    U --> G
+    G --> V[按 priorityScore 降序排序]
+    V --> W{结果是否为空}
+    W -- 是 --> X[返回平稳兜底问题]
+    W -- 否 --> Y[输出问题列表]

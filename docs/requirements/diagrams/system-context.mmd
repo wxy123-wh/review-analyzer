@@ -1,0 +1,7 @@
+flowchart LR
+    U["产品经理/运营/评审"] --> FE["Frontend (Vue3 + TS)"]
+    FE -->|REST| BE["Backend (Spring Boot)"]
+    BE -->|SQL| DB["PostgreSQL"]
+    BE -->|HTTP| NLP["NLP Service (FastAPI)"]
+    BE -->|可选评论同步| OB["OneBound 聚合评论 API"]
+    BE -->|Showcase 占位数据| SH["Showcase Service"]

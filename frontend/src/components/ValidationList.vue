@@ -1,8 +1,13 @@
 <template>
-  <div class="panel">
-    <h3>改进效果验证</h3>
-    <ul v-if="items.length > 0">
-      <li v-for="item in items" :key="item.actionId">
+  <section class="panel" data-motion-spotlight="soft">
+    <div class="head">
+      <div class="title-block">
+        <span class="eyebrow">验证回看</span>
+        <h3>改进效果验证</h3>
+      </div>
+    </div>
+    <ul v-if="items.length > 0" class="validation-list">
+      <li v-for="item in items" :key="item.actionId" class="validation-item" data-motion-hover="lift">
         <div class="row">
           <strong>{{ item.actionId }}</strong>
           <span class="delta">改善 {{ (item.improvementRate * 100).toFixed(2) }}%</span>
@@ -11,7 +16,7 @@
       </li>
     </ul>
     <p v-else class="empty">暂无验证结果</p>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -24,49 +29,134 @@ defineProps<{
 
 <style scoped>
 .panel {
-  border: 1px solid #cfe1d9;
-  border-radius: 14px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 58%),
+    var(--gradient-surface);
+  box-shadow: var(--shadow-raised);
+}
+
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(102, 224, 194, 0.06), transparent 34%);
+}
+
+.head,
+.validation-list,
+.empty {
+  position: relative;
+  z-index: var(--z-raised);
 }
 
 h3 {
-  margin: 0 0 12px;
+  margin: 0;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
 }
 
-ul {
+.title-block {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.eyebrow,
+.delta {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-overlay);
+  box-shadow: var(--shadow-inset-soft);
+  font-size: var(--font-size-xs);
+}
+
+.eyebrow {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-secondary);
+}
+
+.validation-list {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
-li {
-  border: 1px solid #e5ede8;
-  border-radius: 10px;
-  padding: 12px;
+.validation-item {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: rgba(8, 16, 29, 0.48);
+  box-shadow: var(--shadow-inset-soft);
+  transition:
+    border-color var(--motion-medium) var(--easing-standard),
+    background-color var(--motion-medium) var(--easing-standard),
+    transform var(--motion-fast) var(--easing-standard);
+}
+
+.validation-item:hover {
+  border-color: var(--color-border-default);
+  background: rgba(12, 22, 38, 0.7);
 }
 
 .row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .delta {
-  color: #176b48;
+  color: var(--color-accent-secondary);
+  border-color: rgba(102, 224, 194, 0.24);
+  background: rgba(102, 224, 194, 0.12);
   font-weight: 700;
 }
 
+strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-snug);
+}
+
 p {
-  margin: 8px 0 0;
-  color: #364840;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
 }
 
 .empty {
   margin: 0;
-  color: #677c72;
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(8, 15, 27, 0.42);
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 640px) {
+  .row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

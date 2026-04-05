@@ -1,0 +1,58 @@
+- generic [ref=e84]:
+  - complementary [ref=e86]:
+    - navigation [ref=e93]:
+      - generic [ref=e94]:
+        - paragraph [ref=e95]: 核心模块
+        - generic [ref=e96]:
+          - button "O 总览" [ref=e97] [cursor=pointer]:
+            - generic [ref=e99]: O
+            - generic [ref=e100]: 总览
+          - button "I 问题" [active] [ref=e101] [cursor=pointer]:
+            - generic [ref=e103]: I
+            - generic [ref=e104]: 问题
+          - button "C 对比" [ref=e105] [cursor=pointer]:
+            - generic [ref=e107]: C
+            - generic [ref=e108]: 对比
+          - button "T 趋势图" [ref=e109] [cursor=pointer]:
+            - generic [ref=e111]: T
+            - generic [ref=e112]: 趋势图
+          - button "W 词云" [ref=e113] [cursor=pointer]:
+            - generic [ref=e115]: W
+            - generic [ref=e116]: 词云
+          - button "A 动作" [ref=e117] [cursor=pointer]:
+            - generic [ref=e119]: A
+            - generic [ref=e120]: 动作
+          - button "V 验证" [ref=e121] [cursor=pointer]:
+            - generic [ref=e123]: V
+            - generic [ref=e124]: 验证
+      - generic [ref=e125]:
+        - paragraph [ref=e126]: 演示场景
+        - generic [ref=e127]:
+          - button "P 流水线" [ref=e128] [cursor=pointer]:
+            - generic [ref=e130]: P
+            - generic [ref=e131]: 流水线
+          - button "G 智能体" [ref=e132] [cursor=pointer]:
+            - generic [ref=e134]: G
+            - generic [ref=e135]: 智能体
+          - button "E 可解释性" [ref=e136] [cursor=pointer]:
+            - generic [ref=e138]: E
+            - generic [ref=e139]: 可解释性
+          - button "R 报告中心" [ref=e140] [cursor=pointer]:
+            - generic [ref=e142]: R
+            - generic [ref=e143]: 报告中心
+  - main [ref=e144]:
+    - generic [ref=e145]:
+      - generic [ref=e147]:
+        - generic [ref=e148]:
+          - generic [ref=e149]: 控制台视图
+          - generic [ref=e150]: 已接入演示模块导航
+        - generic [ref=e151]:
+          - generic [ref=e152]:
+            - heading "蓝牙耳机评论改进决策系统" [level=1] [ref=e153]
+            - paragraph [ref=e154]: V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心
+          - generic [ref=e155]: 当前用户：wxy
+      - generic [ref=e182]:
+        - generic [ref=e184]:
+          - generic [ref=e185]: Issue matrix
+          - heading "问题优先级清单" [level=3] [ref=e186]
+        - paragraph [ref=e187]: 暂无问题数据

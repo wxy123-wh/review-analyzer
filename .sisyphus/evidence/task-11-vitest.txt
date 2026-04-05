@@ -1,0 +1,24 @@
+﻿
+> wh-frontend@0.1.0 test
+> npm run check:copy && vitest run
+
+
+> wh-frontend@0.1.0 check:copy
+> node ./scripts/check-banned-copy-terms.mjs
+
+[copy-guard] 禁用词检查通过
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/code/review-analyzer/frontend[39m
+
+ [32m✓[39m src/test/StatusCard.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 34[2mms[22m[39m
+ [32m✓[39m src/test/TrendList.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 64[2mms[22m[39m
+ [32m✓[39m src/test/WordCloudPanel.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 70[2mms[22m[39m
+ [32m✓[39m src/test/App.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2741[2mms[22m[39m
+   [33m[2m✓[22m[39m App shell[2m > [22mpreserves login-character interactions, password toggling, loading state, and validation messaging [33m2504[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 07:51:06
+[2m   Duration [22m 5.81s[2m (transform 1.35s, setup 0ms, collect 3.06s, tests 2.91s, environment 3.98s, prepare 893ms)[22m
+
+

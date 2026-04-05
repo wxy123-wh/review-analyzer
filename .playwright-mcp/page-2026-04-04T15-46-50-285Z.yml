@@ -1,0 +1,57 @@
+- main [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - link [ref=e6] [cursor=pointer]:
+        - /url: https://trigger.dev
+        - img [ref=e7]
+      - link "Documentation" [ref=e20] [cursor=pointer]:
+        - /url: https://trigger.dev/docs
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - generic [ref=e26]: Documentation
+    - generic [ref=e28]:
+      - heading "Welcome" [level=1] [ref=e29]
+      - paragraph [ref=e30]: Create an account or login
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - button "GitHub Continue with GitHub" [ref=e35] [cursor=pointer]:
+            - generic [ref=e38]:
+              - img "GitHub" [ref=e39]
+              - generic [ref=e41]: Continue with GitHub
+          - button "Continue with Google" [ref=e44] [cursor=pointer]:
+            - generic [ref=e47]:
+              - img [ref=e48]
+              - generic [ref=e53]: Continue with Google
+          - link "Continue with Email" [ref=e55] [cursor=pointer]:
+            - /url: /login/magic?redirectTo=%2F
+            - generic [ref=e58]:
+              - img [ref=e59]
+              - text: Continue with Email
+        - paragraph [ref=e62]:
+          - text: By signing up you agree to our
+          - link "terms" [ref=e63] [cursor=pointer]:
+            - /url: https://trigger.dev/legal
+          - text: and
+          - link "privacy" [ref=e64] [cursor=pointer]:
+            - /url: https://trigger.dev/legal/privacy
+          - text: policy.
+    - paragraph [ref=e65]:
+      - text: Having login issues?
+      - link "Email us" [ref=e66] [cursor=pointer]:
+        - /url: https://@trigger.dev/contact
+      - text: or
+      - link "ask us in Discord" [ref=e67] [cursor=pointer]:
+        - /url: https://trigger.dev/discord
+  - generic [ref=e68]:
+    - generic [ref=e69]:
+      - heading "❝Trigger.dev is redefining background jobs for modern developers." [level=3] [ref=e70]
+      - paragraph [ref=e71]: Paul Copplestone, Supabase
+    - generic [ref=e72]:
+      - paragraph [ref=e73]: Trusted by developers at
+      - generic [ref=e74]:
+        - img [ref=e75]
+        - img [ref=e77]
+        - img [ref=e79]
+        - img [ref=e82]
+        - img [ref=e87]
+        - img [ref=e96]
