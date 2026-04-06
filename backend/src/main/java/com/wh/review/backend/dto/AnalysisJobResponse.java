@@ -6,6 +6,8 @@ public record AnalysisJobResponse(
         String jobId,
         String productCode,
         String status,
-        Instant startedAt
+        Instant startedAt,
+        Instant finishedAt,
+        String errorMessage
 ) {
 }

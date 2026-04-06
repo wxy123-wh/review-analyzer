@@ -32,12 +32,28 @@ class ApiSmokeTest {
 
     @Test
     void analysisJobShouldSupportStartAndQuery() throws Exception {
+        String productCode = "demo-analysis-smoke-" + UUID.randomUUID().toString().substring(0, 8);
+
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isOk());
+
         MvcResult startResult = mockMvc.perform(post("/api/v1/analysis/start")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"productCode\":\"demo-earphone\"}"))
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
                 .andExpect(jsonPath("$.jobId").isNotEmpty())
+                .andExpect(jsonPath("$.finishedAt").isNotEmpty())
                 .andReturn();
 
         String body = startResult.getResponse().getContentAsString();
@@ -46,7 +62,9 @@ class ApiSmokeTest {
         mockMvc.perform(get("/api/v1/analysis/jobs/{id}", jobId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.jobId").value(jobId))
-                .andExpect(jsonPath("$.status").value("QUEUED"));
+                .andExpect(jsonPath("$.productCode").value(productCode))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.finishedAt").isNotEmpty());
     }
 
     @Test
@@ -99,7 +117,10 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.items").isArray())
-                .andExpect(jsonPath("$.items[0].aspect").isNotEmpty())
+                .andExpect(jsonPath("$.items[0].aspect").value("bluetooth"))
+                .andExpect(jsonPath("$.items[1].aspect").value("noise-canceling"))
+                .andExpect(jsonPath("$.items[2].aspect").value("battery"))
+                .andExpect(jsonPath("$.items[3].aspect").value("microphone"))
                 .andExpect(jsonPath("$.items[0].ourScore").isNumber());
 
         mockMvc.perform(get("/api/v1/trends")
@@ -154,6 +175,8 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
                 .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=placeholder")))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("strategy=replace")))
                 .andExpect(jsonPath("$.stages").isArray())
                 .andExpect(jsonPath("$.stages[0].name").isNotEmpty());
 
@@ -161,13 +184,16 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
                 .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=placeholder")))
                 .andExpect(jsonPath("$.agents").isArray())
                 .andExpect(jsonPath("$.agents[0].agentName").isNotEmpty());
 
         mockMvc.perform(get("/api/v1/showcase/explainability"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
+                .andExpect(jsonPath("$.status").value("CONTROLLED_DATA_ONLY"))
                 .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=controlled-data-only")))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("strategy=keep")))
                 .andExpect(jsonPath("$.featureContributions").isArray())
                 .andExpect(jsonPath("$.featureContributions[0].feature").isNotEmpty());
 
@@ -175,6 +201,8 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
                 .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=gated-placeholder")))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("strategy=hide-by-default")))
                 .andExpect(jsonPath("$.drills").isArray())
                 .andExpect(jsonPath("$.drills[0].scenario").isNotEmpty());
 
@@ -184,6 +212,8 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
                 .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=placeholder")))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("data-source=static-preview-sections")))
                 .andExpect(jsonPath("$.previewSections").isArray())
                 .andExpect(jsonPath("$.previewSections[0]").isNotEmpty());
     }

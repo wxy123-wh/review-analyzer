@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -19,8 +20,16 @@ public class DemoReviewAggregationService {
     public static final String DEFAULT_TREND_ASPECT = "battery";
     public static final String ASPECT_ALL = "all";
     public static final String ASPECT_UNKNOWN = "unknown";
+    public static final List<String> CANONICAL_ASPECTS = List.of(
+            "battery",
+            "bluetooth",
+            "noise-canceling",
+            "comfort",
+            "microphone"
+    );
 
     private static final Map<String, AspectMeta> ASPECTS = buildAspects();
+    private static final Map<String, String> ASPECT_ALIASES = buildAspectAliases();
 
     private final DemoReviewQueryRepository demoReviewQueryRepository;
 
@@ -60,7 +69,7 @@ public class DemoReviewAggregationService {
     }
 
     public List<String> allAspectCodes() {
-        return List.copyOf(ASPECTS.keySet());
+        return CANONICAL_ASPECTS;
     }
 
     public List<AggregatedReview> loadReviews(String productCode) {
@@ -124,24 +133,48 @@ public class DemoReviewAggregationService {
 
     private String normalizeAspectCode(String aspect) {
         String normalized = aspect.trim().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "battery", "续航", "电池" -> "battery";
-            case "bluetooth", "连接", "connectivity", "连接稳定性" -> "bluetooth";
-            case "noise_canceling", "noise-canceling", "noisecanceling", "降噪" -> "noise-canceling";
-            case "comfort", "佩戴", "舒适度" -> "comfort";
-            case "microphone", "call_quality", "call-quality", "通话", "收音" -> "microphone";
-            default -> null;
-        };
+        return ASPECT_ALIASES.get(normalized);
     }
 
     private static Map<String, AspectMeta> buildAspects() {
         Map<String, AspectMeta> map = new LinkedHashMap<>();
         map.put("battery", new AspectMeta("续航", List.of("battery", "续航", "电池")));
-        map.put("bluetooth", new AspectMeta("蓝牙连接", List.of("bluetooth", "连接稳定")));
-        map.put("noise-canceling", new AspectMeta("降噪", List.of("noise-canceling", "降噪")));
+        map.put("bluetooth", new AspectMeta("蓝牙连接", List.of("bluetooth", "连接稳定", "蓝牙", "断连", "连接")));
+        map.put("noise-canceling", new AspectMeta("降噪", List.of("noise-canceling", "降噪", "noise canceling")));
         map.put("comfort", new AspectMeta("佩戴舒适", List.of("comfort", "舒适")));
-        map.put("microphone", new AspectMeta("通话收音", List.of("microphone", "收音", "语音")));
+        map.put("microphone", new AspectMeta("通话收音", List.of("microphone", "收音", "语音", "通话", "麦克风")));
         return map;
+    }
+
+    private static Map<String, String> buildAspectAliases() {
+        Map<String, String> aliases = new LinkedHashMap<>();
+        aliases.put("battery", "battery");
+        aliases.put("续航", "battery");
+        aliases.put("电池", "battery");
+
+        aliases.put("bluetooth", "bluetooth");
+        aliases.put("connectivity", "bluetooth");
+        aliases.put("连接", "bluetooth");
+        aliases.put("连接稳定性", "bluetooth");
+        aliases.put("蓝牙", "bluetooth");
+
+        aliases.put("noise-canceling", "noise-canceling");
+        aliases.put("noise_canceling", "noise-canceling");
+        aliases.put("noise_cancel", "noise-canceling");
+        aliases.put("noisecanceling", "noise-canceling");
+        aliases.put("降噪", "noise-canceling");
+
+        aliases.put("comfort", "comfort");
+        aliases.put("佩戴", "comfort");
+        aliases.put("舒适度", "comfort");
+
+        aliases.put("microphone", "microphone");
+        aliases.put("call_quality", "microphone");
+        aliases.put("call-quality", "microphone");
+        aliases.put("通话", "microphone");
+        aliases.put("收音", "microphone");
+        aliases.put("麦克风", "microphone");
+        return Collections.unmodifiableMap(aliases);
     }
 
     public record AggregatedReview(

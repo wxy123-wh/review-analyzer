@@ -26,8 +26,8 @@ public class AnalysisController {
 
     @PostMapping("/start")
     public ResponseEntity<AnalysisJobResponse> start(@Valid @RequestBody AnalysisStartRequest request) {
-        AnalysisJobResponse job = analysisJobService.createJob(request.productCode());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(job);
+        AnalysisJobResponse response = analysisJobService.createJob(request.productCode());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     @GetMapping("/jobs/{id}")

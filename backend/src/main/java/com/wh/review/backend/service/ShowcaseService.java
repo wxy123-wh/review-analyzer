@@ -16,6 +16,11 @@ import org.springframework.stereotype.Service;
 public class ShowcaseService {
 
     private static final String STATUS_PLACEHOLDER = "PLACEHOLDER";
+    private static final String STATUS_CONTROLLED_DATA_ONLY = "CONTROLLED_DATA_ONLY";
+
+    private String buildContractNote(String state, String strategy, String dataSource, String detail) {
+        return "v1-state=" + state + "; strategy=" + strategy + "; data-source=" + dataSource + "; " + detail;
+    }
 
     public ShowcasePipelineResponse pipeline() {
         List<ShowcaseStage> stages = List.of(
@@ -28,7 +33,12 @@ public class ShowcaseService {
         return new ShowcasePipelineResponse(
                 STATUS_PLACEHOLDER,
                 false,
-                "pipeline orchestration is mocked for acceptance demo",
+                buildContractNote(
+                        "placeholder",
+                        "replace",
+                        "static-demo-payload",
+                        "current payload only preserves the stage field shape and does not represent a real pipeline"
+                ),
                 stages
         );
     }
@@ -43,7 +53,12 @@ public class ShowcaseService {
         return new ShowcaseAgentArenaResponse(
                 STATUS_PLACEHOLDER,
                 false,
-                "multi-agent collaboration is currently a deterministic simulation",
+                buildContractNote(
+                        "placeholder",
+                        "replace",
+                        "static-demo-payload",
+                        "current payload only preserves the agent arena field shape and does not execute real agents"
+                ),
                 agents
         );
     }
@@ -56,9 +71,14 @@ public class ShowcaseService {
                 new ShowcaseFeatureContribution("competitor_gap", 0.20)
         );
         return new ShowcaseExplainabilityResponse(
-                STATUS_PLACEHOLDER,
+                STATUS_CONTROLLED_DATA_ONLY,
                 false,
-                "explainability view uses static weighted factors; no model introspection yet",
+                buildContractNote(
+                        "controlled-data-only",
+                        "keep",
+                        "deterministic-score-weights",
+                        "current payload explains fixed issue scoring weights rather than model-level feature attribution"
+                ),
                 contributions
         );
     }
@@ -72,7 +92,12 @@ public class ShowcaseService {
         return new ShowcaseChaosResponse(
                 STATUS_PLACEHOLDER,
                 false,
-                "chaos drill playback is static and not connected to runtime infra",
+                buildContractNote(
+                        "gated-placeholder",
+                        "hide-by-default",
+                        "static-demo-payload",
+                        "current payload is a gated drill script and is not connected to runtime infrastructure"
+                ),
                 drills
         );
     }
@@ -81,7 +106,12 @@ public class ShowcaseService {
         return new ShowcaseReportPreviewResponse(
                 STATUS_PLACEHOLDER,
                 false,
-                "real report export is not implemented; this is a preview payload",
+                buildContractNote(
+                        "placeholder",
+                        "replace",
+                        "static-preview-sections",
+                        "current payload only preserves previewSections for module=" + module + " and does not export reports"
+                ),
                 List.of(
                         "Executive summary for module=" + module,
                         "Top issue snapshot and evidence list",

@@ -10,6 +10,8 @@ import com.wh.review.backend.dto.ValidationItem;
 import com.wh.review.backend.dto.ValidationResponse;
 import com.wh.review.backend.dto.WordCloudItem;
 import com.wh.review.backend.dto.WordCloudResponse;
+import com.wh.review.backend.util.MathUtils;
+import com.wh.review.backend.util.SimpleCache;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -27,6 +29,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class InsightQueryService {
 
+    /**
+     * Wave-1 contract note:
+     * <p>v1 的唯一分析结果来源被固定为“analysis job 物化结果，查询侧消费它”。</p>
+     * <p>在 analysis job 真正执行前，本服务仍只提供受控演示数据查询与契约字段稳定性，
+     * 不能被当作长期正式的 compute-on-read 主实现。</p>
+     */
+
     private static final double W_NEGATIVE_RATE = 0.35;
     private static final double W_MENTION_VOLUME = 0.25;
     private static final double W_TREND_GROWTH = 0.20;
@@ -42,18 +51,18 @@ public class InsightQueryService {
     );
     private static final Map<String, String> WORD_ALIAS = Map.ofEntries(
             Map.entry("battery", "续航"),
-            Map.entry("bluetooth", "蓝牙"),
-            Map.entry("connectivity", "连接"),
+            Map.entry("bluetooth", "蓝牙连接"),
             Map.entry("noise-canceling", "降噪"),
-            Map.entry("noise_canceling", "降噪"),
             Map.entry("comfort", "舒适"),
-            Map.entry("microphone", "收音")
+            Map.entry("microphone", "通话收音")
     );
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InsightQueryService.class);
 
     private final ActionService actionService;
     private final DemoReviewAggregationService demoReviewAggregationService;
+    private final SimpleCache<String, List<DemoReviewAggregationService.AggregatedReview>> reviewsCache =
+            new SimpleCache<>(10 * 60 * 1000); // 10 minutes TTL
 
     public InsightQueryService(ActionService actionService, DemoReviewAggregationService demoReviewAggregationService) {
         this.actionService = actionService;
@@ -64,7 +73,7 @@ public class InsightQueryService {
         String normalizedProductCode = demoReviewAggregationService.normalizeProductCode(productCode);
         try {
             List<DemoReviewAggregationService.AggregatedReview> reviews =
-                    demoReviewAggregationService.loadReviews(normalizedProductCode);
+                    loadReviewsWithCache(normalizedProductCode);
             if (reviews.isEmpty()) {
                 return List.of(buildFallbackIssue("iss-demo-no-data", NO_DATA_NOTICE));
             }
@@ -112,10 +121,10 @@ public class InsightQueryService {
 
     public CompareResponse compare(String productCode) {
         List<CompareItem> items = List.of(
-                new CompareItem("audio", 0.82, 0.78, roundTo4(0.82 - 0.78)),
-                new CompareItem("noise_canceling", 0.76, 0.81, roundTo4(0.76 - 0.81)),
+                new CompareItem("bluetooth", 0.82, 0.78, roundTo4(0.82 - 0.78)),
+                new CompareItem("noise-canceling", 0.76, 0.81, roundTo4(0.76 - 0.81)),
                 new CompareItem("battery", 0.71, 0.84, roundTo4(0.71 - 0.84)),
-                new CompareItem("connectivity", 0.64, 0.80, roundTo4(0.64 - 0.80))
+                new CompareItem("microphone", 0.64, 0.80, roundTo4(0.64 - 0.80))
         );
         return new CompareResponse(productCode, items);
     }
@@ -125,8 +134,10 @@ public class InsightQueryService {
         String normalizedAspect = demoReviewAggregationService.normalizeTrendAspect(aspect);
 
         try {
+            List<DemoReviewAggregationService.AggregatedReview> allReviews =
+                    loadReviewsWithCache(normalizedProductCode);
             List<DemoReviewAggregationService.AggregatedReview> reviews = demoReviewAggregationService.filterByAspect(
-                    demoReviewAggregationService.loadReviews(normalizedProductCode),
+                    allReviews,
                     normalizedAspect
             );
             if (reviews.isEmpty()) {
@@ -170,8 +181,10 @@ public class InsightQueryService {
         String normalizedAspect = demoReviewAggregationService.normalizeWordCloudAspect(aspect);
 
         try {
+            List<DemoReviewAggregationService.AggregatedReview> allReviews =
+                    loadReviewsWithCache(normalizedProductCode);
             List<DemoReviewAggregationService.AggregatedReview> reviews = demoReviewAggregationService.filterByAspect(
-                    demoReviewAggregationService.loadReviews(normalizedProductCode),
+                    allReviews,
                     normalizedAspect
             );
             if (reviews.isEmpty()) {
@@ -260,10 +273,10 @@ public class InsightQueryService {
         String aspect = resolveAspectByIssueId(action.issueId());
         String aspectName = aspect == null ? "综合问题" : demoReviewAggregationService.aspectDisplayName(aspect);
         try {
-            List<DemoReviewAggregationService.AggregatedReview> reviews =
-                    demoReviewAggregationService.loadReviews(productCode);
+            List<DemoReviewAggregationService.AggregatedReview> allReviews =
+                    loadReviewsWithCache(productCode);
             List<DemoReviewAggregationService.AggregatedReview> scopedReviews =
-                    demoReviewAggregationService.filterByAspect(reviews, aspect);
+                    demoReviewAggregationService.filterByAspect(allReviews, aspect);
             if (scopedReviews.size() < 2) {
                 return new ValidationItem(
                         action.actionId(),
@@ -510,21 +523,15 @@ public class InsightQueryService {
     }
 
     private double clamp01(double value) {
-        if (value < 0D) {
-            return 0D;
-        }
-        if (value > 1D) {
-            return 1D;
-        }
-        return value;
+        return MathUtils.clamp01(value);
     }
 
     private double roundTo4(double value) {
-        return Math.round(value * 10000D) / 10000D;
+        return MathUtils.roundTo4(value);
     }
 
     private double roundTo2(double value) {
-        return Math.round(value * 100D) / 100D;
+        return MathUtils.roundTo2(value);
     }
 
     private record IssueFactors(
@@ -551,5 +558,9 @@ public class InsightQueryService {
     private static final class PeriodStats {
         private int mentionCount;
         private int negativeCount;
+    }
+
+    private List<DemoReviewAggregationService.AggregatedReview> loadReviewsWithCache(String productCode) {
+        return reviewsCache.get(productCode, () -> demoReviewAggregationService.loadReviews(productCode));
     }
 }
