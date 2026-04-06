@@ -156,6 +156,17 @@ type ModuleId =
   | 'showcase-chaos'
   | 'showcase-report-center'
 
+type ModuleContractState = 'real' | 'controlled-data-only' | 'placeholder' | 'gated-placeholder'
+
+type ModuleContract = {
+  id: ModuleId
+  label: string
+  icon: string
+  state: ModuleContractState
+  dataSource: string
+  strategy: 'keep' | 'replace' | 'hide-by-default'
+}
+
 function isFeatureEnabled(rawValue: unknown, defaultValue = false): boolean {
   if (typeof rawValue !== 'string') {
     return defaultValue
@@ -172,23 +183,109 @@ function isFeatureEnabled(rawValue: unknown, defaultValue = false): boolean {
 
 const chaosModuleVisible = isFeatureEnabled(import.meta.env.VITE_SHOW_CHAOS_MODULE, false)
 
-const allModules: Array<{ id: ModuleId; label: string; icon: string }> = [
-  { id: 'overview', label: '总览', icon: 'O' },
-  { id: 'issues', label: '问题', icon: 'I' },
-  { id: 'compare', label: '对比', icon: 'C' },
-  { id: 'trends', label: '趋势图', icon: 'T' },
-  { id: 'wordcloud', label: '词云', icon: 'W' },
-  { id: 'actions', label: '动作', icon: 'A' },
-  { id: 'validation', label: '验证', icon: 'V' },
-  { id: 'showcase-pipeline', label: '流水线', icon: 'P' },
-  { id: 'showcase-agent-arena', label: '智能体', icon: 'G' },
-  { id: 'showcase-explainability', label: '可解释性', icon: 'E' },
-  { id: 'showcase-chaos', label: '韧性演练', icon: 'H' },
-  { id: 'showcase-report-center', label: '报告中心', icon: 'R' },
+const moduleContracts: ModuleContract[] = [
+  {
+    id: 'overview',
+    label: '总览',
+    icon: 'O',
+    state: 'controlled-data-only',
+    dataSource: 'client-composed from health/issues/actions responses',
+    strategy: 'keep',
+  },
+  {
+    id: 'issues',
+    label: '问题',
+    icon: 'I',
+    state: 'real',
+    dataSource: 'backend query service over controlled demo reviews',
+    strategy: 'keep',
+  },
+  {
+    id: 'compare',
+    label: '对比',
+    icon: 'C',
+    state: 'controlled-data-only',
+    dataSource: 'backend compare contract with canonical taxonomy only',
+    strategy: 'replace',
+  },
+  {
+    id: 'trends',
+    label: '趋势图',
+    icon: 'T',
+    state: 'real',
+    dataSource: 'backend query service over controlled demo reviews',
+    strategy: 'keep',
+  },
+  {
+    id: 'wordcloud',
+    label: '词云',
+    icon: 'W',
+    state: 'real',
+    dataSource: 'backend query service over controlled demo reviews',
+    strategy: 'keep',
+  },
+  {
+    id: 'actions',
+    label: '动作',
+    icon: 'A',
+    state: 'real',
+    dataSource: 'backend action create API; current dashboard only reflects in-session created actions',
+    strategy: 'keep',
+  },
+  {
+    id: 'validation',
+    label: '验证',
+    icon: 'V',
+    state: 'controlled-data-only',
+    dataSource: 'backend validation query derived from action-linked demo review splits',
+    strategy: 'replace',
+  },
+  {
+    id: 'showcase-pipeline',
+    label: '流水线',
+    icon: 'P',
+    state: 'placeholder',
+    dataSource: 'static showcase payload',
+    strategy: 'replace',
+  },
+  {
+    id: 'showcase-agent-arena',
+    label: '智能体',
+    icon: 'G',
+    state: 'placeholder',
+    dataSource: 'static showcase payload',
+    strategy: 'replace',
+  },
+  {
+    id: 'showcase-explainability',
+    label: '可解释性',
+    icon: 'E',
+    state: 'controlled-data-only',
+    dataSource: 'deterministic score weights, not model introspection',
+    strategy: 'keep',
+  },
+  {
+    id: 'showcase-chaos',
+    label: '韧性演练',
+    icon: 'H',
+    state: 'gated-placeholder',
+    dataSource: 'static showcase payload behind feature flag',
+    strategy: 'hide-by-default',
+  },
+  {
+    id: 'showcase-report-center',
+    label: '报告中心',
+    icon: 'R',
+    state: 'placeholder',
+    dataSource: 'static preview sections only; no export pipeline',
+    strategy: 'replace',
+  },
 ]
 
 const modules = computed(() =>
-  allModules.filter((module) => chaosModuleVisible || module.id !== 'showcase-chaos'),
+  moduleContracts
+    .filter((module) => chaosModuleVisible || module.id !== 'showcase-chaos')
+    .map(({ id, label, icon }) => ({ id, label, icon })),
 )
 
 const isAuthenticated = ref(false)
@@ -269,14 +366,14 @@ function activateModule(moduleId: ModuleId): void {
 async function ensureModuleData(moduleId: ModuleId): Promise<void> {
   if (moduleId === 'wordcloud' && wordCloudState.value === 'idle') {
     await reloadWordCloudData()
-  } else if (moduleId === 'showcase-pipeline' && !showcasePipeline.value) {
-    showcasePipeline.value = await fetchShowcasePipeline()
-  } else if (moduleId === 'showcase-agent-arena' && !showcaseAgentArena.value) {
-    showcaseAgentArena.value = await fetchShowcaseAgentArena()
-  } else if (moduleId === 'showcase-explainability' && !showcaseExplainability.value) {
-    showcaseExplainability.value = await fetchShowcaseExplainability()
-  } else if (moduleId === 'showcase-chaos' && !showcaseChaos.value) {
-    showcaseChaos.value = await fetchShowcaseChaos()
+  } else if (moduleId.startsWith('showcase-')) {
+    // Preload all showcase data in parallel when any showcase module is accessed
+    await Promise.all([
+      showcasePipeline.value ? Promise.resolve() : fetchShowcasePipeline().then(data => showcasePipeline.value = data),
+      showcaseAgentArena.value ? Promise.resolve() : fetchShowcaseAgentArena().then(data => showcaseAgentArena.value = data),
+      showcaseExplainability.value ? Promise.resolve() : fetchShowcaseExplainability().then(data => showcaseExplainability.value = data),
+      showcaseChaos.value ? Promise.resolve() : fetchShowcaseChaos().then(data => showcaseChaos.value = data),
+    ])
   }
 }
 

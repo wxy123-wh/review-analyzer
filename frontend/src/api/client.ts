@@ -22,9 +22,38 @@ import { normalizeShowcaseStatus } from '../utils/showcaseCopy'
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const isTestMode = import.meta.env.MODE === 'test'
 
+const CANONICAL_ASPECT_ALIASES: Record<string, string> = {
+  battery: 'battery',
+  bluetooth: 'bluetooth',
+  connectivity: 'bluetooth',
+  'noise-canceling': 'noise-canceling',
+  noise_canceling: 'noise-canceling',
+  noise_cancel: 'noise-canceling',
+  comfort: 'comfort',
+  microphone: 'microphone',
+  call_quality: 'microphone',
+  'call-quality': 'microphone',
+}
+
 export const apiClient = axios.create({
   baseURL,
   timeout: 10000,
+})
+
+// AbortController for request cancellation
+let abortController: AbortController | null = null
+
+export function cancelPendingRequests(): void {
+  if (abortController) {
+    abortController.abort()
+  }
+  abortController = new AbortController()
+  return abortController
+}
+
+apiClient.interceptors.request.use((config) => {
+  config.signal = abortController?.signal
+  return config
 })
 
 type ShowcasePayloadBase = {
@@ -68,6 +97,43 @@ function resolveRequestState(error: unknown): Extract<ChartLoadState, 'timeout' 
   return 'error'
 }
 
+function normalizeAspectCode(
+  aspect: unknown,
+  fallback: 'battery' | 'bluetooth' | 'noise-canceling' | 'comfort' | 'microphone' | 'all' | 'general',
+): string {
+  if (typeof aspect !== 'string') {
+    return fallback
+  }
+  const normalized = aspect.trim().toLowerCase()
+  if (!normalized) {
+    return fallback
+  }
+  return CANONICAL_ASPECT_ALIASES[normalized] ?? fallback
+}
+
+function normalizeCompareItems(rawItems: unknown): CompareItem[] {
+  if (!Array.isArray(rawItems)) {
+    return []
+  }
+  return rawItems
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) {
+        return null
+      }
+      const record = item as Record<string, unknown>
+      const ourScore = typeof record.ourScore === 'number' ? record.ourScore : 0
+      const competitorScore = typeof record.competitorScore === 'number' ? record.competitorScore : 0
+      const gap = typeof record.gap === 'number' ? record.gap : ourScore - competitorScore
+      return {
+        aspect: normalizeAspectCode(record.aspect, 'battery'),
+        ourScore,
+        competitorScore,
+        gap,
+      }
+    })
+    .filter((item): item is CompareItem => item !== null)
+}
+
 export async function fetchBackendHealth(): Promise<ServiceStatus> {
   if (isTestMode) {
     return { name: 'Backend API', status: 'UP' }
@@ -92,9 +158,9 @@ export async function fetchIssues(productCode = 'demo-earphone'): Promise<IssueI
   if (isTestMode) {
     return [
       {
-        issueId: 'iss-connectivity-001',
+        issueId: 'iss-bluetooth-001',
         title: '连接稳定性偶发断连',
-        aspect: 'connectivity',
+        aspect: 'bluetooth',
         priorityScore: 0.554,
         evidenceSummary: '近30天断连反馈上升且竞品差距扩大。',
       },
@@ -103,7 +169,13 @@ export async function fetchIssues(productCode = 'demo-earphone'): Promise<IssueI
 
   try {
     const response = await apiClient.get('/api/v1/issues', { params: { productCode } })
-    return response.data.items ?? []
+    if (!Array.isArray(response.data.items)) {
+      return []
+    }
+    return response.data.items.map((item: IssueItem) => ({
+      ...item,
+      aspect: normalizeAspectCode(item.aspect, 'general'),
+    }))
   } catch {
     return []
   }
@@ -112,14 +184,15 @@ export async function fetchIssues(productCode = 'demo-earphone'): Promise<IssueI
 export async function fetchCompare(productCode = 'demo-earphone'): Promise<CompareItem[]> {
   if (isTestMode) {
     return [
-      { aspect: 'audio', ourScore: 0.82, competitorScore: 0.78, gap: 0.04 },
+      { aspect: 'bluetooth', ourScore: 0.82, competitorScore: 0.78, gap: 0.04 },
+      { aspect: 'noise-canceling', ourScore: 0.76, competitorScore: 0.81, gap: -0.05 },
       { aspect: 'battery', ourScore: 0.71, competitorScore: 0.84, gap: -0.13 },
     ]
   }
 
   try {
     const response = await apiClient.get('/api/v1/compare', { params: { productCode } })
-    return response.data.items ?? []
+    return normalizeCompareItems(response.data.items)
   } catch {
     return []
   }
@@ -129,9 +202,11 @@ export async function fetchTrends(
   productCode = 'demo-earphone',
   aspect = 'battery',
 ): Promise<TrendResponse> {
+  const fallbackAspect = normalizeAspectCode(aspect, 'battery')
+
   if (isTestMode) {
     return {
-      aspect,
+      aspect: fallbackAspect,
       points: [
         { period: '2026-W06', negativeRate: 0.31, mentionVolume: 75 },
         { period: '2026-W09', negativeRate: 0.4, mentionVolume: 105 },
@@ -144,12 +219,12 @@ export async function fetchTrends(
     const response = await apiClient.get('/api/v1/trends', { params: { productCode, aspect } })
     const points = response.data.points ?? []
     return {
-      aspect: response.data.aspect ?? aspect,
+      aspect: normalizeAspectCode(response.data.aspect, 'battery') || fallbackAspect,
       points,
       state: points.length > 0 ? 'success' : 'empty',
     }
   } catch (error) {
-    return { aspect, points: [], state: resolveRequestState(error) }
+    return { aspect: fallbackAspect, points: [], state: resolveRequestState(error) }
   }
 }
 
@@ -207,7 +282,7 @@ export async function fetchWordCloud(
     const notice = typeof response.data.notice === 'string' ? response.data.notice : undefined
     return {
       productCode: response.data.productCode ?? productCode,
-      aspect: response.data.aspect ?? aspect,
+      aspect: normalizeAspectCode(response.data.aspect, aspect === 'all' ? 'all' : 'battery'),
       items,
       notice,
       state: items.length > 0 ? 'success' : 'empty',
@@ -215,7 +290,7 @@ export async function fetchWordCloud(
   } catch (error) {
     return {
       productCode,
-      aspect,
+      aspect: aspect === 'all' ? 'all' : normalizeAspectCode(aspect, 'battery'),
       items: [],
       state: resolveRequestState(error),
     }
@@ -267,7 +342,7 @@ export async function fetchShowcasePipeline(): Promise<ShowcasePipelineData> {
     return {
       status: '演示数据',
       implemented: false,
-      note: '流水线编排当前使用演示数据回放。',
+      note: 'v1-state=placeholder; strategy=replace; data-source=static-demo-payload; 当前仅用于固定字段占位，不代表真实流水线编排。',
       stages: [
         { name: 'SYNC', state: 'DONE', detail: '已接入 12,480 条评论样本' },
         { name: 'ASPECT_NLP', state: 'RUNNING', detail: '领域词典 v0.3 正在演示推演' },
@@ -280,13 +355,13 @@ export async function fetchShowcasePipeline(): Promise<ShowcasePipelineData> {
     const response = await apiClient.get('/api/v1/showcase/pipeline')
     return normalizeShowcaseData(
       response.data as ShowcasePipelineData,
-      '流水线编排当前使用演示数据回放。',
+      'v1-state=placeholder; strategy=replace; data-source=static-demo-payload; 当前仅用于固定字段占位，不代表真实流水线编排。',
     )
   } catch {
     return {
       status: '演示数据',
       implemented: false,
-      note: '流水线接口暂不可用，已切换为演示数据。',
+      note: 'v1-state=placeholder; strategy=replace; data-source=static-demo-payload; 流水线接口暂不可用，已切换为占位数据。',
       stages: [],
     }
   }
@@ -297,7 +372,7 @@ export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData>
     return {
       status: '演示数据',
       implemented: false,
-      note: '智能体协同当前使用演示数据仿真。',
+      note: 'v1-state=placeholder; strategy=replace; data-source=static-demo-payload; 当前仅保留智能体协同字段骨架。',
       agents: [
         { agentName: 'collector-agent', role: 'SYNC', state: 'IDLE', confidence: 0.98 },
         { agentName: 'insight-agent', role: 'ANALYZE', state: 'RUNNING', confidence: 0.86 },
@@ -309,13 +384,13 @@ export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData>
     const response = await apiClient.get('/api/v1/showcase/agent-arena')
     return normalizeShowcaseData(
       response.data as ShowcaseAgentArenaData,
-      '智能体协同当前使用演示数据仿真。',
+      'v1-state=placeholder; strategy=replace; data-source=static-demo-payload; 当前仅保留智能体协同字段骨架。',
     )
   } catch {
     return {
       status: '演示数据',
       implemented: false,
-      note: '智能体接口暂不可用，已切换为演示数据。',
+      note: 'v1-state=placeholder; strategy=replace; data-source=static-demo-payload; 智能体接口暂不可用，已切换为占位数据。',
       agents: [],
     }
   }
@@ -326,7 +401,7 @@ export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabil
     return {
       status: '演示数据',
       implemented: false,
-      note: '可解释性分析当前使用演示数据权重。',
+      note: 'v1-state=controlled-data-only; strategy=keep; data-source=deterministic-score-weights; 当前解释的是既有优先级权重，不是模型内部归因。',
       featureContributions: [
         { feature: 'negative_rate', weight: 0.35 },
         { feature: 'mention_volume', weight: 0.25 },
@@ -340,13 +415,13 @@ export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabil
     const response = await apiClient.get('/api/v1/showcase/explainability')
     return normalizeShowcaseData(
       response.data as ShowcaseExplainabilityData,
-      '可解释性分析当前使用演示数据权重。',
+      'v1-state=controlled-data-only; strategy=keep; data-source=deterministic-score-weights; 当前解释的是既有优先级权重，不是模型内部归因。',
     )
   } catch {
     return {
       status: '演示数据',
       implemented: false,
-      note: '可解释性接口暂不可用，已切换为演示数据。',
+      note: 'v1-state=controlled-data-only; strategy=keep; data-source=deterministic-score-weights; 可解释性接口暂不可用，已切换为固定权重数据。',
       featureContributions: [],
     }
   }
@@ -357,7 +432,7 @@ export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
     return {
       status: '演示数据',
       implemented: false,
-      note: '评论链路韧性演练当前使用演示数据剧本。',
+      note: 'v1-state=gated-placeholder; strategy=hide-by-default; data-source=static-demo-payload; 当前仅保留韧性演练剧本字段。',
       drills: [
         { scenario: 'db-latency-spike', state: 'PENDING', detail: '模拟 p95 延迟升至 3 秒' },
         { scenario: 'provider-rate-limit', state: 'PENDING', detail: '模拟 OneBound 429 波动' },
@@ -369,13 +444,13 @@ export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
     const response = await apiClient.get('/api/v1/showcase/chaos')
     return normalizeShowcaseData(
       response.data as ShowcaseChaosData,
-      '评论链路韧性演练当前使用演示数据剧本。',
+      'v1-state=gated-placeholder; strategy=hide-by-default; data-source=static-demo-payload; 当前仅保留韧性演练剧本字段。',
     )
   } catch {
     return {
       status: '演示数据',
       implemented: false,
-      note: '评论链路韧性演练接口暂不可用，已切换为演示数据。',
+      note: 'v1-state=gated-placeholder; strategy=hide-by-default; data-source=static-demo-payload; 韧性演练接口暂不可用，已切换为占位数据。',
       drills: [],
     }
   }
@@ -386,7 +461,7 @@ export async function previewShowcaseReport(module: string): Promise<ShowcaseRep
     return {
       status: '演示数据',
       implemented: false,
-      note: '测试模式下报告导出关闭，当前展示演示数据预览。',
+      note: 'v1-state=placeholder; strategy=replace; data-source=static-preview-sections; 当前仅提供报告段落预览，不执行真实导出。',
       previewSections: [
         `模块 ${module} 的执行摘要（演示数据）`,
         '核心问题快照与证据清单',
@@ -399,13 +474,13 @@ export async function previewShowcaseReport(module: string): Promise<ShowcaseRep
     const response = await apiClient.post('/api/v1/showcase/reports/preview', { module })
     return normalizeShowcaseData(
       response.data as ShowcaseReportPreviewData,
-      '报告中心当前展示演示数据预览。',
+      'v1-state=placeholder; strategy=replace; data-source=static-preview-sections; 当前仅提供报告段落预览，不执行真实导出。',
     )
   } catch {
     return {
       status: '演示数据',
       implemented: false,
-      note: '报告预览接口暂不可用，已切换为演示数据。',
+      note: 'v1-state=placeholder; strategy=replace; data-source=static-preview-sections; 报告预览接口暂不可用，已切换为占位数据。',
       previewSections: [],
     }
   }

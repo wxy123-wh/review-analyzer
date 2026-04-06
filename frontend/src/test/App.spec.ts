@@ -170,6 +170,7 @@ describe('App shell', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('流水线编排')
     expect(wrapper.text()).toContain('演示数据')
+    expect(wrapper.text()).toContain('当前仅用于固定字段占位，不代表真实流水线编排')
 
     await wrapper.get('[data-testid="nav-showcase-agent-arena"]').trigger('click')
     await flushPromises()
@@ -178,10 +179,16 @@ describe('App shell', () => {
     await wrapper.get('[data-testid="nav-showcase-explainability"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('可解释性分析')
+    expect(wrapper.text()).toContain('当前解释的是既有优先级权重，不是模型内部归因')
 
     await wrapper.get('[data-testid="nav-showcase-report-center"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('报告中心')
     expect(wrapper.text()).toContain('生成演示数据报告预览')
+
+    await wrapper.get('.preview-button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前仅提供报告段落预览，不执行真实导出')
   })
 })
