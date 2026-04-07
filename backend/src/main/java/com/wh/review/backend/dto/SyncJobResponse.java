@@ -10,6 +10,8 @@ public record SyncJobResponse(
         String status,
         Instant startedAt,
         int fetchedCount,
-        String errorMessage
+        String errorMessage,
+        String analysisHandoffStatus,
+        String analysisHandoffNote
 ) {
 }

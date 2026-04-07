@@ -68,6 +68,14 @@ public class DemoReviewAggregationService {
         return meta.displayName();
     }
 
+    public String normalizeAspect(String aspect) {
+        if (aspect == null || aspect.isBlank()) {
+            return ASPECT_UNKNOWN;
+        }
+        String normalized = normalizeAspectCode(aspect);
+        return normalized == null ? ASPECT_UNKNOWN : normalized;
+    }
+
     public List<String> allAspectCodes() {
         return CANONICAL_ASPECTS;
     }

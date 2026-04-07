@@ -37,6 +37,22 @@ public class PersistenceSchemaInitializer {
                 )
                 """,
                 """
+                """
+                CREATE TABLE IF NOT EXISTS sync_jobs (
+                    id BIGSERIAL PRIMARY KEY,
+                    provider VARCHAR(64) NOT NULL,
+                    platform VARCHAR(64) NOT NULL DEFAULT 'taobao',
+                    target_product_code VARCHAR(64) NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    fetched_count INTEGER NOT NULL DEFAULT 0,
+                    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    finished_at TIMESTAMP WITH TIME ZONE,
+                    error_message TEXT,
+                    analysis_handoff_status VARCHAR(64) NOT NULL DEFAULT 'NOT_READY',
+                    analysis_handoff_note TEXT
+                )
+                """,
+                """
                 CREATE TABLE IF NOT EXISTS reviews_raw (
                     id BIGSERIAL PRIMARY KEY,
                     source VARCHAR(64) NOT NULL,
@@ -47,6 +63,12 @@ public class PersistenceSchemaInitializer {
                     review_time TIMESTAMP WITH TIME ZONE,
                     anonymized_author_id VARCHAR(128),
                     demo_data_version VARCHAR(32),
+                    provider VARCHAR(64),
+                    platform VARCHAR(64),
+                    external_product_code VARCHAR(128),
+                    sync_job_id BIGINT REFERENCES sync_jobs(id),
+                    external_dedupe_key VARCHAR(255),
+                    fetch_metadata TEXT,
                     fetched_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(source, source_review_id)
                 )
@@ -114,19 +136,6 @@ public class PersistenceSchemaInitializer {
                 )
                 """,
                 """
-                CREATE TABLE IF NOT EXISTS sync_jobs (
-                    id BIGSERIAL PRIMARY KEY,
-                    provider VARCHAR(64) NOT NULL,
-                    platform VARCHAR(64) NOT NULL DEFAULT 'taobao',
-                    target_product_code VARCHAR(64) NOT NULL,
-                    status VARCHAR(32) NOT NULL,
-                    fetched_count INTEGER NOT NULL DEFAULT 0,
-                    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    finished_at TIMESTAMP WITH TIME ZONE,
-                    error_message TEXT
-                )
-                """,
-                """
                 CREATE TABLE IF NOT EXISTS analysis_jobs (
                     id BIGSERIAL PRIMARY KEY,
                     product_code VARCHAR(64) NOT NULL,
@@ -150,7 +159,15 @@ public class PersistenceSchemaInitializer {
                 "ALTER TABLE improvement_actions ADD COLUMN IF NOT EXISTS issue_ref VARCHAR(128)",
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS platform VARCHAR(64) NOT NULL DEFAULT 'taobao'",
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS fetched_count INTEGER NOT NULL DEFAULT 0",
-                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS demo_data_version VARCHAR(32)"
+                "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS analysis_handoff_status VARCHAR(64) NOT NULL DEFAULT 'NOT_READY'",
+                "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS analysis_handoff_note TEXT",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS demo_data_version VARCHAR(32)",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS provider VARCHAR(64)",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS platform VARCHAR(64)",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS external_product_code VARCHAR(128)",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS sync_job_id BIGINT",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS external_dedupe_key VARCHAR(255)",
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS fetch_metadata TEXT"
         );
 
         for (String statement : statements) {

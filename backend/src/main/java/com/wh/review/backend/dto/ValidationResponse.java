@@ -4,9 +4,10 @@ import java.util.List;
 
 public record ValidationResponse(
         List<ValidationItem> items,
+        String state,
         String notice
 ) {
-    public ValidationResponse(List<ValidationItem> items) {
-        this(items, null);
+    public ValidationResponse(List<ValidationItem> items, String state) {
+        this(items, state, null);
     }
 }

@@ -20,13 +20,18 @@
       <p class="hint error">{{ chartRenderError }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
     </div>
-    <div v-else-if="state === 'error' || state === 'timeout'" class="state-shell state-shell--error">
+    <div v-else-if="state === 'degraded'" class="state-shell">
+      <span class="state-label">降级可用</span>
+      <p class="hint">{{ stateMessage }}</p>
+      <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
+    </div>
+    <div v-else-if="state === 'error' || state === 'timeout' || state === 'runtime-unavailable'" class="state-shell state-shell--error">
       <span class="state-label">接口状态</span>
       <p class="hint error">{{ stateMessage }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
     </div>
-    <div v-else-if="state === 'empty'" class="state-shell">
-      <span class="state-label">暂无数据</span>
+    <div v-else-if="state === 'empty' || state === 'disabled'" class="state-shell">
+      <span class="state-label">{{ state === 'disabled' ? '模块已禁用' : '暂无数据' }}</span>
       <p class="hint">{{ stateMessage }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">刷新数据</button>
     </div>
@@ -121,7 +126,7 @@ const renderChart = computed(
   () => !isTestMode && props.state === 'success' && props.points.length > 0,
 )
 const canRetry = computed(
-  () => Boolean(chartRenderError.value) || ['empty', 'error', 'timeout'].includes(props.state),
+  () => Boolean(chartRenderError.value) || ['empty', 'degraded', 'error', 'timeout', 'runtime-unavailable'].includes(props.state),
 )
 const aspectLabel = computed(() => aspectAlias[props.aspect] ?? props.aspect)
 
@@ -129,8 +134,17 @@ const stateMessage = computed(() => {
   if (props.state === 'empty') {
     return props.message || '暂无趋势数据，建议初始化演示评论数据后重试。'
   }
+  if (props.state === 'degraded') {
+    return props.message || '趋势数据暂时只保留最近一次可用时间窗，请稍后重试。'
+  }
   if (props.state === 'timeout') {
     return props.message || '趋势接口请求超时，请检查网络后重试。'
+  }
+  if (props.state === 'runtime-unavailable') {
+    return props.message || '趋势运行态暂不可用，请稍后重试。'
+  }
+  if (props.state === 'disabled') {
+    return props.message || '趋势模块当前已禁用。'
   }
   if (props.state === 'error') {
     return props.message || '趋势接口请求失败，请稍后重试。'

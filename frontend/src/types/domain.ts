@@ -11,11 +11,47 @@ export type IssueItem = {
   evidenceSummary: string
 }
 
+export type ContractState = 'idle' | 'loading' | 'success' | 'empty' | 'degraded' | 'error' | 'disabled' | 'runtime-unavailable'
+
+export type CollectionContract<T> = {
+  items: T[]
+  state: ContractState
+  notice?: string
+}
+
+export type OverviewContract = {
+  topIssue: IssueItem | null
+  issueCount: number
+  actionCount: number
+  validationCount: number
+  state: ContractState
+  notice?: string
+}
+
+export type IssueResponse = CollectionContract<IssueItem>
+
 export type CompareItem = {
   aspect: string
   ourScore: number
   competitorScore: number
   gap: number
+}
+
+export type CompareState =
+  | 'idle'
+  | 'loading'
+  | 'success'
+  | 'missing-target'
+  | 'comparison-unavailable'
+  | 'primary-unavailable'
+  | 'error'
+
+export type CompareResponse = {
+  productCode: string
+  comparisonProductCode?: string
+  items: CompareItem[]
+  state: CompareState
+  notice?: string
 }
 
 export type TrendPoint = {
@@ -24,12 +60,22 @@ export type TrendPoint = {
   mentionVolume: number
 }
 
-export type ChartLoadState = 'idle' | 'loading' | 'success' | 'empty' | 'error' | 'timeout'
+export type ChartLoadState =
+  | 'idle'
+  | 'loading'
+  | 'success'
+  | 'empty'
+  | 'degraded'
+  | 'error'
+  | 'timeout'
+  | 'disabled'
+  | 'runtime-unavailable'
 
 export type TrendResponse = {
   aspect: string
   points: TrendPoint[]
   state: ChartLoadState
+  notice?: string
 }
 
 export type WordCloudItem = {
@@ -57,6 +103,8 @@ export type ActionItem = {
   createdAt: string
 }
 
+export type ActionResponse = CollectionContract<ActionItem>
+
 export type ValidationItem = {
   actionId: string
   beforeNegativeRate: number
@@ -64,6 +112,8 @@ export type ValidationItem = {
   improvementRate: number
   summary: string
 }
+
+export type ValidationResponse = CollectionContract<ValidationItem>
 
 export type ActionCreatePayload = {
   productCode: string

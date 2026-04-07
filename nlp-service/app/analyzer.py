@@ -1,4 +1,5 @@
 from collections import Counter
+from typing import TypedDict
 
 NEGATIVE_MARKERS = {
     '差',
@@ -22,20 +23,41 @@ POSITIVE_MARKERS = {
 }
 
 ASPECT_KEYWORDS = {
-    'audio': {'音质', '低音', '高音', '音场'},
-    'noise_canceling': {'降噪', '通透'},
     'battery': {'续航', '电池', '充电'},
+    'bluetooth': {'连接', '断连', '断开', '蓝牙', 'connectivity'},
+    'noise-canceling': {'降噪', '通透', 'noise canceling', 'noise_canceling'},
     'comfort': {'佩戴', '耳压', '舒适'},
-    'connectivity': {'连接', '断连', '断开', '蓝牙'},
-    'call_quality': {'通话', '麦克风', '收音'},
+    'microphone': {'通话', '麦克风', '收音', 'call quality', 'call_quality'},
 }
+
+CLUSTER_TITLES = {
+    'battery': '续航体验波动',
+    'bluetooth': '蓝牙连接稳定性不足',
+    'noise-canceling': '降噪效果一致性不足',
+    'comfort': '佩戴舒适度反馈分化',
+    'microphone': '通话收音表现待优化',
+}
+
+
+class AspectSentimentResult(TypedDict):
+    reviewIndex: int
+    aspect: str
+    polarity: str
+    score: float
+    confidence: float
+
+
+class IssueClusterResult(TypedDict):
+    aspect: str
+    title: str
+    mentionCount: int
 
 
 def detect_aspect(text: str) -> str:
     for aspect, keywords in ASPECT_KEYWORDS.items():
         if any(keyword in text for keyword in keywords):
             return aspect
-    return 'general'
+    return 'unknown'
 
 
 def detect_polarity(text: str) -> str:
@@ -58,19 +80,24 @@ def confidence_from_text(text: str) -> float:
     return 0.74 if len(text) < 8 else 0.88
 
 
-def build_clusters(aspect_sentiments: list[dict]) -> list[dict]:
+def build_clusters(aspect_sentiments: list[AspectSentimentResult]) -> list[IssueClusterResult]:
     negative_aspects = [
         item['aspect']
         for item in aspect_sentiments
         if item['polarity'] == 'NEGATIVE'
     ]
     counter = Counter(negative_aspects)
-    clusters = [
+    clusters: list[IssueClusterResult] = [
         {
             'aspect': aspect,
-            'title': f'{aspect} related negative feedback',
+            'title': CLUSTER_TITLES.get(aspect, '综合体验反馈待优化'),
             'mentionCount': count,
         }
         for aspect, count in counter.items()
+        if aspect in CLUSTER_TITLES
     ]
-    return sorted(clusters, key=lambda item: (-item['mentionCount'], item['aspect']))
+    return sorted(clusters, key=cluster_sort_key)
+
+
+def cluster_sort_key(item: IssueClusterResult) -> tuple[int, str]:
+    return (-item['mentionCount'], item['aspect'])

@@ -4,10 +4,15 @@
       <div class="title-block">
         <span class="eyebrow">Compare snapshot</span>
         <h3>竞品对比概览</h3>
+        <p v-if="productCode || comparisonProductCode" class="meta">
+          主产品：{{ productCode || '未选择' }}
+          <span class="meta-divider">vs</span>
+          对比产品：{{ comparisonProductCode || '未选择' }}
+        </p>
       </div>
     </header>
 
-    <div v-if="items.length > 0" class="table-shell">
+    <div v-if="state === 'success' && items.length > 0" class="table-shell">
       <table>
         <thead>
           <tr>
@@ -38,15 +43,19 @@
       </table>
     </div>
 
-    <p v-else class="empty">暂无竞品对比数据</p>
+    <p v-else class="empty">{{ message || '暂无竞品对比数据' }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import type { CompareItem } from '../types/domain'
+import type { CompareItem, CompareState } from '../types/domain'
 
 defineProps<{
   items: CompareItem[]
+  state: CompareState
+  message?: string
+  productCode?: string
+  comparisonProductCode?: string
 }>()
 </script>
 
@@ -83,6 +92,19 @@ defineProps<{
 .title-block {
   display: grid;
   gap: var(--space-2);
+}
+
+.meta {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+
+.meta-divider {
+  display: inline-block;
+  margin: 0 var(--space-2);
+  color: var(--color-text-muted);
 }
 
 .eyebrow,

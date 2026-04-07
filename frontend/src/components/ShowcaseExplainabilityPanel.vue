@@ -14,7 +14,7 @@
         <article class="metric-card metric-card--accent" data-motion-hover="lift">
           <span class="metric-label">特征数量</span>
           <strong>{{ totalFeatures }}</strong>
-          <p>当前视图中可见的解释信号维度。</p>
+          <p>当前问题得分拆解中可见的贡献维度。</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">主导特征</span>
@@ -24,7 +24,7 @@
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">权重覆盖</span>
           <strong>{{ weightCoverage }}</strong>
-          <p>沿用既有演示权重，只收束展示层级。</p>
+          <p>基于固定权重与当前问题分数拆解生成。</p>
         </article>
       </div>
     </header>
@@ -82,7 +82,7 @@ const topFeatureSupport = computed(() =>
 )
 const weightCoverage = computed(() => `${Math.round(features.value.reduce((sum, item) => sum + item.weight, 0) * 100)}%`)
 const detailSupport = computed(() =>
-  features.value.length ? `展示 ${features.value.length} 条解释权重` : '暂无解释权重',
+  features.value.length ? `展示 ${features.value.length} 条得分贡献` : '暂无解释权重',
 )
 
 function formatWeight(value: number): string {

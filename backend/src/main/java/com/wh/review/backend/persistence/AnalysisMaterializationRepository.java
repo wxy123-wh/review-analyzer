@@ -3,6 +3,7 @@ package com.wh.review.backend.persistence;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,161 @@ public class AnalysisMaterializationRepository {
                 productCode
         );
         return count != null && count > 0;
+    }
+
+    public List<MaterializedIssueRecord> findIssues(String productCode) {
+        return jdbcTemplate.query(
+                """
+                SELECT
+                    ic.id AS cluster_id,
+                    ic.aspect,
+                    ic.title,
+                    s.priority_score,
+                    s.negative_rate,
+                    s.trend_growth,
+                    COALESCE(stats.mention_count, 0) AS mention_count,
+                    COALESCE(stats.negative_count, 0) AS negative_count
+                FROM issue_clusters ic
+                JOIN products p ON p.id = ic.product_id
+                JOIN issue_scores s ON s.issue_cluster_id = ic.id
+                LEFT JOIN (
+                    SELECT
+                        r.product_id,
+                        ra.aspect,
+                        COUNT(*) AS mention_count,
+                        SUM(CASE WHEN ra.sentiment_polarity = 'NEGATIVE' THEN 1 ELSE 0 END) AS negative_count
+                    FROM review_aspects ra
+                    JOIN reviews_raw r ON r.id = ra.review_id
+                    GROUP BY r.product_id, ra.aspect
+                ) stats ON stats.product_id = ic.product_id AND stats.aspect = ic.aspect
+                WHERE p.product_code = ?
+                ORDER BY s.priority_score DESC, ic.id ASC
+                """,
+                (rs, rowNum) -> new MaterializedIssueRecord(
+                        rs.getLong("cluster_id"),
+                        rs.getString("aspect"),
+                        rs.getString("title"),
+                        rs.getDouble("priority_score"),
+                        rs.getDouble("negative_rate"),
+                        rs.getDouble("trend_growth"),
+                        rs.getInt("mention_count"),
+                        rs.getInt("negative_count")
+                ),
+                productCode
+        );
+    }
+
+    public List<MaterializedTrendReviewRecord> findTrendReviews(String productCode, String aspect) {
+        List<Object> args = new ArrayList<>();
+        args.add(productCode);
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    r.review_time,
+                    ra.sentiment_polarity
+                FROM review_aspects ra
+                JOIN reviews_raw r ON r.id = ra.review_id
+                JOIN products p ON p.id = r.product_id
+                WHERE p.product_code = ?
+                """);
+        if (aspect != null && !aspect.isBlank()) {
+            sql.append(" AND ra.aspect = ?");
+            args.add(aspect);
+        }
+        sql.append(" ORDER BY r.review_time ASC, r.id ASC");
+
+        return jdbcTemplate.query(
+                sql.toString(),
+                (rs, rowNum) -> new MaterializedTrendReviewRecord(
+                        rs.getTimestamp("review_time").toInstant(),
+                        rs.getString("sentiment_polarity")
+                ),
+                args.toArray()
+        );
+    }
+
+    public List<MaterializedCompareAspectRecord> findCompareAspectScores(String productCode) {
+        return jdbcTemplate.query(
+                """
+                SELECT
+                    ra.aspect,
+                    COUNT(*) AS mention_count,
+                    AVG(COALESCE(ra.sentiment_score, 0.5000)) AS avg_sentiment_score
+                FROM review_aspects ra
+                JOIN reviews_raw r ON r.id = ra.review_id
+                JOIN products p ON p.id = r.product_id
+                WHERE p.product_code = ?
+                GROUP BY ra.aspect
+                ORDER BY ra.aspect ASC
+                """,
+                (rs, rowNum) -> new MaterializedCompareAspectRecord(
+                        rs.getString("aspect"),
+                        rs.getInt("mention_count"),
+                        rs.getDouble("avg_sentiment_score")
+                ),
+                productCode
+        );
+    }
+
+    public List<MaterializedWordCloudReviewRecord> findWordCloudReviews(String productCode, String aspect) {
+        List<Object> args = new ArrayList<>();
+        args.add(productCode);
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT r.content, ra.sentiment_polarity
+                FROM review_aspects ra
+                JOIN reviews_raw r ON r.id = ra.review_id
+                JOIN products p ON p.id = r.product_id
+                WHERE p.product_code = ?
+                """);
+        if (aspect != null && !aspect.isBlank()) {
+            sql.append(" AND ra.aspect = ?");
+            args.add(aspect);
+        }
+        sql.append(" ORDER BY r.review_time ASC, r.id ASC");
+
+        return jdbcTemplate.query(
+                sql.toString(),
+                (rs, rowNum) -> new MaterializedWordCloudReviewRecord(
+                        rs.getString("content"),
+                        rs.getString("sentiment_polarity")
+                ),
+                args.toArray()
+        );
+    }
+
+    public Optional<TopIssueScoreBreakdown> findTopIssueScoreBreakdown(String productCode) {
+        List<TopIssueScoreBreakdown> rows = jdbcTemplate.query(
+                """
+                SELECT ic.title,
+                       ic.aspect,
+                       s.negative_rate,
+                       s.mention_volume,
+                       s.trend_growth,
+                       s.competitor_gap,
+                       s.priority_score
+                FROM issue_clusters ic
+                JOIN products p ON p.id = ic.product_id
+                JOIN issue_scores s ON s.issue_cluster_id = ic.id
+                WHERE p.product_code = ?
+                ORDER BY s.priority_score DESC, ic.id ASC
+                LIMIT 1
+                """,
+                (rs, rowNum) -> new TopIssueScoreBreakdown(
+                        rs.getString("title"),
+                        rs.getString("aspect"),
+                        rs.getDouble("negative_rate"),
+                        rs.getDouble("mention_volume"),
+                        rs.getDouble("trend_growth"),
+                        rs.getDouble("competitor_gap"),
+                        rs.getDouble("priority_score")
+                ),
+                productCode
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.getFirst());
     }
 
     @Transactional
@@ -171,6 +327,48 @@ public class AnalysisMaterializationRepository {
             BigDecimal competitorGap,
             BigDecimal priorityScore,
             String weightConfig
+    ) {
+    }
+
+    public record MaterializedIssueRecord(
+            long clusterId,
+            String aspect,
+            String title,
+            double priorityScore,
+            double negativeRate,
+            double trendGrowth,
+            int mentionCount,
+            int negativeCount
+    ) {
+    }
+
+    public record MaterializedTrendReviewRecord(
+            Instant reviewTime,
+            String sentimentPolarity
+    ) {
+    }
+
+    public record MaterializedCompareAspectRecord(
+            String aspect,
+            int mentionCount,
+            double avgSentimentScore
+    ) {
+    }
+
+    public record MaterializedWordCloudReviewRecord(
+            String content,
+            String sentimentPolarity
+    ) {
+    }
+
+    public record TopIssueScoreBreakdown(
+            String title,
+            String aspect,
+            double negativeRate,
+            double mentionVolume,
+            double trendGrowth,
+            double competitorGap,
+            double priorityScore
     ) {
     }
 }

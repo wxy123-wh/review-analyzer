@@ -64,13 +64,13 @@
   - 更新控制器与后端测试，确保查询结果稳定。
   - 产出物化查询成功与缺失分析路径的证据。
 
-- [ ] 6. 替换静态 compare 为真实受控数据对比
+- [x] 6. 替换静态 compare 为真实受控数据对比
   - 为 compare 准备主商品 / 对比商品受控数据支持。
   - 实现负向率、提及量、issue delta 等真实 compare 计算。
   - 更新 compare API 与前端消费端测试。
   - 验证缺失对比目标时的结构化 empty / error 行为。
 
-- [ ] 7. 做实 actions → validation 闭环
+- [x] 7. 做实 actions → validation 闭环
   - 扩展 ActionController / Service / Repository 支持 action 列表与详情。
   - 用 action 关联的时间窗或快照语义替换现有 validation demo 逻辑。
   - 持久化 validation snapshot / metrics，并补齐 traceability 测试。
@@ -78,19 +78,19 @@
 
 ### Wave 3
 
-- [ ] 8. 前端核心面板切换为真实契约消费
+- [x] 8. 前端核心面板切换为真实契约消费
   - 重写 frontend api client 与 `App.vue` 总览流，消费真实 backend contracts。
   - 更新 Issue / Trend / WordCloud / Compare / Action / Validation 组件的 loading / empty / degraded / error 状态。
   - 移除依赖长期静态 mock 的消费逻辑。
   - 增加前端测试与至少一条 UI 级验证证据。
 
-- [ ] 9. 用真实 v1 数据替换 showcase placeholder
+- [x] 9. 用真实 v1 数据替换 showcase placeholder
   - 替换 backend `ShowcaseService/Controller` 占位响应。
   - 让 pipeline / agent / explainability / report / resilience 面板渲染 API-backed v1 内容。
   - 为数据来源解释、失败语义、非-placeholder 行为补齐测试。
   - 提供 showcase 成功与降级场景验证。
 
-- [ ] 10. 统一错误、降级与禁用模块语义
+- [x] 10. 统一错误、降级与禁用模块语义
   - 统一 backend 结构化 error / notice model。
   - 更新前端 client 与组件，区分 empty / degraded / failed / disabled。
   - 给 pipeline / resilience 模块喂入真实失败或降级状态源。
@@ -98,19 +98,19 @@
 
 ### Wave 4
 
-- [ ] 11. 补齐测试矩阵
+- [x] 11. 补齐测试矩阵
   - 扩展前端测试，覆盖真实 contracts 与 degraded states。
   - 扩展后端测试，覆盖 analysis jobs、compare、actions、validation、showcase replacements。
   - 扩展 nlp-service 测试，并至少提供一条 backend↔NLP integration verification。
   - 留存完整测试运行证据。
 
-- [ ] 12. 为外部评论源接入建立第二轨骨架
+- [x] 12. 为外部评论源接入建立第二轨骨架
   - 形式化 external-source raw review 结构、去重规则、失败状态与同步透明度。
   - 更新 `SyncJobService` 与 `OneBoundReviewClient` 骨架，使其可衔接后续 analysis jobs。
   - 确保外部源失败不会阻塞 controlled-data 首发。
   - 产出 skeleton handoff 与 failure transparency 证据。
 
-- [ ] 13. 收束 README / 接口 / 代码文档
+- [x] 13. 收束 README / 接口 / 代码文档
   - 更新 `README.md` 说明 controlled-data-first 首发路径与 analysis job 步骤。
   - 更新 `docs/接口文档.md` 反映真实 contracts 与 degraded/error semantics。
   - 更新 `docs/代码文档.md` 或 runbook，覆盖 explainability / report / resilience 使用与排障。
@@ -118,7 +118,7 @@
 
 ### Final Wave
 
-- [ ] F1. 运行 oracle 计划合规审查并记录 approve/reject verdict
-- [ ] F2. 运行 code-quality review 并记录 approve/reject verdict
-- [ ] F3. 运行真实手动 QA（含 Playwright UI 验证）并记录 approve/reject verdict
-- [ ] F4. 运行 scope-fidelity check 并记录 approve/reject verdict
+- [x] F1. 运行 oracle 计划合规审查并记录 approve/reject verdict
+- [x] F2. 运行 code-quality review 并记录 approve/reject verdict
+- [x] F3. 运行真实手动 QA（含 Playwright UI 验证）并记录 approve/reject verdict
+- [x] F4. 运行 scope-fidelity check 并记录 approve/reject verdict

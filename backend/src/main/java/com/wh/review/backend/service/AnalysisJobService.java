@@ -40,15 +40,18 @@ public class AnalysisJobService {
     private final AnalysisJobRepository analysisJobRepository;
     private final DemoReviewAggregationService demoReviewAggregationService;
     private final AnalysisMaterializationRepository analysisMaterializationRepository;
+    private final NlpReviewAnalysisClient nlpReviewAnalysisClient;
 
     public AnalysisJobService(
             AnalysisJobRepository analysisJobRepository,
             DemoReviewAggregationService demoReviewAggregationService,
-            AnalysisMaterializationRepository analysisMaterializationRepository
+            AnalysisMaterializationRepository analysisMaterializationRepository,
+            NlpReviewAnalysisClient nlpReviewAnalysisClient
     ) {
         this.analysisJobRepository = analysisJobRepository;
         this.demoReviewAggregationService = demoReviewAggregationService;
         this.analysisMaterializationRepository = analysisMaterializationRepository;
+        this.nlpReviewAnalysisClient = nlpReviewAnalysisClient;
     }
 
     public AnalysisJobResponse createJob(String productCode) {
@@ -67,11 +70,17 @@ public class AnalysisJobService {
             if (reviews.isEmpty()) {
                 throw new IllegalStateException("no reviews found for productCode=" + normalizedProductCode);
             }
+            NlpReviewAnalysisClient.AnalyzeResult nlpResult = nlpReviewAnalysisClient.analyze(
+                    runningJob.jobId(),
+                    normalizedProductCode,
+                    reviews.stream().map(DemoReviewAggregationService.AggregatedReview::content).toList()
+            );
+            AnalysisExecution execution = buildAnalysisExecution(reviews, nlpResult);
             analysisMaterializationRepository.replaceOutputs(
                     normalizedProductCode,
-                    buildMaterialization(reviews)
+                    buildMaterialization(execution.reviews())
             );
-            return analysisJobRepository.markSucceeded(runningJob.jobId(), Instant.now());
+            return analysisJobRepository.markSucceeded(runningJob.jobId(), Instant.now(), execution.degradedMessage());
         } catch (RuntimeException ex) {
             return analysisJobRepository.markFailed(
                     runningJob.jobId(),
@@ -109,19 +118,77 @@ public class AnalysisJobService {
         return Optional.of(job);
     }
 
-    private Materialization buildMaterialization(List<DemoReviewAggregationService.AggregatedReview> reviews) {
-        List<ReviewAspectRecord> reviewAspects = reviews.stream()
-                .map(review -> new ReviewAspectRecord(
+    private AnalysisExecution buildAnalysisExecution(
+            List<DemoReviewAggregationService.AggregatedReview> sourceReviews,
+            NlpReviewAnalysisClient.AnalyzeResult nlpResult
+    ) {
+        if (!nlpResult.isSuccess()) {
+            return new AnalysisExecution(controlledAnalysis(sourceReviews), nlpResult.degradedMessage());
+        }
+
+        try {
+            return new AnalysisExecution(nlpAnalysis(sourceReviews, nlpResult.response()), nlpResult.degradedMessage());
+        } catch (IllegalStateException ex) {
+            return new AnalysisExecution(
+                    controlledAnalysis(sourceReviews),
+                    "degraded:nlp_invalid_response:" + sanitizeContractMessage(ex.getMessage())
+            );
+        }
+    }
+
+    private List<AnalyzedReview> controlledAnalysis(List<DemoReviewAggregationService.AggregatedReview> sourceReviews) {
+        return sourceReviews.stream()
+                .map(review -> new AnalyzedReview(
                         review.reviewId(),
                         review.aspect(),
+                        review.content(),
+                        review.reviewTime(),
                         sentimentPolarity(review.sentiment()),
                         sentimentScore(review.sentiment()),
                         CONFIDENCE_DEFAULT
                 ))
                 .toList();
+    }
 
-        Map<String, List<DemoReviewAggregationService.AggregatedReview>> groupedByAspect = new HashMap<>();
-        for (DemoReviewAggregationService.AggregatedReview review : reviews) {
+    private List<AnalyzedReview> nlpAnalysis(
+            List<DemoReviewAggregationService.AggregatedReview> sourceReviews,
+            NlpReviewAnalysisClient.AnalyzeResponse response
+    ) {
+        List<AnalyzedReview> analyzedReviews = new ArrayList<>(sourceReviews.size());
+        for (NlpReviewAnalysisClient.AspectSentiment aspectSentiment : response.aspectSentiments()) {
+            DemoReviewAggregationService.AggregatedReview review = sourceReviews.get(aspectSentiment.reviewIndex());
+            String normalizedAspect = demoReviewAggregationService.normalizeAspect(aspectSentiment.aspect());
+            if (DemoReviewAggregationService.ASPECT_UNKNOWN.equals(normalizedAspect)) {
+                throw new IllegalStateException("unsupported nlp aspect=" + aspectSentiment.aspect());
+            }
+            String polarity = normalizePolarity(aspectSentiment.polarity());
+            analyzedReviews.add(new AnalyzedReview(
+                    review.reviewId(),
+                    normalizedAspect,
+                    review.content(),
+                    review.reviewTime(),
+                    polarity,
+                    sentimentScore(polarity),
+                    decimal(clampConfidence(aspectSentiment.confidence()))
+            ));
+        }
+        analyzedReviews.sort(Comparator.comparing(AnalyzedReview::reviewTime).thenComparing(AnalyzedReview::reviewId));
+        return analyzedReviews;
+    }
+
+    private Materialization buildMaterialization(List<AnalyzedReview> reviews) {
+        List<ReviewAspectRecord> reviewAspects = reviews.stream()
+                .map(review -> new ReviewAspectRecord(
+                        review.reviewId(),
+                        review.aspect(),
+                        review.sentimentPolarity(),
+                        review.sentimentScore(),
+                        review.confidence()
+                ))
+                .toList();
+
+        Map<String, List<AnalyzedReview>> groupedByAspect = new HashMap<>();
+        for (AnalyzedReview review : reviews) {
             groupedByAspect.computeIfAbsent(review.aspect(), ignored -> new ArrayList<>()).add(review);
         }
 
@@ -131,20 +198,20 @@ public class AnalysisJobService {
                 .orElse(1);
 
         List<IssueClusterRecord> issueClusters = new ArrayList<>();
-        for (Map.Entry<String, List<DemoReviewAggregationService.AggregatedReview>> entry : groupedByAspect.entrySet()) {
+        for (Map.Entry<String, List<AnalyzedReview>> entry : groupedByAspect.entrySet()) {
             String aspect = entry.getKey();
             if (DemoReviewAggregationService.ASPECT_UNKNOWN.equals(aspect)) {
                 continue;
             }
 
-            List<DemoReviewAggregationService.AggregatedReview> aspectReviews = entry.getValue().stream()
-                    .sorted(Comparator.comparing(DemoReviewAggregationService.AggregatedReview::reviewTime)
-                            .thenComparing(DemoReviewAggregationService.AggregatedReview::reviewId))
+            List<AnalyzedReview> aspectReviews = entry.getValue().stream()
+                    .sorted(Comparator.comparing(AnalyzedReview::reviewTime)
+                            .thenComparing(AnalyzedReview::reviewId))
                     .toList();
 
             int mentionCount = aspectReviews.size();
             long negativeCount = aspectReviews.stream()
-                    .filter(review -> review.sentiment() == DemoReviewAggregationService.Sentiment.NEGATIVE)
+                    .filter(review -> SENTIMENT_NEGATIVE.equals(review.sentimentPolarity()))
                     .count();
             if (negativeCount == 0L) {
                 continue;
@@ -153,8 +220,8 @@ public class AnalysisJobService {
             double negativeRate = round4((double) negativeCount / mentionCount);
             double mentionVolume = round4((double) mentionCount / maxMentionCount);
             int splitPoint = Math.max(1, mentionCount / 2);
-            List<DemoReviewAggregationService.AggregatedReview> previousWindow = aspectReviews.subList(0, splitPoint);
-            List<DemoReviewAggregationService.AggregatedReview> recentWindow = aspectReviews.subList(splitPoint, mentionCount);
+            List<AnalyzedReview> previousWindow = aspectReviews.subList(0, splitPoint);
+            List<AnalyzedReview> recentWindow = aspectReviews.subList(splitPoint, mentionCount);
             if (recentWindow.isEmpty()) {
                 recentWindow = previousWindow;
             }
@@ -195,6 +262,18 @@ public class AnalysisJobService {
         };
     }
 
+    private String normalizePolarity(String polarity) {
+        if (polarity == null || polarity.isBlank()) {
+            throw new IllegalStateException("nlp polarity is blank");
+        }
+        return switch (polarity.trim().toUpperCase(java.util.Locale.ROOT)) {
+            case SENTIMENT_NEGATIVE -> SENTIMENT_NEGATIVE;
+            case SENTIMENT_NEUTRAL -> SENTIMENT_NEUTRAL;
+            case SENTIMENT_POSITIVE -> SENTIMENT_POSITIVE;
+            default -> throw new IllegalStateException("unsupported nlp polarity=" + polarity);
+        };
+    }
+
     private BigDecimal sentimentScore(DemoReviewAggregationService.Sentiment sentiment) {
         return switch (sentiment) {
             case NEGATIVE -> new BigDecimal("0.1500");
@@ -203,12 +282,21 @@ public class AnalysisJobService {
         };
     }
 
-    private double computeNegativeRate(List<DemoReviewAggregationService.AggregatedReview> reviews) {
+    private BigDecimal sentimentScore(String sentimentPolarity) {
+        return switch (sentimentPolarity) {
+            case SENTIMENT_NEGATIVE -> new BigDecimal("0.1500");
+            case SENTIMENT_NEUTRAL -> new BigDecimal("0.5000");
+            case SENTIMENT_POSITIVE -> new BigDecimal("0.8500");
+            default -> throw new IllegalStateException("unsupported sentiment polarity=" + sentimentPolarity);
+        };
+    }
+
+    private double computeNegativeRate(List<AnalyzedReview> reviews) {
         if (reviews.isEmpty()) {
             return 0D;
         }
         long negativeCount = reviews.stream()
-                .filter(review -> review.sentiment() == DemoReviewAggregationService.Sentiment.NEGATIVE)
+                .filter(review -> SENTIMENT_NEGATIVE.equals(review.sentimentPolarity()))
                 .count();
         return round4((double) negativeCount / reviews.size());
     }
@@ -224,11 +312,11 @@ public class AnalysisJobService {
         };
     }
 
-    private String keywords(String aspect, List<DemoReviewAggregationService.AggregatedReview> reviews) {
+    private String keywords(String aspect, List<AnalyzedReview> reviews) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         values.add(aspect);
         values.add(demoReviewAggregationService.aspectDisplayName(aspect));
-        for (DemoReviewAggregationService.AggregatedReview review : reviews) {
+        for (AnalyzedReview review : reviews) {
             values.addAll(extractKeywords(review.content()));
             if (values.size() >= 4) {
                 break;
@@ -250,9 +338,9 @@ public class AnalysisJobService {
                 .toList();
     }
 
-    private String representativeReviewIds(List<DemoReviewAggregationService.AggregatedReview> reviews) {
+    private String representativeReviewIds(List<AnalyzedReview> reviews) {
         return reviews.stream()
-                .filter(review -> review.sentiment() == DemoReviewAggregationService.Sentiment.NEGATIVE)
+                .filter(review -> SENTIMENT_NEGATIVE.equals(review.sentimentPolarity()))
                 .limit(3)
                 .map(review -> String.valueOf(review.reviewId()))
                 .reduce((left, right) -> left + "," + right)
@@ -284,11 +372,39 @@ public class AnalysisJobService {
         return Math.max(0D, Math.min(1D, value));
     }
 
+    private double clampConfidence(Double value) {
+        if (value == null) {
+            return CONFIDENCE_DEFAULT.doubleValue();
+        }
+        return clamp01(value);
+    }
+
     private String sanitizeError(String productCode, RuntimeException ex) {
         String message = ex.getMessage();
         if (message == null || message.isBlank()) {
             return STATUS_FAILED.toLowerCase() + " analysis for productCode=" + productCode;
         }
         return message;
+    }
+
+    private String sanitizeContractMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return "invalid-response";
+        }
+        return message.replaceAll("\\s+", "-").toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private record AnalysisExecution(List<AnalyzedReview> reviews, String degradedMessage) {
+    }
+
+    private record AnalyzedReview(
+            long reviewId,
+            String aspect,
+            String content,
+            Instant reviewTime,
+            String sentimentPolarity,
+            BigDecimal sentimentScore,
+            BigDecimal confidence
+    ) {
     }
 }

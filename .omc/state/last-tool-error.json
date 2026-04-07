@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd /d/code/review-analyzer/frontend && npm run build\",\"description\":\"Build frontend to verify changes\"}",
-  "error": "Exit code 1\n\n> wh-frontend@0.1.0 build\n> vite build\n\n\u001b[36mvite v6.4.1 \u001b[32mbuilding for production...\u001b[36m\u001b[39m\ntransforming...\n\u001b[32m✓\u001b[39m 11 modules transformed.\n\u001b[31m✗\u001b[39m Build failed in 303ms\n\u001b[31merror during build:\n\u001b[31m[vite:vue] [plugin vite:vue] src/components/ActionList.vue (5:62): Unquoted attribute value cannot contain U+0022 (\"), U+0027 ('), U+003C (<), U+003D (=), and U+0060 (`).\u001b[31m\nfile: \u001b[36mD:/code/review-analyzer/frontend/src/components/ActionList.vue:5:62\u001b[31m\nSyntaxError:...",
-  "timestamp": "2026-04-02T07:23:27.070Z",
-  "retry_count": 1
-}

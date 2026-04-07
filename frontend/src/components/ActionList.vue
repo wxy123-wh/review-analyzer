@@ -7,6 +7,7 @@
       </div>
       <button type="button" class="create-btn" data-motion-hover="lift" @click="$emit('create-demo')">登记演示数据动作</button>
     </div>
+    <p v-if="state === 'degraded' && stateMessage" class="notice">{{ stateMessage }}</p>
     <ul v-if="items.length > 0" class="action-list">
       <li v-for="item in items" :key="item.actionId" class="action-item" data-motion-hover="lift">
         <div class="action-main">
@@ -16,20 +17,34 @@
         <span class="status-badge">{{ item.status }}</span>
       </li>
     </ul>
-    <p v-else class="empty">暂无动作，点击“登记演示数据动作”快速创建。</p>
+    <p v-else class="empty" :class="{ 'empty--error': state === 'error' }">{{ stateMessage }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import type { ActionItem } from '../types/domain'
+import { computed } from 'vue'
+
+import type { ActionItem, ContractState } from '../types/domain'
 
 defineEmits<{
   (event: 'create-demo'): void
 }>()
 
-defineProps<{
+const props = defineProps<{
   items: ActionItem[]
+  state: ContractState
+  message?: string
 }>()
+
+const stateMessage = computed(() => {
+  if (props.state === 'error') {
+    return props.message || '动作接口请求失败，请稍后重试。'
+  }
+  if (props.state === 'degraded') {
+    return props.message || '动作列表暂时只返回部分结果，可稍后重试刷新。'
+  }
+  return props.message || '暂无动作，点击“登记演示数据动作”快速创建。'
+})
 </script>
 
 <style scoped>
@@ -62,6 +77,19 @@ defineProps<{
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.notice {
+  position: relative;
+  z-index: var(--z-raised);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px dashed rgba(255, 123, 133, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(39, 13, 20, 0.24);
+  color: var(--color-semantic-down);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 h3 {
@@ -191,6 +219,11 @@ h3 {
   font-size: var(--font-size-md);
   line-height: var(--line-height-normal);
   align-items: center;
+}
+
+.empty--error {
+  border-color: rgba(255, 123, 133, 0.28);
+  color: var(--color-semantic-down);
 }
 
 @media (max-width: 640px) {

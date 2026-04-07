@@ -6,6 +6,7 @@
         <h3>改进效果验证</h3>
       </div>
     </div>
+    <p v-if="state === 'degraded' && stateMessage" class="notice">{{ stateMessage }}</p>
     <ul v-if="items.length > 0" class="validation-list">
       <li v-for="item in items" :key="item.actionId" class="validation-item" data-motion-hover="lift">
         <div class="row">
@@ -15,16 +16,30 @@
         <p>{{ item.summary }}</p>
       </li>
     </ul>
-    <p v-else class="empty">暂无验证结果</p>
+    <p v-else class="empty" :class="{ 'empty--error': state === 'error' }">{{ stateMessage }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import type { ValidationItem } from '../types/domain'
+import { computed } from 'vue'
 
-defineProps<{
+import type { ContractState, ValidationItem } from '../types/domain'
+
+const props = defineProps<{
   items: ValidationItem[]
+  state: ContractState
+  message?: string
 }>()
+
+const stateMessage = computed(() => {
+  if (props.state === 'error') {
+    return props.message || '验证接口请求失败，请稍后重试。'
+  }
+  if (props.state === 'degraded') {
+    return props.message || '验证结果暂时回退为部分数据，请稍后刷新。'
+  }
+  return props.message || '暂无验证结果'
+})
 </script>
 
 <style scoped>
@@ -51,6 +66,7 @@ defineProps<{
 }
 
 .head,
+.notice,
 .validation-list,
 .empty {
   position: relative;
@@ -96,6 +112,17 @@ h3 {
   list-style: none;
   display: grid;
   gap: var(--space-2);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px dashed rgba(255, 123, 133, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(39, 13, 20, 0.24);
+  color: var(--color-semantic-down);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 .validation-item {
@@ -151,6 +178,11 @@ p {
   border-radius: var(--radius-md);
   background: rgba(8, 15, 27, 0.42);
   color: var(--color-text-secondary);
+}
+
+.empty--error {
+  border-color: rgba(255, 123, 133, 0.28);
+  color: var(--color-semantic-down);
 }
 
 @media (max-width: 640px) {

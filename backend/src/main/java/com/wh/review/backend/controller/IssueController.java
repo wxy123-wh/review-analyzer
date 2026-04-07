@@ -21,6 +21,6 @@ public class IssueController {
     public IssueListResponse issues(
             @RequestParam(value = "productCode", defaultValue = "demo-earphone") String productCode
     ) {
-        return new IssueListResponse(insightQueryService.listIssues(productCode));
+        return insightQueryService.listIssues(productCode);
     }
 }

@@ -19,8 +19,9 @@ public class CompareController {
 
     @GetMapping("/compare")
     public CompareResponse compare(
-            @RequestParam(value = "productCode", defaultValue = "demo-earphone") String productCode
+            @RequestParam(value = "productCode", defaultValue = "demo-earphone") String productCode,
+            @RequestParam(value = "comparisonProductCode", required = false) String comparisonProductCode
     ) {
-        return insightQueryService.compare(productCode);
+        return insightQueryService.compare(productCode, comparisonProductCode);
     }
 }

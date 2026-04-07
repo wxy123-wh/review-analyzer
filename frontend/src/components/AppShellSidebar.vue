@@ -28,8 +28,37 @@
           >
             <span class="active-rail" aria-hidden="true"></span>
             <span class="dot">{{ module.icon }}</span>
-            <span class="label">{{ module.label }}</span>
+            <span class="label-wrap">
+              <span class="label-row">
+                <span class="label">{{ module.label }}</span>
+                <span class="state-badge">{{ module.stateLabel }}</span>
+              </span>
+              <span class="meta">{{ module.strategyLabel }}</span>
+            </span>
           </button>
+        </div>
+      </section>
+
+      <section v-if="hiddenItems.length > 0" class="nav-group nav-group-muted">
+        <p class="nav-group-label">待显式开启</p>
+
+        <div class="nav-group-items">
+          <article
+            v-for="module in hiddenItems"
+            :key="module.id"
+            :data-testid="`nav-hidden-${module.id}`"
+            class="nav-item nav-item-muted"
+          >
+            <span class="dot">{{ module.icon }}</span>
+            <span class="label-wrap">
+              <span class="label-row">
+                <span class="label">{{ module.label }}</span>
+                <span class="state-badge">{{ module.stateLabel }}</span>
+              </span>
+              <span class="meta">{{ module.availabilityLabel }}</span>
+              <span class="meta meta-subtle">{{ module.strategyLabel }}</span>
+            </span>
+          </article>
         </div>
       </section>
     </nav>
@@ -43,10 +72,14 @@ type ShellModuleItem = {
   id: string
   label: string
   icon: string
+  stateLabel: string
+  strategyLabel: string
+  availabilityLabel: string
 }
 
 const props = defineProps<{
   items: ShellModuleItem[]
+  hiddenItems: ShellModuleItem[]
   activeModule: string
 }>()
 
@@ -165,6 +198,12 @@ const navGroups = computed(() => {
     transform var(--motion-fast) var(--easing-standard);
 }
 
+.nav-item-muted {
+  cursor: default;
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+
 .nav-item:focus-visible {
   border-color: var(--color-border-strong);
   color: var(--color-text-primary);
@@ -217,10 +256,44 @@ const navGroups = computed(() => {
     box-shadow var(--motion-medium) var(--easing-standard);
 }
 
+.label-wrap {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+}
+
+.label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .label {
   font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
   text-align: center;
+}
+
+.state-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(122, 184, 255, 0.14);
+  color: var(--color-accent-primary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: 0.04em;
+}
+
+.meta {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+  text-align: center;
+}
+
+.meta-subtle {
+  color: var(--color-text-secondary);
 }
 
 .nav-item.active .active-rail {

@@ -26,7 +26,9 @@ public class SyncJobRepository {
             rs.getString("status"),
             rs.getTimestamp("started_at").toInstant(),
             rs.getInt("fetched_count"),
-            rs.getString("error_message")
+            rs.getString("error_message"),
+            rs.getString("analysis_handoff_status"),
+            rs.getString("analysis_handoff_note")
     );
 
     public SyncJobRepository(JdbcTemplate jdbcTemplate) {
@@ -41,7 +43,9 @@ public class SyncJobRepository {
                         "fetched_count",
                         "started_at",
                         "finished_at",
-                        "error_message"
+                        "error_message",
+                        "analysis_handoff_status",
+                        "analysis_handoff_note"
                 )
                 .usingGeneratedKeyColumns("id");
     }
@@ -55,6 +59,8 @@ public class SyncJobRepository {
         payload.put("fetched_count", response.fetchedCount());
         payload.put("started_at", Timestamp.from(response.startedAt()));
         payload.put("error_message", response.errorMessage());
+        payload.put("analysis_handoff_status", response.analysisHandoffStatus());
+        payload.put("analysis_handoff_note", response.analysisHandoffNote());
         payload.put("finished_at", finishedAt == null ? null : Timestamp.from(finishedAt));
 
         Number key = insertSyncJob.executeAndReturnKey(payload);
@@ -70,7 +76,16 @@ public class SyncJobRepository {
 
         List<SyncJobResponse> rows = jdbcTemplate.query(
                 """
-                SELECT id, provider, platform, target_product_code, status, fetched_count, started_at, error_message
+                SELECT id,
+                       provider,
+                       platform,
+                       target_product_code,
+                       status,
+                       fetched_count,
+                       started_at,
+                       error_message,
+                       analysis_handoff_status,
+                       analysis_handoff_note
                 FROM sync_jobs
                 WHERE id = ?
                 """,
@@ -83,6 +98,70 @@ public class SyncJobRepository {
         return Optional.of(rows.getFirst());
     }
 
+    public Optional<SyncJobSnapshot> findLatest() {
+        List<SyncJobSnapshot> rows = jdbcTemplate.query(
+                """
+                SELECT id, provider, platform, target_product_code, status, fetched_count, started_at, finished_at, error_message
+                FROM sync_jobs
+                ORDER BY COALESCE(finished_at, started_at) DESC, id DESC
+                LIMIT 1
+                """,
+                (rs, rowNum) -> new SyncJobSnapshot(
+                        String.valueOf(rs.getLong("id")),
+                        rs.getString("provider"),
+                        rs.getString("platform"),
+                        rs.getString("target_product_code"),
+                        rs.getString("status"),
+                        rs.getTimestamp("started_at").toInstant(),
+                        rs.getTimestamp("finished_at") == null ? null : rs.getTimestamp("finished_at").toInstant(),
+                        rs.getInt("fetched_count"),
+                        rs.getString("error_message")
+                )
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.getFirst());
+    }
+
+    public SyncJobResponse updateOutcome(
+            String jobId,
+            String status,
+            int fetchedCount,
+            Instant finishedAt,
+            String errorMessage,
+            String analysisHandoffStatus,
+            String analysisHandoffNote
+    ) {
+        Long id = parseId(jobId);
+        if (id == null) {
+            throw new IllegalArgumentException("invalid sync job id=" + jobId);
+        }
+
+        jdbcTemplate.update(
+                """
+                UPDATE sync_jobs
+                SET status = ?,
+                    fetched_count = ?,
+                    finished_at = ?,
+                    error_message = ?,
+                    analysis_handoff_status = ?,
+                    analysis_handoff_note = ?
+                WHERE id = ?
+                """,
+                status,
+                fetchedCount,
+                Timestamp.from(finishedAt),
+                errorMessage,
+                analysisHandoffStatus,
+                analysisHandoffNote,
+                id
+        );
+
+        return findById(jobId)
+                .orElseThrow(() -> new IllegalStateException("sync job update succeeded but row was not found"));
+    }
+
     private Long parseId(String jobId) {
         if (jobId == null || jobId.isBlank()) {
             return null;
@@ -92,5 +171,18 @@ public class SyncJobRepository {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    public record SyncJobSnapshot(
+            String jobId,
+            String provider,
+            String platform,
+            String targetProductCode,
+            String status,
+            Instant startedAt,
+            Instant finishedAt,
+            int fetchedCount,
+            String errorMessage
+    ) {
     }
 }

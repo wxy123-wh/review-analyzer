@@ -7,19 +7,19 @@
           <span class="status-badge">{{ statusLabel }}</span>
         </div>
         <h3>报告中心</h3>
-        <p class="note">{{ data?.note ?? '支持预览报告段落，导出链路当前为演示数据流程。' }}</p>
+        <p class="note">{{ data?.note ?? '支持基于真实查询结果生成报告段落预览。' }}</p>
       </div>
 
       <div class="hero-metrics">
         <article class="metric-card metric-card--accent" data-motion-hover="lift">
           <span class="metric-label">目标模块</span>
           <strong>{{ selectedModuleLabel }}</strong>
-          <p>当前预览将沿用既有模块选择路径。</p>
+          <p>当前预览会沿用既有模块入口与真实查询结果。</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">预览段落</span>
           <strong>{{ previewCount }}</strong>
-          <p>仅聚焦现有演示数据输出的章节数。</p>
+          <p>当前已拼装出的预览章节数量。</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">当前状态</span>
@@ -49,7 +49,7 @@
           </label>
 
           <button type="button" class="preview-button" data-motion-hover="lift" @click="$emit('preview', selectedModule)">
-            生成演示数据报告预览
+            生成报告预览
           </button>
         </div>
       </article>

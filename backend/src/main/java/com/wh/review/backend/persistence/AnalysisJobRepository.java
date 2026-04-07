@@ -58,11 +58,16 @@ public class AnalysisJobRepository {
     }
 
     public AnalysisJobResponse markSucceeded(String jobId, Instant finishedAt) {
+        return markSucceeded(jobId, finishedAt, null);
+    }
+
+    public AnalysisJobResponse markSucceeded(String jobId, Instant finishedAt, String errorMessage) {
         long id = requireId(jobId);
         jdbcTemplate.update(
-                "UPDATE analysis_jobs SET status = ?, finished_at = ?, error_message = NULL WHERE id = ?",
+                "UPDATE analysis_jobs SET status = ?, finished_at = ?, error_message = ? WHERE id = ?",
                 STATUS_SUCCEEDED,
                 Timestamp.from(finishedAt),
+                errorMessage,
                 id
         );
         return findExisting(jobId);
@@ -93,6 +98,22 @@ public class AnalysisJobRepository {
                 mapper,
                 productCode,
                 STATUS_SUCCEEDED
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.getFirst());
+    }
+
+    public Optional<AnalysisJobResponse> findLatest() {
+        List<AnalysisJobResponse> rows = jdbcTemplate.query(
+                """
+                SELECT id, product_code, status, started_at, finished_at, error_message
+                FROM analysis_jobs
+                ORDER BY COALESCE(finished_at, started_at) DESC, id DESC
+                LIMIT 1
+                """,
+                mapper
         );
         if (rows.isEmpty()) {
             return Optional.empty();

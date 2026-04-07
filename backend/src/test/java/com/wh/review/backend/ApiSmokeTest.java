@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -22,6 +23,9 @@ class ApiSmokeTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private com.wh.review.backend.service.OneBoundReviewClient oneBoundReviewClient;
 
     @Test
     void healthEndpointShouldReturnUp() throws Exception {
@@ -69,8 +73,31 @@ class ApiSmokeTest {
 
     @Test
     void issuesEndpointShouldReturnArray() throws Exception {
-        mockMvc.perform(get("/api/v1/issues"))
+        String productCode = "demo-issues-smoke-" + UUID.randomUUID().toString().substring(0, 8);
+
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/analysis/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+
+        mockMvc.perform(get("/api/v1/issues")
+                        .queryParam("productCode", productCode))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("success"))
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items[0].priorityScore").isNumber())
                 .andExpect(jsonPath("$.items[0].evidenceSummary").isNotEmpty());
@@ -83,6 +110,7 @@ class ApiSmokeTest {
                         .content("{\"provider\":\"aggregator-demo\",\"targetProductCode\":\"demo-earphone\"}"))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andExpect(jsonPath("$.analysisHandoffStatus").value("CONTROLLED_DATA_PATH"))
                 .andExpect(jsonPath("$.jobId").isNotEmpty())
                 .andReturn();
 
@@ -94,8 +122,65 @@ class ApiSmokeTest {
     }
 
     @Test
+    void syncApiShouldExposeUnsupportedProviderInsteadOfLeavingQueuedForever() throws Exception {
+        mockMvc.perform(post("/api/v1/sync/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  \"provider\": \"mystery-sync\",
+                                  \"platform\": \"taobao\",
+                                  \"targetProductCode\": \"demo-earphone\"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("UNSUPPORTED"))
+                .andExpect(jsonPath("$.errorMessage").value(org.hamcrest.Matchers.containsString("unsupported sync provider")))
+                .andExpect(jsonPath("$.analysisHandoffStatus").value("UNSUPPORTED_SOURCE"));
+    }
+
+    @Test
+    void externalSyncFailureShouldNotBlockControlledDataInitAndAnalysis() throws Exception {
+        org.mockito.Mockito.when(oneBoundReviewClient.fetchFirstPage("taobao", "600530677643"))
+                .thenThrow(new IllegalStateException("ONEBOUND_API_KEY is not configured"));
+
+        mockMvc.perform(post("/api/v1/sync/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  \"provider\": \"onebound\",
+                                  \"platform\": \"taobao\",
+                                  \"targetProductCode\": \"600530677643\"
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.analysisHandoffStatus").value("BLOCKED_SYNC_FAILED"));
+
+        String productCode = "demo-after-sync-failure-" + UUID.randomUUID().toString().substring(0, 8);
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  \"productCode\": \"%s\"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/analysis/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  \"productCode\": \"%s\"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+    }
+
+    @Test
     void compareTrendActionAndValidationEndpointsShouldReturnStructuredData() throws Exception {
         String productCode = "demo-earphone-smoke-" + UUID.randomUUID().toString().substring(0, 8);
+        String comparisonProductCode = "demo-earphone-competitor-smoke-" + UUID.randomUUID().toString().substring(0, 8);
 
         mockMvc.perform(post("/api/v1/demo-data/init")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -112,16 +197,53 @@ class ApiSmokeTest {
                 .andExpect(jsonPath("$.updatedReviewCount").value(0))
                 .andExpect(jsonPath("$.totalReviewCount").value(100));
 
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(comparisonProductCode)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productCode").value(comparisonProductCode));
+
+        mockMvc.perform(post("/api/v1/analysis/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+
+        mockMvc.perform(post("/api/v1/analysis/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(comparisonProductCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+
         mockMvc.perform(get("/api/v1/compare")
-                        .queryParam("productCode", productCode))
+                        .queryParam("productCode", productCode)
+                        .queryParam("comparisonProductCode", comparisonProductCode))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productCode").value(productCode))
+                .andExpect(jsonPath("$.comparisonProductCode").value(comparisonProductCode))
+                .andExpect(jsonPath("$.state").value("success"))
                 .andExpect(jsonPath("$.items").isArray())
-                .andExpect(jsonPath("$.items[0].aspect").value("bluetooth"))
-                .andExpect(jsonPath("$.items[1].aspect").value("noise-canceling"))
-                .andExpect(jsonPath("$.items[2].aspect").value("battery"))
-                .andExpect(jsonPath("$.items[3].aspect").value("microphone"))
-                .andExpect(jsonPath("$.items[0].ourScore").isNumber());
+                .andExpect(jsonPath("$.items[0].aspect").value("battery"))
+                .andExpect(jsonPath("$.items[1].aspect").value("bluetooth"))
+                .andExpect(jsonPath("$.items[2].aspect").value("noise-canceling"))
+                .andExpect(jsonPath("$.items[3].aspect").value("comfort"))
+                .andExpect(jsonPath("$.items[4].aspect").value("microphone"))
+                .andExpect(jsonPath("$.items[0].ourScore").value(0.22))
+                .andExpect(jsonPath("$.items[0].competitorScore").value(0.78))
+                .andExpect(jsonPath("$.items[0].gap").value(-0.56))
+                .andExpect(jsonPath("$.items[1].ourScore").value(0.78));
 
         mockMvc.perform(get("/api/v1/trends")
                         .queryParam("productCode", productCode)
@@ -129,6 +251,7 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.aspect").value("battery"))
+                .andExpect(jsonPath("$.state").value("success"))
                 .andExpect(jsonPath("$.points").isArray())
                 .andExpect(jsonPath("$.points[0].negativeRate").isNumber());
 
@@ -138,6 +261,7 @@ class ApiSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.productCode").value(productCode))
                 .andExpect(jsonPath("$.aspect").value("battery"))
+                .andExpect(jsonPath("$.state").value("success"))
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items[0].keyword").isNotEmpty())
                 .andExpect(jsonPath("$.items[0].frequency").isNumber())
@@ -161,61 +285,191 @@ class ApiSmokeTest {
 
         String actionId = JsonPath.read(actionResult.getResponse().getContentAsString(), "$.actionId");
 
+        mockMvc.perform(get("/api/v1/actions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].actionId").isNotEmpty())
+                .andExpect(jsonPath("$[0].status").value("PLANNED"));
+
+        mockMvc.perform(get("/api/v1/actions/{actionId}", actionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.actionId").value(actionId))
+                .andExpect(jsonPath("$.productCode").value(productCode));
+
         mockMvc.perform(get("/api/v1/validation")
                         .queryParam("actionId", actionId))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("success"))
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.items[0].actionId").value(actionId))
+                .andExpect(jsonPath("$.items[0].beforeNegativeRate").isNumber())
+                .andExpect(jsonPath("$.items[0].afterNegativeRate").isNumber())
                 .andExpect(jsonPath("$.items[0].summary").isNotEmpty());
     }
 
     @Test
-    void showcasePlaceholderEndpointsShouldReturnStructuredData() throws Exception {
+    void insightEndpointsShouldPreserveNoDataAndFallbackSemanticsWithoutMaterializedOutputs() throws Exception {
+        String missingProductCode = "missing-insight-" + UUID.randomUUID().toString().substring(0, 8);
+
+        mockMvc.perform(get("/api/v1/issues")
+                        .queryParam("productCode", missingProductCode))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("empty"))
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.notice").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/trends")
+                        .queryParam("productCode", missingProductCode)
+                        .queryParam("aspect", "battery"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("empty"))
+                .andExpect(jsonPath("$.points").isArray())
+                .andExpect(jsonPath("$.points").isEmpty())
+                .andExpect(jsonPath("$.notice").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/wordcloud")
+                        .queryParam("productCode", missingProductCode)
+                        .queryParam("aspect", "battery"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("empty"))
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.notice").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/compare")
+                        .queryParam("productCode", missingProductCode))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("missing-target"))
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.notice").isNotEmpty());
+    }
+
+    @Test
+    void showcaseEndpointsShouldReturnRealStructuredData() throws Exception {
+        String productCode = "demo-showcase-smoke-" + UUID.randomUUID().toString().substring(0, 8);
+        String comparisonProductCode = "demo-showcase-competitor-" + UUID.randomUUID().toString().substring(0, 8);
+
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/demo-data/init")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(comparisonProductCode)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/sync/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "provider": "aggregator-demo",
+                                  "targetProductCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("QUEUED"));
+
+        mockMvc.perform(post("/api/v1/analysis/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+
+        mockMvc.perform(post("/api/v1/analysis/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s"
+                                }
+                                """.formatted(comparisonProductCode)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
+
+        MvcResult actionResult = mockMvc.perform(post("/api/v1/actions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s",
+                                  "issueId": "iss-battery-001",
+                                  "actionName": "Battery firmware optimization",
+                                  "actionDesc": "Tune low-power mode for long idle use"
+                                }
+                                """.formatted(productCode)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String actionId = JsonPath.read(actionResult.getResponse().getContentAsString(), "$.actionId");
+
+        mockMvc.perform(get("/api/v1/validation")
+                        .queryParam("actionId", actionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].actionId").value(actionId));
+
         mockMvc.perform(get("/api/v1/showcase/pipeline"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
-                .andExpect(jsonPath("$.implemented").value(false))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=placeholder")))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("strategy=replace")))
+                .andExpect(jsonPath("$.implemented").value(true))
+                .andExpect(jsonPath("$.status").value(org.hamcrest.Matchers.anyOf(
+                        org.hamcrest.Matchers.is("LIVE"),
+                        org.hamcrest.Matchers.is("DEGRADED")
+                )))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("data-source=sync_jobs+analysis_jobs+materialized_outputs+actions+validation")))
                 .andExpect(jsonPath("$.stages").isArray())
-                .andExpect(jsonPath("$.stages[0].name").isNotEmpty());
+                .andExpect(jsonPath("$.stages[0].name").value("SYNC"))
+                .andExpect(jsonPath("$.stages[1].name").value("ANALYSIS"))
+                .andExpect(jsonPath("$.stages[2].name").value("MATERIALIZATION"));
 
         mockMvc.perform(get("/api/v1/showcase/agent-arena"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
-                .andExpect(jsonPath("$.implemented").value(false))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=placeholder")))
+                .andExpect(jsonPath("$.implemented").value(true))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("lane rows are synthesized from persisted v1 subsystem health")))
                 .andExpect(jsonPath("$.agents").isArray())
-                .andExpect(jsonPath("$.agents[0].agentName").isNotEmpty());
+                .andExpect(jsonPath("$.agents[0].agentName").value("sync-lane"))
+                .andExpect(jsonPath("$.agents[0].confidence").isNumber());
 
         mockMvc.perform(get("/api/v1/showcase/explainability"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONTROLLED_DATA_ONLY"))
-                .andExpect(jsonPath("$.implemented").value(false))
+                .andExpect(jsonPath("$.implemented").value(true))
                 .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=controlled-data-only")))
                 .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("strategy=keep")))
                 .andExpect(jsonPath("$.featureContributions").isArray())
-                .andExpect(jsonPath("$.featureContributions[0].feature").isNotEmpty());
+                .andExpect(jsonPath("$.featureContributions[0].feature").isNotEmpty())
+                .andExpect(jsonPath("$.featureContributions[0].weight").isNumber());
 
         mockMvc.perform(get("/api/v1/showcase/chaos"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
-                .andExpect(jsonPath("$.implemented").value(false))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=gated-placeholder")))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("strategy=hide-by-default")))
+                .andExpect(jsonPath("$.implemented").value(true))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=runtime-state")))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("data-source=sync_jobs+analysis_jobs+materialized_outputs")))
                 .andExpect(jsonPath("$.drills").isArray())
-                .andExpect(jsonPath("$.drills[0].scenario").isNotEmpty());
+                .andExpect(jsonPath("$.drills[0].scenario").value("sync-runtime"));
 
         mockMvc.perform(post("/api/v1/showcase/reports/preview")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"module\":\"overview\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PLACEHOLDER"))
-                .andExpect(jsonPath("$.implemented").value(false))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("v1-state=placeholder")))
-                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("data-source=static-preview-sections")))
+                .andExpect(jsonPath("$.implemented").value(true))
+                .andExpect(jsonPath("$.status").value(org.hamcrest.Matchers.anyOf(
+                        org.hamcrest.Matchers.is("LIVE"),
+                        org.hamcrest.Matchers.is("DEGRADED")
+                )))
+                .andExpect(jsonPath("$.note").value(org.hamcrest.Matchers.containsString("data-source=issues+compare+trends+actions+validation")))
                 .andExpect(jsonPath("$.previewSections").isArray())
-                .andExpect(jsonPath("$.previewSections[0]").isNotEmpty());
+                .andExpect(jsonPath("$.previewSections[0]").value(org.hamcrest.Matchers.containsString(productCode)));
     }
 
     @Test

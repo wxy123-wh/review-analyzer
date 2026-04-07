@@ -12,19 +12,19 @@
 
       <div class="hero-metrics">
         <article class="metric-card metric-card--accent" data-motion-hover="lift">
-          <span class="metric-label">演练剧本</span>
+          <span class="metric-label">运行信号</span>
           <strong>{{ totalDrills }}</strong>
-          <p>当前可见的链路韧性演示场景。</p>
+          <p>当前可见的真实链路韧性状态来源。</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
-          <span class="metric-label">待触发</span>
-          <strong>{{ pendingDrills }}</strong>
+          <span class="metric-label">关注项</span>
+          <strong>{{ attentionCount }}</strong>
           <p>{{ nextScenario }}</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">映射节点</span>
           <strong>{{ mappingItems.length }}</strong>
-          <p>固定展示当前评论链路受影响位置。</p>
+          <p>由当前返回的运行信号自动生成。</p>
         </article>
       </div>
     </header>
@@ -84,26 +84,23 @@ const props = defineProps<{
   data: ShowcaseChaosData | null
 }>()
 
-const mappingItems = [
-  '评论同步延迟上升 -> 趋势与词云刷新滞后',
-  '接口限流波动 -> 问题识别召回下降',
-  '任务重试积压 -> 看板更新时间延后',
-]
-
 const drills = computed(() => props.data?.drills ?? [])
 const statusLabel = computed(() => formatShowcaseStatus(props.data?.status))
+const mappingItems = computed(() =>
+  drills.value.map((drill) => `${drill.scenario} -> ${drill.state}`).slice(0, 3),
+)
 
 const totalDrills = computed(() => drills.value.length)
-const pendingDrills = computed(() => drills.value.filter((drill) => isPendingState(drill.state)).length)
+const attentionCount = computed(() => drills.value.filter((drill) => isAttentionState(drill.state)).length)
 const nextScenario = computed(() => {
-  const next = drills.value.find((drill) => isPendingState(drill.state))
-  return next ? next.scenario : '当前没有待触发剧本'
+  const next = drills.value.find((drill) => isAttentionState(drill.state))
+  return next ? `${next.scenario} · ${next.state}` : '当前没有需要关注的异常信号'
 })
 const drillSupport = computed(() => {
   if (!drills.value.length) {
-    return '暂无演练信号'
+    return '暂无运行信号'
   }
-  return `当前展示 ${drills.value.length} 条韧性剧本`
+  return `当前展示 ${drills.value.length} 条韧性运行态信号`
 })
 
 function normalizeState(state: string): string {
@@ -119,7 +116,11 @@ function isRunningState(state: string): boolean {
 }
 
 function isCompletedState(state: string): boolean {
-  return ['DONE', 'SUCCESS', 'COMPLETED'].includes(normalizeState(state))
+  return ['DONE', 'SUCCESS', 'COMPLETED', 'SUCCEEDED', 'STABLE', 'LIVE'].includes(normalizeState(state))
+}
+
+function isAttentionState(state: string): boolean {
+  return ['FAILED', 'DEGRADED', 'UNAVAILABLE', 'RUNTIME_UNAVAILABLE'].includes(normalizeState(state))
 }
 
 function stateTone(state: string): string {
@@ -131,6 +132,9 @@ function stateTone(state: string): string {
   }
   if (isPendingState(state)) {
     return 'unknown'
+  }
+  if (isAttentionState(state)) {
+    return 'down'
   }
   return 'default'
 }
@@ -357,6 +361,12 @@ h4 {
   color: var(--color-semantic-unknown);
   border-color: var(--color-semantic-unknown-soft);
   background: var(--color-semantic-unknown-soft);
+}
+
+.state-pill.down {
+  color: var(--color-semantic-down);
+  border-color: rgba(255, 123, 133, 0.28);
+  background: rgba(255, 123, 133, 0.12);
 }
 
 .empty {

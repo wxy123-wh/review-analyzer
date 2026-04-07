@@ -20,6 +20,7 @@ public class DemoDataInitializationService {
     static final String SOURCE = "demo-seed";
     static final String DATA_VERSION = "demo-comments-v1";
     static final String DEFAULT_PRODUCT_CODE = "demo-earphone";
+    static final String DEFAULT_COMPARE_PRODUCT_CODE = "demo-earphone-competitor";
     static final int TARGET_REVIEW_COUNT = 100;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DemoDataInitializationService.class);
@@ -95,9 +96,10 @@ public class DemoDataInitializationService {
 
     private List<DemoReviewSeedItem> buildDemoReviews(String productCode) {
         List<DemoReviewSeedItem> reviews = new ArrayList<>(TARGET_REVIEW_COUNT);
+        ProductSeedProfile profile = resolveProfile(productCode);
         for (int i = 0; i < TARGET_REVIEW_COUNT; i++) {
             String aspect = ASPECTS.get(i % ASPECTS.size());
-            BigDecimal rating = ratingForIndex(i);
+            BigDecimal rating = ratingForIndex(i, aspect, profile);
             String content = buildContent(i, aspect, rating);
             Instant reviewTime = BASE_REVIEW_TIME.plus(i * 6L, ChronoUnit.HOURS);
             String sourceReviewId = productCode + "-" + String.format("%03d", i + 1);
@@ -127,15 +129,43 @@ public class DemoDataInitializationService {
         return "批次#" + String.format("%02d", (index % 16) + 1) + " " + String.format(template, aspect);
     }
 
-    private BigDecimal ratingForIndex(int index) {
-        int mod = index % 10;
-        if (mod < 4) {
-            return new BigDecimal("2.0");
+    private BigDecimal ratingForIndex(int index, String aspect, ProductSeedProfile profile) {
+        int patternIndex = (index / ASPECTS.size()) % 5;
+        int aspectIndex = ASPECTS.indexOf(aspect);
+        int shiftedIndex = (patternIndex + Math.max(0, aspectIndex)) % 5;
+        String ratingBand = profile.ratingBandsByAspect().getOrDefault(aspect, "neutral");
+
+        return switch (ratingBand) {
+            case "strong" -> shiftedIndex == 4 ? new BigDecimal("3.0") : new BigDecimal("4.5");
+            case "weak" -> shiftedIndex == 4 ? new BigDecimal("3.0") : new BigDecimal("2.0");
+            default -> switch (shiftedIndex) {
+                case 0, 1 -> new BigDecimal("2.0");
+                case 2 -> new BigDecimal("3.0");
+                default -> new BigDecimal("4.5");
+            };
+        };
+    }
+
+    private ProductSeedProfile resolveProfile(String productCode) {
+        String normalizedProductCode = productCode.toLowerCase(java.util.Locale.ROOT);
+        if (DEFAULT_COMPARE_PRODUCT_CODE.equals(productCode)
+                || normalizedProductCode.contains("competitor")
+                || normalizedProductCode.contains("compare")) {
+            return new ProductSeedProfile(java.util.Map.of(
+                    "battery", "strong",
+                    "bluetooth", "neutral",
+                    "noise-canceling", "strong",
+                    "comfort", "neutral",
+                    "microphone", "weak"
+            ));
         }
-        if (mod < 7) {
-            return new BigDecimal("3.0");
-        }
-        return new BigDecimal("4.5");
+        return new ProductSeedProfile(java.util.Map.of(
+                "battery", "weak",
+                "bluetooth", "strong",
+                "noise-canceling", "neutral",
+                "comfort", "strong",
+                "microphone", "neutral"
+        ));
     }
 
     private String normalizeProductCode(String productCode) {
@@ -143,5 +173,8 @@ public class DemoDataInitializationService {
             return DEFAULT_PRODUCT_CODE;
         }
         return productCode.trim();
+    }
+
+    private record ProductSeedProfile(java.util.Map<String, String> ratingBandsByAspect) {
     }
 }

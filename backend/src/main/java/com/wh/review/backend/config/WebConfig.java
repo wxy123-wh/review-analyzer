@@ -7,10 +7,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * 全局 CORS 跨域配置
- * 允许前端开发服务器 (localhost:5173) 和生产环境访问后端 API
+ * 允许来自环境配置白名单的前端来源访问后端 API
  */
 @Configuration
 public class WebConfig {
+
+    private final CorsProperties corsProperties;
+
+    public WebConfig(CorsProperties corsProperties) {
+        this.corsProperties = corsProperties;
+    }
 
     @Bean
     public WebMvcConfigurer corsConfigurer() {
@@ -18,7 +24,7 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOriginPatterns("*")
+                        .allowedOrigins(corsProperties.getAllowedOrigins().toArray(String[]::new))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true)
