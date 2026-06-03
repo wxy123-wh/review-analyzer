@@ -20,24 +20,15 @@
 ## 2. Backend API
 
 - code_path: `backend/`
-- entry: `backend/src/main/java/com/wh/review/backend/BackendApplication.java`
+- entry: `backend/src/main/java/review/backend/BackendApplication.java`
 - tech: Spring Boot 3.3.3, Java 21, Spring Web, Spring JDBC, Spring Validation, PostgreSQL, H2 tests
 - responsibility: 业务主入口，提供 `/api/v1/*` REST 接口、任务状态流转、演示数据初始化、NLP 调用、分析物化、查询聚合和 showcase 运行态。
 - controller modules:
-  - `HealthController`: 健康检查。
-  - `DemoDataController`: 初始化受控演示评论。
-  - `AnalysisController`: 启动和查询分析任务。
-  - `SyncController`: 创建和查询同步任务。
-  - `IssueController`, `CompareController`, `TrendController`, `WordCloudController`: 查询洞察结果。
-  - `ActionController`, `ValidationController`: 创建动作和验证效果。
-  - `ShowcaseController`: 流水线、智能体席位、可解释性、韧性、报告预览。
+  - `review/backend/api`: 健康检查、同步、采集、taxonomy、分析、导入、洞察、动作、验证和 showcase 接口。
+  - `review/backend/api/dto`: 请求与响应 DTO。
 - service modules:
-  - `AnalysisJobService`: 当前唯一分析结果物化入口。
-  - `NlpReviewAnalysisClient`: 调用 NLP `/analyze`，失败或合同不符时降级。
-  - `DemoReviewAggregationService`: 受控规则分析和方面/情感归一化。
-  - `InsightQueryService`: 查询问题、对比、趋势、词云、验证。
-  - `ShowcaseService`: 从真实运行态合成 showcase v1 数据。
-  - `SyncJobService`, `OneBoundReviewClient`: 外部同步第二轨。
+  - `review/backend/application`: 分析任务、NLP 调用、真实评论规则回退、洞察查询、showcase、同步、采集和 taxonomy 编排。
+  - `review/backend/data`: 数据库读写、物化结果、schema 初始化和任务仓储。
 - status: implemented。
 
 ## 3. NLP Service

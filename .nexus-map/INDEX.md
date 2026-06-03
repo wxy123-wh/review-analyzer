@@ -26,7 +26,7 @@
 
 NLP 测试已通过：`python -m pytest nlp-service/tests -q`，8 个测试通过。
 
-后端测试未在本机完成：`mvn` 命令不可用，当前机器没有 Maven CLI 或 PATH 未配置。后端已有 `ApiSmokeTest`、`PersistenceIntegrationTest`、`AnalysisJobServiceTest`、`InsightQueryServiceTest`、`SyncJobServiceTest`，下一步应使用 Maven Wrapper、IDE Maven 或 Docker 补跑。
+后端测试已通过：`mvn -f backend/pom.xml test`，38 个测试通过。当前机器已在用户目录安装 Maven，并使用 Java 21 执行后端测试。
 
 ## 最重要的数据流
 
@@ -44,7 +44,7 @@ flowchart LR
 
 第一优先级不是大改算法，而是稳定验收链路：`demo-data/init` -> `analysis/start` -> `issues/compare/trends/wordcloud/actions/validation/showcase`。Git 热点显示近期最活跃的是 `frontend/src/App.vue`、`frontend/src/api/client.ts`、登录组件、前端测试和后端 smoke/integration 测试，说明风险集中在前端壳层和 API 合同。
 
-第二优先级是清理模块边界：把 `legacy/`、`wh/`、`.tmp/` 从报告口径中剥离，必要时加入 `.gitignore` 或移动到归档说明里，避免验收时被误认为未完成主功能。
+第二优先级是保持模块边界清晰：后端主源码已整理为 `review/backend/api`、`review/backend/application`、`review/backend/data`、`review/backend/config`、`review/backend/util`；`legacy/`、`wh/`、`.tmp/` 仍不建议算入主运行链路，避免验收时被误认为未完成主功能。
 
 第三优先级是补后端可运行验证：先解决 Maven 执行方式，再跑后端测试和 Docker Compose 启动检查。
 

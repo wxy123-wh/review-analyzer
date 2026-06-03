@@ -18,19 +18,19 @@
   - warning: pytest-asyncio default fixture loop scope deprecation warning; not a current failure.
 
 - Backend: `mvn -f backend/pom.xml test`
-  - result: not executed successfully in this shell
-  - blocker: `mvn` is not recognized in PATH.
-  - interpretation: this is an environment/tooling blocker, not direct evidence of backend test failure.
+  - result: passed
+  - tests: 38 passed
+  - note: Maven 3.9.16 was installed in the user tool directory and run with Java 21.
 
 ## Static Test Inventory
 
 Backend tests:
 
-- `backend/src/test/java/com/wh/review/backend/ApiSmokeTest.java`
-- `backend/src/test/java/com/wh/review/backend/PersistenceIntegrationTest.java`
-- `backend/src/test/java/com/wh/review/backend/service/AnalysisJobServiceTest.java`
-- `backend/src/test/java/com/wh/review/backend/service/InsightQueryServiceTest.java`
-- `backend/src/test/java/com/wh/review/backend/service/SyncJobServiceTest.java`
+- `backend/src/test/java/review/backend/ApiSmokeTest.java`
+- `backend/src/test/java/review/backend/PersistenceIntegrationTest.java`
+- `backend/src/test/java/review/backend/application/AnalysisJobServiceTest.java`
+- `backend/src/test/java/review/backend/application/InsightQueryServiceTest.java`
+- `backend/src/test/java/review/backend/application/SyncJobServiceTest.java`
 
 Frontend tests:
 
@@ -62,7 +62,7 @@ NLP tests:
 
 ## Evidence Gaps
 
-- Backend must be run with a working Maven installation, Maven Wrapper, IDE Maven, or Docker build before claiming full test pass.
+- Backend Maven tests passed locally after installing Maven and using Java 21.
 - No end-to-end browser test was run in this session.
 - Docker Compose full stack startup was not run in this session.
 - No production compose validation was run.

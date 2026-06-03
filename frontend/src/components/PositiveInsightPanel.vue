@@ -19,7 +19,7 @@
         <div class="metrics">
           <span>提及 {{ item.mentionCount }}</span>
           <span>正面率 {{ formatPercent(item.positiveRate) }}</span>
-          <span>{{ item.aspect }}</span>
+          <span>{{ displayUxLabel(item) }}</span>
         </div>
         <ul v-if="item.evidence.length > 0" class="evidence-list">
           <li v-for="evidence in item.evidence" :key="evidence">{{ evidence }}</li>
@@ -54,6 +54,10 @@ const stateMessage = computed(() => {
 
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`
+}
+
+function displayUxLabel(item: PositiveInsightItem): string {
+  return item.uxSecondaryLabel?.trim() || item.aspect
 }
 </script>
 

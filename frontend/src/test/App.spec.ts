@@ -6,11 +6,13 @@ import ShowcaseChaosPanel from '../components/ShowcaseChaosPanel.vue'
 
 const clientMocks = vi.hoisted(() => ({
   createAction: vi.fn(),
+  fetchCrawlJob: vi.fn(),
   fetchActions: vi.fn(),
   fetchBackendHealth: vi.fn(),
   fetchCompare: vi.fn(),
   fetchIssues: vi.fn(),
   fetchPositiveInsights: vi.fn(),
+  fetchProductTaxonomy: vi.fn(),
   fetchShowcaseAgentArena: vi.fn(),
   fetchShowcaseChaos: vi.fn(),
   fetchShowcaseExplainability: vi.fn(),
@@ -20,17 +22,22 @@ const clientMocks = vi.hoisted(() => ({
   fetchWordCloud: vi.fn(),
   nlpServiceStatus: vi.fn(),
   previewShowcaseReport: vi.fn(),
+  saveProductTaxonomy: vi.fn(),
+  startAnalysis: vi.fn(),
+  startCrawl: vi.fn(),
 }))
 
 vi.mock('../api/client', () => ({
   DEFAULT_COMPARE_PRODUCT_CODE: 'jd-competitor',
   DEFAULT_PRODUCT_CODE: 'jd-100127936932',
   createAction: clientMocks.createAction,
+  fetchCrawlJob: clientMocks.fetchCrawlJob,
   fetchActions: clientMocks.fetchActions,
   fetchBackendHealth: clientMocks.fetchBackendHealth,
   fetchCompare: clientMocks.fetchCompare,
   fetchIssues: clientMocks.fetchIssues,
   fetchPositiveInsights: clientMocks.fetchPositiveInsights,
+  fetchProductTaxonomy: clientMocks.fetchProductTaxonomy,
   fetchShowcaseAgentArena: clientMocks.fetchShowcaseAgentArena,
   fetchShowcaseChaos: clientMocks.fetchShowcaseChaos,
   fetchShowcaseExplainability: clientMocks.fetchShowcaseExplainability,
@@ -40,6 +47,9 @@ vi.mock('../api/client', () => ({
   fetchWordCloud: clientMocks.fetchWordCloud,
   nlpServiceStatus: clientMocks.nlpServiceStatus,
   previewShowcaseReport: clientMocks.previewShowcaseReport,
+  saveProductTaxonomy: clientMocks.saveProductTaxonomy,
+  startAnalysis: clientMocks.startAnalysis,
+  startCrawl: clientMocks.startCrawl,
 }))
 
 import App from '../App.vue'
@@ -71,6 +81,8 @@ describe('App shell', () => {
           issueId: 'iss-bluetooth-001',
           title: '连接稳定性偶发断连',
           aspect: 'bluetooth',
+          uxPrimaryLabel: '产品体验',
+          uxSecondaryLabel: '连接与稳定性',
           priorityScore: 0.554,
           evidenceSummary: '近30天断连反馈上升且竞品差距扩大。',
         },
@@ -111,12 +123,13 @@ describe('App shell', () => {
       comparisonProductCode: 'jd-competitor',
       state: 'success',
       items: [
-        { aspect: 'battery', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
-        { aspect: 'noise-canceling', ourScore: 0.5, competitorScore: 0.78, gap: -0.28 },
+        { aspect: 'battery', uxSecondaryLabel: '电池与续航', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
+        { aspect: 'noise-canceling', uxSecondaryLabel: '环境降噪', ourScore: 0.5, competitorScore: 0.78, gap: -0.28 },
       ],
     })
     clientMocks.fetchTrends.mockResolvedValue({
       aspect: 'battery',
+      uxSecondaryLabel: '电池与续航',
       points: [
         { period: '2026-W06', negativeRate: 0.31, mentionVolume: 75 },
         { period: '2026-W09', negativeRate: 0.4, mentionVolume: 105 },
@@ -138,6 +151,7 @@ describe('App shell', () => {
     clientMocks.fetchWordCloud.mockResolvedValue({
       productCode: 'jd-100127936932',
       aspect: 'all',
+      uxSecondaryLabel: '全部',
       items: [
         { keyword: '续航', frequency: 42, weight: 0.92, sentimentTag: 'POSITIVE' },
         { keyword: '断连', frequency: 31, weight: 0.85, sentimentTag: 'NEGATIVE' },
@@ -146,6 +160,39 @@ describe('App shell', () => {
       state: 'success',
     })
     clientMocks.nlpServiceStatus.mockReturnValue({ name: 'NLP Service', status: 'UP' })
+    clientMocks.fetchProductTaxonomy.mockResolvedValue({
+      productCode: 'jd-100127936932',
+      category: 'general-product',
+      labels: [
+        {
+          id: 'quality-performance',
+          uxPrimaryLabel: '产品体验',
+          uxSecondaryLabel: '质量与性能',
+          enabled: true,
+        },
+      ],
+      state: 'success',
+    })
+    clientMocks.saveProductTaxonomy.mockImplementation((payload) => Promise.resolve({ ...payload, state: 'success' }))
+    clientMocks.startCrawl.mockResolvedValue({
+      jobId: 'crawl-test-1',
+      productCode: 'jd-100127936932',
+      status: 'RUNNING',
+      fetchedCount: 0,
+      analysisHandoffStatus: 'CRAWL_RUNNING',
+    })
+    clientMocks.fetchCrawlJob.mockResolvedValue({
+      jobId: 'crawl-test-1',
+      productCode: 'jd-100127936932',
+      status: 'SUCCEEDED',
+      fetchedCount: 128,
+      analysisHandoffStatus: 'READY_FOR_ANALYSIS',
+    })
+    clientMocks.startAnalysis.mockResolvedValue({
+      jobId: 'analysis-test-1',
+      productCode: 'jd-100127936932',
+      status: 'SUCCEEDED',
+    })
     clientMocks.fetchShowcasePipeline.mockResolvedValue({
       status: 'LIVE',
       implemented: true,
@@ -322,11 +369,11 @@ describe('App shell', () => {
     await wrapper.get('[data-testid="nav-compare"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('竞品对比概览')
-    expect(wrapper.text()).toContain('noise-canceling')
+    expect(wrapper.text()).toContain('环境降噪')
 
     await wrapper.get('[data-testid="nav-trends"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('趋势图（续航）')
+    expect(wrapper.text()).toContain('趋势图（电池与续航）')
     expect(wrapper.text()).toContain('2026-W09')
     expect(wrapper.text()).toContain('负面率 40.0%')
 

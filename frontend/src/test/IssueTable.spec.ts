@@ -9,6 +9,8 @@ const items: IssueItem[] = [
     issueId: 'iss-bluetooth-1',
     title: '连接稳定性偶发断连',
     aspect: 'bluetooth',
+    uxPrimaryLabel: '产品体验',
+    uxSecondaryLabel: '连接与稳定性',
     priorityScore: 0.5543,
     evidenceSummary: '近30天断连反馈上升且竞品差距扩大。',
   },
@@ -26,6 +28,8 @@ describe('IssueTable', () => {
     expect(wrapper.text()).toContain('问题优先级清单')
     expect(wrapper.findAll('tbody tr')).toHaveLength(1)
     expect(wrapper.text()).toContain('连接稳定性偶发断连')
+    expect(wrapper.text()).toContain('连接与稳定性')
+    expect(wrapper.text()).not.toContain('bluetooth')
     expect(wrapper.text()).toContain('0.5543')
   })
 

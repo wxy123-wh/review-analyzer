@@ -46,7 +46,7 @@ Copy-Item .env.example .env
 |---|---|
 | Postgres | `POSTGRES_DB` `POSTGRES_USER` `POSTGRES_PASSWORD` `POSTGRES_PORT` |
 | Redis | `REDIS_PORT` |
-| Backend | `BACKEND_PORT` `NLP_BASE_URL` `ONEBOUND_BASE_URL` `ONEBOUND_API_KEY` `ONEBOUND_API_SECRET` `ONEBOUND_DEFAULT_PLATFORM` |
+| Backend | `BACKEND_PORT` `NLP_BASE_URL` `CRAWLER_BASE_URL` `ONEBOUND_BASE_URL` `ONEBOUND_API_KEY` `ONEBOUND_API_SECRET` `ONEBOUND_DEFAULT_PLATFORM` |
 | NLP | `NLP_PORT` |
 | Frontend | `FRONTEND_PORT` `VITE_API_BASE_URL` `VITE_SHOW_CHAOS_MODULE` `VITE_INTERNAL_ACCESS_USERNAME` `VITE_INTERNAL_ACCESS_PASSWORD` `VITE_INTERNAL_ACCESS_DISPLAY_NAME` `VITE_INTERNAL_ACCESS_HINT` `PUBLIC_PORT` |
 
@@ -54,6 +54,7 @@ Copy-Item .env.example .env
 - backend 端口：`8080`
 - frontend 开发端口：`5175`
 - nlp-service 端口：`8000`
+- crawler 服务端口：`8010`
 - postgres 端口：`5432`
 - redis 端口：`6379`
 - 前端默认 API 基地址：`http://localhost:8080`
@@ -106,16 +107,17 @@ docker compose -f docker-compose.prod.yml up --build -d
 当前首发路径仍以真实导入数据为主：
 1. 启动整套开发栈。
 2. 用 `crawler/jd_reviews.py` 采集真实评论，或准备同结构的真实评论 JSONL。
-3. 调用 `crawler/import_reviews.py` 或 `POST /api/v1/reviews/import` 把真实评论写入后端。
-4. 调用 `POST /api/v1/analysis/start` 触发同步分析与结果物化。
-5. 打开前端，通过内部访问门禁进入看板。
-6. 在问题、对比、趋势图、词云、动作、验证与 showcase 模块查看结果。
+3. 在前端“采集配置”里输入商品链接、商品编码和 UX 标签组合，或使用 `crawler/jd_reviews.py` 直接采集。
+4. 调用 `crawler/import_reviews.py` 或 `POST /api/v1/reviews/import` 把真实评论写入同一个 `productCode`。
+5. 调用 `POST /api/v1/analysis/start` 触发同步分析与结果物化。
+6. 打开前端，通过内部访问门禁进入看板。
+7. 在问题、卖点、对比、趋势图、词云、动作、验证与 showcase 模块查看结果。
 
 外部来源接入仍是第二轨，主要提供同步透明度、原始评论入库与后续 handoff 准备，不是当前首发必经路径。
 
 ## 4. 使用
 
-### 4.0 京东真实评论采集与导入
+### 4.0 前端商品采集、UX 标签配置与导入
 
 参考京东采集仓库已下载到：
 
@@ -132,8 +134,29 @@ crawler/
 推荐新主链路是：
 
 ```text
-京东商品页 -> crawler/output/raw_reviews.jsonl -> pipeline/output/cleaned_reviews.jsonl -> POST /api/v1/reviews/import -> reviews_raw -> POST /api/v1/analysis/start -> 前端看板
+商品链接
+  -> 前端“采集配置”
+  -> 绑定商品 UX 标签组合
+  -> POST /api/v1/crawl/start
+  -> crawler 服务采集 JSONL
+  -> POST /api/v1/reviews/import 导入同一 productCode
+  -> POST /api/v1/analysis/start
+  -> 前端看板按 UX 二级标签展示
 ```
+
+先启动 crawler 服务，后端才能从前端请求转发真实采集任务：
+
+```powershell
+python -m uvicorn crawler.service:app --host 127.0.0.1 --port 8010
+```
+
+前端“采集配置”模块做三件事：
+
+- 读取或编辑当前商品绑定的 UX 一级/二级标签组合。
+- 把商品链接和 `productCode` 提交给后端 `/api/v1/crawl/start`。
+- 采集完成后，继续把 JSONL 导入同一个 `productCode`，新评论会 upsert 到旧商品评论集合中。
+
+重要边界：当前后端会启动和刷新 crawler 服务任务，但采集完成后的 JSONL 仍需要通过 `crawler/import_reviews.py` 或 `POST /api/v1/reviews/import` 导入数据库。导入后再启动分析，才能让新评论进入问题、趋势、词云和卖点结果。
 
 安装采集依赖：
 
@@ -180,7 +203,7 @@ python crawler/import_reviews.py `
 ```powershell
 curl -X POST http://localhost:8080/api/v1/analysis/start `
   -H "Content-Type: application/json" `
-  -d "{\"productCode\":\"jd-100127936932\"}"
+  -d "{\"productCode\":\"jd-100127936932\",\"taxonomyId\":1}"
 ```
 
 ### 4.1 直接导入真实评论
@@ -221,7 +244,7 @@ curl -X POST http://localhost:8080/api/v1/reviews/import \
 - 可重复执行，同一 `sourceReviewId` 会更新已有评论，而不是无限新增。
 - `cleaningSummary` 可选；携带后会写入 `data_quality_runs`，可通过 `GET /api/v1/data-quality` 查看清洗统计。
 - 导入只写 `reviews_raw`，不会自动补跑分析；如需让问题、对比、趋势图、词云进入最新窗口，还要再调用 `POST /api/v1/analysis/start`。
-- 启动分析后，系统会把每条评论的方面、情感、UX 标签、标准原因和证据写入语义标签表，并通过 `GET /api/v1/positive-insights` 从正面评论的预置 UX 高频标签中生成卖点。
+- 启动分析后，系统会把每条评论的情感、UX 一级标签、UX 二级标签、标准原因和证据写入语义标签表，并通过 `GET /api/v1/positive-insights` 从正面评论的 UX 高频标签中生成卖点。`aspect` 字段仍保留为旧图表和旧接口兼容字段，新的聚合主键是 `uxSecondaryLabel`。
 
 ### 4.2 查看后端健康状态
 
@@ -270,7 +293,7 @@ curl -X POST http://localhost:8080/api/v1/sync/start \
 - 数据清洗是保真清洗，只解释数据质量和技术噪声处理，不改变情感分布和评论样本结构。
 - analysis job 现在会在 `POST /api/v1/analysis/start` 内同步经历 `QUEUED -> RUNNING -> SUCCEEDED/FAILED`，并在成功时物化查询结果；若 NLP 不可用或返回无效载荷，会以降级成功方式回退到真实评论本地规则回退。
 - 正面卖点来自 `sentiment=POSITIVE` 且有有效 `uxSecondaryLabel` 的评论聚合，默认好评等评论仍保留在原始数据和情感统计中；如果没有识别到有效 UX 标签，只是不进入卖点候选。
-- 相同 `productCode` 在已有新鲜成功任务且物化结果仍匹配源评论窗口时，会复用最近一次成功任务，不重复执行。
+- 相同 `productCode` 可以重复导入新评论；同一 `source + sourceReviewId` 会更新已有评论。为了避免 UX 标签配置或新评论无法映射到旧结果，分析任务会重新执行并按当前商品绑定的 taxonomy 重新物化。
 - `compare` 现在读取物化后的真实对比数据，不再是静态返回。
 - `showcase/*` 接口已经实现，返回 `implemented=true`，并基于 v1 运行态、物化结果和查询结果给出状态与说明。
 - 可解释性当前是 `LIVE`，解释的是固定权重问题得分拆解，不是模型归因。
@@ -297,7 +320,7 @@ curl -X POST http://localhost:8080/api/v1/sync/start \
 检查：
 - 是否先执行了 `POST /api/v1/reviews/import`
 - 导入后是否执行了 `POST /api/v1/analysis/start`，因为趋势图、词云和对比都读取物化结果
-- 查询参数 `productCode`、`aspect` 是否落在当前代码支持范围内
+- 查询参数 `productCode`、`uxSecondaryLabel` 是否落在当前商品绑定的 UX 标签组合内；`aspect` 仍可作为旧兼容参数，但不再是主分析维度
 - 若无数据或运行降级，后端会返回显式 `state` 与 `notice`，前端再按该语义显示空态、降级态、超时态或错误态
 
 ### 5.4 验证模块没有结果

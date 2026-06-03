@@ -62,6 +62,7 @@
           </div>
         </template>
 
+        <ProductSetupPanel v-else-if="activeModule === 'product-setup'" />
         <IssueTable v-else-if="activeModule === 'issues'" :items="issues" :state="issueState" :message="issueMessage" />
         <PositiveInsightPanel
           v-else-if="activeModule === 'positive-insights'"
@@ -80,6 +81,7 @@
         <TrendList
           v-else-if="activeModule === 'trends'"
           :aspect="trendAspect"
+          :ux-secondary-label="trendUxSecondaryLabel"
           :points="trendPoints"
           :state="trendState"
           :message="trendMessage"
@@ -88,6 +90,7 @@
         <WordCloudPanel
           v-else-if="activeModule === 'wordcloud'"
           :aspect="wordCloudAspect"
+          :ux-secondary-label="wordCloudUxSecondaryLabel"
           :items="wordCloudItems"
           :state="wordCloudState"
           :message="wordCloudMessage"
@@ -141,6 +144,7 @@ import CompareTable from './components/CompareTable.vue'
 import IssueTable from './components/IssueTable.vue'
 import LoginGate from './components/LoginGate.vue'
 import PositiveInsightPanel from './components/PositiveInsightPanel.vue'
+import ProductSetupPanel from './components/ProductSetupPanel.vue'
 import ShowcaseAgentArenaPanel from './components/ShowcaseAgentArenaPanel.vue'
 import ShowcaseChaosPanel from './components/ShowcaseChaosPanel.vue'
 import ShowcaseExplainabilityPanel from './components/ShowcaseExplainabilityPanel.vue'
@@ -201,6 +205,7 @@ useMotionPreferences()
 
 type ModuleId =
   | 'overview'
+  | 'product-setup'
   | 'issues'
   | 'positive-insights'
   | 'compare'
@@ -273,6 +278,14 @@ const moduleContracts: ModuleContract[] = [
     icon: 'O',
     state: 'real',
     dataSource: 'client-composed from health/issues/actions/validation contracts',
+    strategy: 'keep',
+  },
+  {
+    id: 'product-setup',
+    label: '采集配置',
+    icon: 'U',
+    state: 'real',
+    dataSource: 'taxonomy/crawl/analysis APIs for product-bound UX label setup',
     strategy: 'keep',
   },
   {
@@ -394,6 +407,7 @@ const isAuthenticated = ref(false)
 const currentUser = ref('内部访客')
 const activeModule = ref<ModuleId>('overview')
 const trendAspect = ref('battery')
+const trendUxSecondaryLabel = ref('')
 const compareProductCode = ref(DEFAULT_PRODUCT_CODE)
 const compareComparisonProductCode = ref(DEFAULT_COMPARE_PRODUCT_CODE)
 const compareState = ref<CompareState>('idle')
@@ -401,6 +415,7 @@ const compareMessage = ref('')
 const trendState = ref<ChartLoadState>('idle')
 const trendMessage = ref('')
 const wordCloudAspect = ref('all')
+const wordCloudUxSecondaryLabel = ref('')
 const wordCloudItems = ref<WordCloudItem[]>([])
 const wordCloudState = ref<ChartLoadState>('idle')
 const wordCloudMessage = ref('')
@@ -564,6 +579,7 @@ function applyValidationResponse(response: ValidationResponse): void {
 
 function applyTrendResponse(response: TrendResponse): void {
   trendAspect.value = response.aspect
+  trendUxSecondaryLabel.value = response.uxSecondaryLabel?.trim() || response.aspect
   trendPoints.value = response.points
   trendState.value = response.state
   trendMessage.value = resolveContractMessage(
@@ -599,6 +615,7 @@ function applyCompareResponse(response: CompareResponse): void {
 
 function applyWordCloudResponse(response: WordCloudResponse): void {
   wordCloudAspect.value = response.aspect
+  wordCloudUxSecondaryLabel.value = response.uxSecondaryLabel?.trim() || response.aspect
   wordCloudItems.value = response.items
   wordCloudState.value = response.state
   wordCloudMessage.value = resolveContractMessage(

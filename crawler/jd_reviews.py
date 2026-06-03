@@ -16,15 +16,36 @@ import random
 import re
 import sys
 import time
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterable
 
-from common.progress import load_progress, save_progress
-from common.writer import JsonlReviewWriter
+try:
+    from .common.progress import load_progress, save_progress
+    from .common.writer import JsonlReviewWriter
+except ImportError:
+    from common.progress import load_progress, save_progress
+    from common.writer import JsonlReviewWriter
 
 
 RISK_TEXTS = ["访问过于频繁", "操作过于频繁", "安全验证", "请完成验证", "验证码", "系统繁忙"]
+
+
+@dataclass
+class CrawlResult:
+    productUrl: str
+    productCode: str
+    category: str
+    outputPath: str
+    progressPath: str
+    status: str
+    capturedPackets: int
+    newReviewCount: int
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def normalize_text(value: Any) -> str:
@@ -67,6 +88,15 @@ def find_comment_objects(payload: Any) -> list[dict[str, Any]]:
         if content and (comment_id or obj.get("creationTime") or obj.get("score")):
             candidates.append(obj)
     return candidates
+
+
+def extract_reviews_from_payload(payload: Any, product_code: str, category: str) -> list[dict[str, Any]]:
+    comments = find_comment_objects(payload)
+    return [
+        to_review(item, product_code, category)
+        for item in comments
+        if normalize_text(first_non_empty(item.get("content"), item.get("commentData"), item.get("commentContent")))
+    ]
 
 
 def to_review(raw: dict[str, Any], product_code: str, category: str) -> dict[str, Any]:
@@ -131,71 +161,173 @@ def sleep_safely(min_seconds: float, max_seconds: float) -> None:
     time.sleep(seconds)
 
 
+def jd_product_id_from_url(product_url: str) -> str:
+    match = re.search(r"item\.jd\.com/(\d+)\.html", product_url)
+    if match:
+        return match.group(1)
+    match = re.search(r"(^|[^\d])(\d{6,})([^\d]|$)", product_url)
+    if match:
+        return match.group(2)
+    raise ValueError("无法从 productUrl 中识别京东商品 ID，请传入类似 https://item.jd.com/100127936932.html 的链接")
+
+
+def jd_product_url(product_url: str | None = None, product_id: str | None = None) -> str:
+    if product_url:
+        product_id = jd_product_id_from_url(product_url)
+    if not product_id:
+        raise ValueError("必须提供 productUrl 或 productId")
+    return f"https://item.jd.com/{product_id}.html"
+
+
+def collect_jd_reviews(
+    *,
+    product_url: str | None = None,
+    product_id: str | None = None,
+    product_code: str,
+    category: str,
+    output: Path,
+    progress_path: Path,
+    max_packets: int = 20,
+    wait_seconds: int = 120,
+    dry_run_payloads: Iterable[Any] | None = None,
+    sleep_fn: Callable[[float, float], None] = sleep_safely,
+) -> CrawlResult:
+    """Collect JD reviews into JSONL.
+
+    The live path only listens to packets received by a user-controlled browser.
+    It never bypasses login, captcha, or platform risk controls.
+    """
+
+    resolved_url = jd_product_url(product_url, product_id)
+    progress = load_progress(progress_path)
+    writer = JsonlReviewWriter(output)
+
+    if dry_run_payloads is not None:
+        captured_packets = 0
+        new_review_count = 0
+        for payload in dry_run_payloads:
+            reviews = extract_reviews_from_payload(payload, product_code, category)
+            if not reviews:
+                continue
+            new_review_count += writer.write_many(reviews)
+            captured_packets += 1
+        progress["capturedPackets"] = int(progress.get("capturedPackets", 0)) + captured_packets
+        progress["lastRunMode"] = "dry-run"
+        save_progress(progress_path, progress)
+        return CrawlResult(
+            productUrl=resolved_url,
+            productCode=product_code,
+            category=category,
+            outputPath=str(output),
+            progressPath=str(progress_path),
+            status="SUCCEEDED",
+            capturedPackets=captured_packets,
+            newReviewCount=new_review_count,
+            message="dry-run 解析完成，未打开浏览器。",
+        )
+
+    try:
+        from DrissionPage import ChromiumPage
+    except ImportError as exc:
+        raise RuntimeError("缺少 DrissionPage。请先执行：python -m pip install -r crawler/requirements.txt") from exc
+
+    page = ChromiumPage()
+    page.listen.start()
+    print(f"打开京东商品页：{resolved_url}")
+    page.get(resolved_url)
+    print("请在浏览器中正常登录并打开评论区域；如出现验证，请人工处理。脚本不会绕过验证。")
+
+    captured_packets = 0
+    new_review_count = 0
+    deadline = time.time() + wait_seconds
+    while time.time() < deadline and captured_packets < max_packets:
+        reason = detect_risk_state(page)
+        if reason:
+            message = f"检测到平台验证/风控提示：{reason}。请人工处理后重新运行脚本。"
+            print(message)
+            progress["lastRiskReason"] = reason
+            save_progress(progress_path, progress)
+            return CrawlResult(
+                productUrl=resolved_url,
+                productCode=product_code,
+                category=category,
+                outputPath=str(output),
+                progressPath=str(progress_path),
+                status="NEEDS_HUMAN_VERIFICATION",
+                capturedPackets=captured_packets,
+                newReviewCount=new_review_count,
+                message=message,
+            )
+
+        packet = page.listen.wait(timeout=3)
+        if not packet:
+            continue
+        payload = parse_packet_body(packet)
+        reviews = extract_reviews_from_payload(payload, product_code, category)
+        if not reviews:
+            continue
+
+        new_count = writer.write_many(reviews)
+        new_review_count += new_count
+        captured_packets += 1
+        progress["lastPacketUrl"] = str(getattr(packet, "url", ""))
+        progress["capturedPackets"] = int(progress.get("capturedPackets", 0)) + 1
+        save_progress(progress_path, progress)
+        print(f"捕获评论包 {captured_packets}/{max_packets}，新增 {new_count} 条，输出：{output}")
+        sleep_fn(4, 8)
+
+    message = f"采集结束。当前输出文件：{output}"
+    print(message)
+    return CrawlResult(
+        productUrl=resolved_url,
+        productCode=product_code,
+        category=category,
+        outputPath=str(output),
+        progressPath=str(progress_path),
+        status="SUCCEEDED",
+        capturedPackets=captured_packets,
+        newReviewCount=new_review_count,
+        message=message,
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Collect JD reviews into crawler/output/raw_reviews.jsonl")
-    parser.add_argument("--product-id", required=True, help="JD numeric product id, for example 100127936932")
+    parser.add_argument("--product-url", default="", help="JD product URL, for example https://item.jd.com/100127936932.html")
+    parser.add_argument("--product-id", default="", help="JD numeric product id, for example 100127936932")
     parser.add_argument("--product-code", required=True, help="Internal productCode used by backend")
     parser.add_argument("--category", default="bluetooth-earphone", help="Product category for later LLM prompts")
     parser.add_argument("--output", default="crawler/output/raw_reviews.jsonl")
     parser.add_argument("--progress", default="crawler/output/jd_progress.json")
     parser.add_argument("--max-packets", type=int, default=20)
     parser.add_argument("--wait-seconds", type=int, default=120)
+    parser.add_argument("--dry-run-packet", default="", help="Optional JSON file with one captured packet payload for parser testing")
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
-
     try:
-        from DrissionPage import ChromiumPage
-    except ImportError:
-        print("缺少 DrissionPage。请先执行：python -m pip install -r crawler/requirements.txt")
+        dry_run_payloads = None
+        if args.dry_run_packet:
+            dry_run_payloads = [json.loads(Path(args.dry_run_packet).read_text(encoding="utf-8"))]
+        result = collect_jd_reviews(
+            product_url=args.product_url or None,
+            product_id=args.product_id or None,
+            product_code=args.product_code,
+            category=args.category,
+            output=Path(args.output),
+            progress_path=Path(args.progress),
+            max_packets=args.max_packets,
+            wait_seconds=args.wait_seconds,
+            dry_run_payloads=dry_run_payloads,
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(str(exc))
         return 2
 
-    output = Path(args.output)
-    progress_path = Path(args.progress)
-    progress = load_progress(progress_path)
-    writer = JsonlReviewWriter(output)
-
-    page = ChromiumPage()
-    page.listen.start()
-    url = f"https://item.jd.com/{args.product_id}.html"
-    print(f"打开京东商品页：{url}")
-    page.get(url)
-    print("请在浏览器中正常登录并打开评论区域；如出现验证，请人工处理。脚本不会绕过验证。")
-
-    captured_packets = 0
-    deadline = time.time() + args.wait_seconds
-    while time.time() < deadline and captured_packets < args.max_packets:
-        reason = detect_risk_state(page)
-        if reason:
-            print(f"检测到平台验证/风控提示：{reason}。请人工处理后重新运行脚本。")
-            save_progress(progress_path, progress)
-            return 3
-
-        packet = page.listen.wait(timeout=3)
-        if not packet:
-            continue
-        payload = parse_packet_body(packet)
-        comments = find_comment_objects(payload)
-        if not comments:
-            continue
-
-        reviews = [
-            to_review(item, args.product_code, args.category)
-            for item in comments
-            if normalize_text(first_non_empty(item.get("content"), item.get("commentData"), item.get("commentContent")))
-        ]
-        new_count = writer.write_many(reviews)
-        captured_packets += 1
-        progress["lastPacketUrl"] = str(getattr(packet, "url", ""))
-        progress["capturedPackets"] = int(progress.get("capturedPackets", 0)) + 1
-        save_progress(progress_path, progress)
-        print(f"捕获评论包 {captured_packets}/{args.max_packets}，新增 {new_count} 条，输出：{output}")
-        sleep_safely(4, 8)
-
-    print(f"采集结束。当前输出文件：{output}")
-    return 0
+    print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+    return 3 if result.status == "NEEDS_HUMAN_VERIFICATION" else 0
 
 
 if __name__ == "__main__":

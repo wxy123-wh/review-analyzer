@@ -33,10 +33,45 @@ CREATE TABLE IF NOT EXISTS review_aspects (
     id BIGSERIAL PRIMARY KEY,
     review_id BIGINT NOT NULL REFERENCES reviews_raw(id),
     aspect VARCHAR(64) NOT NULL,
+    ux_primary_label VARCHAR(64),
+    ux_secondary_label VARCHAR(64),
     sentiment_polarity VARCHAR(16) NOT NULL,
     sentiment_score NUMERIC(5,4) NOT NULL,
     confidence NUMERIC(5,4) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ux_taxonomies (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    product_category VARCHAR(128) NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ux_primary_labels (
+    id BIGSERIAL PRIMARY KEY,
+    taxonomy_id BIGINT NOT NULL REFERENCES ux_taxonomies(id),
+    label_name VARCHAR(64) NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ux_secondary_labels (
+    id BIGSERIAL PRIMARY KEY,
+    taxonomy_id BIGINT NOT NULL REFERENCES ux_taxonomies(id),
+    primary_label_id BIGINT NOT NULL REFERENCES ux_primary_labels(id),
+    label_name VARCHAR(64) NOT NULL,
+    synonyms TEXT,
+    description TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS product_taxonomy_bindings (
+    product_code VARCHAR(64) PRIMARY KEY,
+    taxonomy_id BIGINT NOT NULL REFERENCES ux_taxonomies(id),
+    bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS review_semantic_labels (
@@ -45,6 +80,8 @@ CREATE TABLE IF NOT EXISTS review_semantic_labels (
     aspect VARCHAR(64) NOT NULL,
     sentiment_polarity VARCHAR(16) NOT NULL,
     confidence NUMERIC(5,4) NOT NULL,
+    taxonomy_id BIGINT,
+    taxonomy_version INTEGER,
     ux_primary_label VARCHAR(64),
     ux_secondary_label VARCHAR(64),
     standardized_reason VARCHAR(64),
@@ -57,6 +94,8 @@ CREATE TABLE IF NOT EXISTS issue_clusters (
     id BIGSERIAL PRIMARY KEY,
     product_id BIGINT NOT NULL REFERENCES products(id),
     aspect VARCHAR(64) NOT NULL,
+    ux_primary_label VARCHAR(64),
+    ux_secondary_label VARCHAR(64),
     title VARCHAR(255) NOT NULL,
     keywords TEXT NOT NULL,
     representative_review_ids TEXT NOT NULL,
@@ -109,7 +148,12 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     fetched_count INTEGER NOT NULL DEFAULT 0,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ,
-    error_message TEXT
+    error_message TEXT,
+    analysis_handoff_status VARCHAR(64) NOT NULL DEFAULT 'NOT_READY',
+    analysis_handoff_note TEXT,
+    source_url TEXT,
+    external_job_id VARCHAR(128),
+    taxonomy_id BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS analysis_jobs (
@@ -118,7 +162,9 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     status VARCHAR(32) NOT NULL,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ,
-    error_message TEXT
+    error_message TEXT,
+    taxonomy_id BIGINT,
+    taxonomy_version INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS data_quality_runs (

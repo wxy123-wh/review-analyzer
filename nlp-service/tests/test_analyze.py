@@ -140,18 +140,60 @@ def test_analyze_should_group_and_sort_negative_clusters_by_mentions_then_aspect
             'aspect': 'bluetooth',
             'title': '蓝牙连接稳定性不足',
             'mentionCount': 2,
+            'uxPrimaryLabel': '产品硬件',
+            'uxSecondaryLabel': '连接与稳定性',
         },
         {
             'aspect': 'battery',
             'title': '续航体验波动',
             'mentionCount': 1,
+            'uxPrimaryLabel': '产品硬件',
+            'uxSecondaryLabel': '电池与续航',
         },
         {
             'aspect': 'noise-canceling',
             'title': '降噪效果一致性不足',
             'mentionCount': 1,
+            'uxPrimaryLabel': '声音表现',
+            'uxSecondaryLabel': '降噪与通透',
         },
     ]
+
+
+def test_analyze_should_use_custom_taxonomy_labels() -> None:
+    response = client.post(
+        '/analyze',
+        json={
+            'jobId': 'job-taxonomy',
+            'productCode': 'phone-1',
+            'taxonomy': {
+                'primaryLabels': [
+                    {
+                        'labelName': '系统体验',
+                        'secondaryLabels': [
+                            {
+                                'labelName': '发热控制',
+                                'synonyms': ['发热', '烫手'],
+                                'description': '机身温度和散热体验',
+                            }
+                        ],
+                    },
+                    {
+                        'labelName': '无明显问题',
+                        'secondaryLabels': [{'labelName': '无明显问题', 'synonyms': ['其他']}],
+                    },
+                ]
+            },
+            'reviews': ['打游戏很烫手'],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = cast(dict[str, object], response.json())
+    aspect_sentiments = cast(list[dict[str, object]], payload['aspectSentiments'])
+    assert aspect_sentiments[0]['aspect'] == 'unknown'
+    assert aspect_sentiments[0]['uxPrimaryLabel'] == '系统体验'
+    assert aspect_sentiments[0]['uxSecondaryLabel'] == '发热控制'
 
 
 def test_analyze_should_reject_requests_with_empty_reviews() -> None:

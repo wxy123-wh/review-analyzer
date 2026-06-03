@@ -5,8 +5,8 @@ import CompareTable from '../components/CompareTable.vue'
 import type { CompareItem } from '../types/domain'
 
 const items: CompareItem[] = [
-  { aspect: 'battery', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
-  { aspect: 'bluetooth', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
+  { aspect: 'battery', uxSecondaryLabel: '电池与续航', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
+  { aspect: 'bluetooth', uxSecondaryLabel: '连接与稳定性', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
 ]
 
 describe('CompareTable', () => {
@@ -24,8 +24,8 @@ describe('CompareTable', () => {
     expect(wrapper.text()).toContain('主产品：jd-100127936932')
     expect(wrapper.text()).toContain('对比产品：jd-competitor')
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
-    expect(wrapper.text()).toContain('battery')
-    expect(wrapper.text()).toContain('bluetooth')
+    expect(wrapper.text()).toContain('电池与续航')
+    expect(wrapper.text()).toContain('连接与稳定性')
     expect(wrapper.text()).toContain('0.22')
     expect(wrapper.text()).toContain('-0.56')
   })

@@ -16,16 +16,16 @@
       <table>
         <thead>
           <tr>
-            <th class="aspect-column">方面</th>
+            <th class="aspect-column">UX 标签</th>
             <th class="score-column">我方分数</th>
             <th class="score-column">竞品分数</th>
             <th class="gap-column">差距</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in items" :key="item.aspect">
+          <tr v-for="item in items" :key="`${item.aspect}-${displayUxLabel(item)}`">
             <td class="aspect-column aspect-cell">
-              <strong>{{ item.aspect }}</strong>
+              <strong>{{ displayUxLabel(item) }}</strong>
             </td>
             <td class="score-column score-cell">
               <span class="score-pill our-score">{{ item.ourScore.toFixed(2) }}</span>
@@ -57,6 +57,10 @@ defineProps<{
   productCode?: string
   comparisonProductCode?: string
 }>()
+
+function displayUxLabel(item: CompareItem): string {
+  return item.uxSecondaryLabel?.trim() || item.aspect
+}
 </script>
 
 <style scoped>

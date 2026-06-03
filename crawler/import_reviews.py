@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -17,6 +18,31 @@ def read_jsonl(path: Path) -> list[dict]:
             if line:
                 reviews.append(json.loads(line))
     return reviews
+
+
+def import_reviews_jsonl(
+    *,
+    input_path: Path,
+    backend: str,
+    product_code: str,
+    provider: str = "local-jsonl",
+    platform: str = "jd",
+    cleaning_summary_path: Path | None = None,
+    timeout_seconds: int = 30,
+) -> dict[str, Any]:
+    reviews = read_jsonl(input_path)
+    payload: dict[str, Any] = {
+        "provider": provider,
+        "platform": platform,
+        "productCode": product_code,
+        "reviews": reviews,
+    }
+    if cleaning_summary_path and cleaning_summary_path.exists():
+        payload["cleaningSummary"] = json.loads(cleaning_summary_path.read_text(encoding="utf-8"))
+    url = f"{backend.rstrip('/')}/api/v1/reviews/import"
+    response = requests.post(url, json=payload, timeout=timeout_seconds)
+    response.raise_for_status()
+    return response.json()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -32,22 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    reviews = read_jsonl(Path(args.input))
-    payload = {
-        "provider": args.provider,
-        "platform": args.platform,
-        "productCode": args.product_code,
-        "reviews": reviews,
-    }
-    if args.cleaning_summary:
-        summary_path = Path(args.cleaning_summary)
-        if summary_path.exists():
-            payload["cleaningSummary"] = json.loads(summary_path.read_text(encoding="utf-8"))
-    url = f"{args.backend.rstrip('/')}/api/v1/reviews/import"
-    response = requests.post(url, json=payload, timeout=30)
-    print(response.status_code)
-    print(json.dumps(response.json(), ensure_ascii=False, indent=2))
-    response.raise_for_status()
+    result = import_reviews_jsonl(
+        input_path=Path(args.input),
+        backend=args.backend,
+        product_code=args.product_code,
+        provider=args.provider,
+        platform=args.platform,
+        cleaning_summary_path=Path(args.cleaning_summary) if args.cleaning_summary else None,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
 

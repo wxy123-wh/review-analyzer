@@ -20,7 +20,7 @@ def health() -> dict:
 
 @app.post('/analyze', response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> dict:
-    aspect_sentiments, issue_clusters, _mode = analyze_reviews(payload.productCode, payload.reviews)
+    aspect_sentiments, issue_clusters, _mode = analyze_reviews(payload.productCode, payload.reviews, payload.taxonomy)
 
     return {
         'jobId': payload.jobId,

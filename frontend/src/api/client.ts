@@ -3,16 +3,22 @@ import axios from 'axios'
 import type {
   ActionCreatePayload,
   ActionItem,
+  AnalysisJobResponse,
   ActionResponse,
   ChartLoadState,
   CompareItem,
   CompareResponse,
   CompareState,
   ContractState,
+  CrawlJobResponse,
+  CrawlJobStatus,
+  CrawlStartPayload,
   IssueItem,
   IssueResponse,
   PositiveInsightItem,
   PositiveInsightResponse,
+  ProductTaxonomyPayload,
+  ProductTaxonomyResponse,
   ServiceStatus,
   ShowcaseAgentArenaData,
   ShowcaseChaosData,
@@ -20,6 +26,7 @@ import type {
   ShowcasePipelineData,
   ShowcaseReportPreviewData,
   TrendResponse,
+  UxLabelOption,
   ValidationItem,
   ValidationResponse,
   WordCloudItem,
@@ -52,6 +59,30 @@ const CANONICAL_ASPECT_ALIASES: Record<string, string> = {
   call_quality: 'microphone',
   'call-quality': 'microphone',
 }
+
+const DEFAULT_UX_LABELS: UxLabelOption[] = [
+  {
+    id: 'quality-performance',
+    uxPrimaryLabel: '产品体验',
+    uxSecondaryLabel: '质量与性能',
+    description: '性能、稳定性、耐用性等商品核心体验。',
+    enabled: true,
+  },
+  {
+    id: 'usability-operation',
+    uxPrimaryLabel: '产品体验',
+    uxSecondaryLabel: '易用性与操作',
+    description: '安装、设置、操作、学习成本等使用体验。',
+    enabled: true,
+  },
+  {
+    id: 'service-delivery',
+    uxPrimaryLabel: '交易体验',
+    uxSecondaryLabel: '物流与售后',
+    description: '配送、包装、客服、退换货等交易过程体验。',
+    enabled: true,
+  },
+]
 
 export const apiClient = axios.create({
   baseURL,
@@ -159,17 +190,19 @@ function normalizeCompareItems(rawItems: unknown): CompareItem[] {
       const gap = typeof record.gap === 'number' ? record.gap : ourScore - competitorScore
       return {
         aspect: normalizeAspectCode(record.aspect, 'battery'),
+        uxPrimaryLabel: normalizeNotice(record.uxPrimaryLabel),
+        uxSecondaryLabel: normalizeUxSecondaryLabel(record.uxSecondaryLabel, record.aspect),
         ourScore,
         competitorScore,
         gap,
       }
     })
     .filter((item): item is CompareItem => item !== null)
-    .sort(
-      (left, right) =>
-        CANONICAL_COMPARE_ASPECTS.indexOf(left.aspect as (typeof CANONICAL_COMPARE_ASPECTS)[number]) -
-        CANONICAL_COMPARE_ASPECTS.indexOf(right.aspect as (typeof CANONICAL_COMPARE_ASPECTS)[number]),
-    )
+    .sort((left, right) => {
+      const leftIndex = CANONICAL_COMPARE_ASPECTS.indexOf(left.aspect as (typeof CANONICAL_COMPARE_ASPECTS)[number])
+      const rightIndex = CANONICAL_COMPARE_ASPECTS.indexOf(right.aspect as (typeof CANONICAL_COMPARE_ASPECTS)[number])
+      return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex)
+    })
 }
 
 function normalizeCompareState(state: unknown): CompareState {
@@ -194,6 +227,47 @@ function normalizeNotice(notice: unknown): string | undefined {
   }
   const trimmed = notice.trim()
   return trimmed || undefined
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+export function normalizeUxSecondaryLabel(value: unknown, fallback: unknown): string {
+  const label = normalizeText(value)
+  if (label) {
+    return label
+  }
+  return normalizeText(fallback)
+}
+
+function normalizeUxLabelOption(rawLabel: unknown, index: number): UxLabelOption | null {
+  if (typeof rawLabel !== 'object' || rawLabel === null) {
+    return null
+  }
+  const record = rawLabel as Record<string, unknown>
+  const uxPrimaryLabel = normalizeText(record.uxPrimaryLabel)
+  const uxSecondaryLabel = normalizeText(record.uxSecondaryLabel)
+  if (!uxPrimaryLabel || !uxSecondaryLabel) {
+    return null
+  }
+  return {
+    id: normalizeText(record.id) || `${uxPrimaryLabel}-${uxSecondaryLabel}-${index}`,
+    uxPrimaryLabel,
+    uxSecondaryLabel,
+    description: normalizeNotice(record.description),
+    enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+  }
+}
+
+export function normalizeUxLabelOptions(rawLabels: unknown): UxLabelOption[] {
+  if (!Array.isArray(rawLabels)) {
+    return DEFAULT_UX_LABELS
+  }
+  const labels = rawLabels
+    .map((label, index) => normalizeUxLabelOption(label, index))
+    .filter((label): label is UxLabelOption => label !== null)
+  return labels.length > 0 ? labels : DEFAULT_UX_LABELS
 }
 
 function normalizeCollectionState(
@@ -265,6 +339,8 @@ function normalizeIssueItems(rawItems: unknown): IssueItem[] {
         issueId,
         title,
         aspect: normalizeAspectCode(record.aspect, 'general'),
+        uxPrimaryLabel: normalizeNotice(record.uxPrimaryLabel),
+        uxSecondaryLabel: normalizeUxSecondaryLabel(record.uxSecondaryLabel, record.aspect),
         priorityScore: typeof record.priorityScore === 'number' ? record.priorityScore : 0,
         evidenceSummary,
       }
@@ -284,7 +360,7 @@ function normalizePositiveInsightItems(rawItems: unknown): PositiveInsightItem[]
       const record = item as Record<string, unknown>
       const sellingPointId = typeof record.sellingPointId === 'string' ? record.sellingPointId : ''
       const sellingPoint = typeof record.sellingPoint === 'string' ? record.sellingPoint : ''
-      const uxSecondaryLabel = typeof record.uxSecondaryLabel === 'string' ? record.uxSecondaryLabel : ''
+      const uxSecondaryLabel = normalizeUxSecondaryLabel(record.uxSecondaryLabel, record.aspect)
       if (!sellingPointId || !sellingPoint || !uxSecondaryLabel) {
         return null
       }
@@ -292,7 +368,7 @@ function normalizePositiveInsightItems(rawItems: unknown): PositiveInsightItem[]
         sellingPointId,
         aspect: normalizeAspectCode(record.aspect, 'general'),
         uxPrimaryLabel: typeof record.uxPrimaryLabel === 'string' ? record.uxPrimaryLabel : '',
-        uxSecondaryLabel,
+        uxSecondaryLabel: normalizeUxSecondaryLabel(record.uxSecondaryLabel, record.aspect),
         sellingPoint,
         mentionCount: typeof record.mentionCount === 'number' ? record.mentionCount : 0,
         positiveRate: typeof record.positiveRate === 'number' ? record.positiveRate : 0,
@@ -363,6 +439,246 @@ function normalizeValidationItems(rawItems: unknown): ValidationItem[] {
     .filter((item): item is ValidationItem => item !== null)
 }
 
+function normalizeTaxonomyRecord(rawTaxonomy: unknown, fallbackProductCode: string, fallbackCategory: string): ProductTaxonomyResponse {
+  const taxonomy = typeof rawTaxonomy === 'object' && rawTaxonomy !== null ? (rawTaxonomy as Record<string, unknown>) : {}
+  const primaryLabels = Array.isArray(taxonomy.primaryLabels) ? taxonomy.primaryLabels : []
+  const labels = primaryLabels.flatMap((primary, primaryIndex) => {
+    if (typeof primary !== 'object' || primary === null) {
+      return []
+    }
+    const primaryRecord = primary as Record<string, unknown>
+    const uxPrimaryLabel = normalizeText(primaryRecord.labelName)
+    const secondaryLabels = Array.isArray(primaryRecord.secondaryLabels) ? primaryRecord.secondaryLabels : []
+    return secondaryLabels
+      .map((secondary, secondaryIndex) => {
+        if (typeof secondary !== 'object' || secondary === null) {
+          return null
+        }
+        const secondaryRecord = secondary as Record<string, unknown>
+        const uxSecondaryLabel = normalizeText(secondaryRecord.labelName)
+        if (!uxPrimaryLabel || !uxSecondaryLabel) {
+          return null
+        }
+        return {
+          id:
+            normalizeText(secondaryRecord.id) ||
+            `${normalizeText(primaryRecord.id) || primaryIndex}-${uxSecondaryLabel}-${secondaryIndex}`,
+          uxPrimaryLabel,
+          uxSecondaryLabel,
+          description: normalizeNotice(secondaryRecord.description),
+          enabled: typeof secondaryRecord.enabled === 'boolean' ? secondaryRecord.enabled : true,
+        }
+      })
+      .filter((label): label is UxLabelOption => label !== null)
+  })
+  return {
+    taxonomyId: typeof taxonomy.taxonomyId === 'number' ? taxonomy.taxonomyId : undefined,
+    name: normalizeNotice(taxonomy.name),
+    productCode: fallbackProductCode,
+    category: normalizeText(taxonomy.productCategory) || fallbackCategory,
+    labels: labels.length > 0 ? labels : DEFAULT_UX_LABELS,
+    state: labels.length > 0 ? 'success' : 'degraded',
+    notice: labels.length > 0 ? undefined : '当前 taxonomy 暂无有效标签，已回退到通用 UX 标签草稿。',
+  }
+}
+
+function normalizeProductTaxonomyBinding(payload: unknown, fallbackProductCode: string, fallbackCategory: string): ProductTaxonomyResponse {
+  const record = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {}
+  return normalizeTaxonomyRecord(record.taxonomy, normalizeText(record.productCode) || fallbackProductCode, fallbackCategory)
+}
+
+function buildTaxonomyRequest(payload: ProductTaxonomyPayload): Record<string, unknown> {
+  const grouped = new Map<string, UxLabelOption[]>()
+  payload.labels.forEach((label) => {
+    const primary = label.uxPrimaryLabel.trim()
+    const secondary = label.uxSecondaryLabel.trim()
+    if (!primary || !secondary) {
+      return
+    }
+    grouped.set(primary, [...(grouped.get(primary) ?? []), { ...label, uxPrimaryLabel: primary, uxSecondaryLabel: secondary }])
+  })
+
+  return {
+    name: payload.name?.trim() || `${payload.productCode} UX 标签`,
+    productCategory: payload.category,
+    primaryLabels: Array.from(grouped.entries()).map(([labelName, secondaryLabels]) => ({
+      labelName,
+      secondaryLabels: secondaryLabels.map((label) => ({
+        labelName: label.uxSecondaryLabel,
+        synonyms: [],
+        description: label.description,
+        enabled: label.enabled,
+      })),
+    })),
+  }
+}
+
+function normalizeCrawlJobStatus(status: unknown): CrawlJobStatus {
+  const normalized = normalizeText(status).toUpperCase()
+  switch (normalized) {
+    case 'QUEUED':
+    case 'RUNNING':
+    case 'WAITING_FOR_MANUAL_ACTION':
+    case 'SUCCEEDED':
+    case 'FAILED':
+    case 'CANCELLED':
+      return normalized
+    default:
+      return 'QUEUED'
+  }
+}
+
+function normalizeCrawlJob(payload: unknown, fallbackProductCode: string): CrawlJobResponse {
+  const record = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {}
+  return {
+    jobId: normalizeText(record.jobId) || normalizeText(record.crawlJobId) || '',
+    productCode: normalizeText(record.productCode) || fallbackProductCode,
+    productUrl: normalizeNotice(record.productUrl),
+    platform: normalizeNotice(record.platform),
+    taxonomyId: typeof record.taxonomyId === 'number' ? record.taxonomyId : undefined,
+    status: normalizeCrawlJobStatus(record.status),
+    fetchedCount: typeof record.fetchedCount === 'number' ? record.fetchedCount : 0,
+    errorMessage: normalizeNotice(record.errorMessage),
+    analysisHandoffStatus: normalizeNotice(record.analysisHandoffStatus),
+    analysisHandoffNote: normalizeNotice(record.analysisHandoffNote),
+    startedAt: normalizeNotice(record.startedAt),
+    finishedAt: normalizeNotice(record.finishedAt),
+  }
+}
+
+function normalizeAnalysisJob(payload: unknown, fallbackProductCode: string): AnalysisJobResponse {
+  const record = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {}
+  return {
+    jobId: normalizeText(record.jobId),
+    productCode: normalizeText(record.productCode) || fallbackProductCode,
+    status: normalizeText(record.status) || 'FAILED',
+    startedAt: normalizeNotice(record.startedAt),
+    finishedAt: normalizeNotice(record.finishedAt),
+    errorMessage: normalizeNotice(record.errorMessage),
+  }
+}
+
+export async function fetchProductTaxonomy(
+  productCode = DEFAULT_PRODUCT_CODE,
+  category = 'general-product',
+): Promise<ProductTaxonomyResponse> {
+  if (isTestMode) {
+    return {
+      productCode,
+      category,
+      labels: DEFAULT_UX_LABELS,
+      state: 'success',
+      notice: '测试模式下使用通用电商 UX 标签组合。',
+    }
+  }
+
+  try {
+    const response = await apiClient.get(`/api/v1/products/${encodeURIComponent(productCode)}/taxonomy`)
+    return normalizeProductTaxonomyBinding(response.data, productCode, category)
+  } catch {
+    try {
+      const response = await apiClient.get('/api/v1/taxonomies')
+      const taxonomies = Array.isArray(response.data) ? response.data : []
+      const matched = taxonomies.find((item) => {
+        if (typeof item !== 'object' || item === null) {
+          return false
+        }
+        const record = item as Record<string, unknown>
+        return normalizeText(record.productCategory) === category && record.active !== false
+      })
+      return normalizeTaxonomyRecord(matched ?? taxonomies[0], productCode, category)
+    } catch {
+      return {
+        productCode,
+        category,
+        labels: DEFAULT_UX_LABELS,
+        state: 'degraded',
+        notice: '标签配置接口暂不可用，当前使用前端通用 UX 标签草稿。',
+      }
+    }
+  }
+}
+
+export async function saveProductTaxonomy(payload: ProductTaxonomyPayload): Promise<ProductTaxonomyResponse> {
+  if (isTestMode) {
+    return {
+      taxonomyId: payload.taxonomyId ?? 1,
+      name: payload.name ?? `${payload.productCode} UX 标签`,
+      productCode: payload.productCode,
+      category: payload.category,
+      labels: normalizeUxLabelOptions(payload.labels),
+      state: 'success',
+      notice: '标签组合已在测试模式中保存。',
+      updatedAt: '2026-06-03T00:00:00Z',
+    }
+  }
+
+  const taxonomyRequest = buildTaxonomyRequest(payload)
+  const taxonomyResponse = payload.taxonomyId
+    ? await apiClient.put(`/api/v1/taxonomies/${encodeURIComponent(`${payload.taxonomyId}`)}`, taxonomyRequest)
+    : await apiClient.post('/api/v1/taxonomies', taxonomyRequest)
+  const taxonomy = normalizeTaxonomyRecord(taxonomyResponse.data, payload.productCode, payload.category)
+  if (taxonomy.taxonomyId) {
+    const bindingResponse = await apiClient.put(`/api/v1/products/${encodeURIComponent(payload.productCode)}/taxonomy`, {
+      taxonomyId: taxonomy.taxonomyId,
+    })
+    return normalizeProductTaxonomyBinding(bindingResponse.data, payload.productCode, payload.category)
+  }
+  return taxonomy
+}
+
+export async function startCrawl(payload: CrawlStartPayload): Promise<CrawlJobResponse> {
+  if (isTestMode) {
+    return {
+      jobId: 'crawl-test-1',
+      productCode: payload.productCode,
+      productUrl: payload.productUrl,
+      platform: payload.productUrl.includes('taobao') ? 'taobao' : 'jd',
+      taxonomyId: payload.taxonomyId,
+      status: 'RUNNING',
+      fetchedCount: 0,
+      analysisHandoffStatus: 'CRAWL_RUNNING',
+      analysisHandoffNote: '采集任务已创建，完成后可启动分析。',
+      startedAt: '2026-06-03T00:00:00Z',
+    }
+  }
+
+  const response = await apiClient.post('/api/v1/crawl/start', payload)
+  return normalizeCrawlJob(response.data, payload.productCode ?? DEFAULT_PRODUCT_CODE)
+}
+
+export async function fetchCrawlJob(jobId: string, productCode = DEFAULT_PRODUCT_CODE): Promise<CrawlJobResponse> {
+  if (isTestMode) {
+    return {
+      jobId,
+      productCode,
+      status: 'SUCCEEDED',
+      fetchedCount: 128,
+      analysisHandoffStatus: 'READY_FOR_ANALYSIS',
+      analysisHandoffNote: '采集完成，可以启动分析。',
+      finishedAt: '2026-06-03T00:05:00Z',
+    }
+  }
+
+  const response = await apiClient.get(`/api/v1/crawl/jobs/${encodeURIComponent(jobId)}`)
+  return normalizeCrawlJob(response.data, productCode)
+}
+
+export async function startAnalysis(productCode = DEFAULT_PRODUCT_CODE): Promise<AnalysisJobResponse> {
+  if (isTestMode) {
+    return {
+      jobId: 'analysis-test-1',
+      productCode,
+      status: 'SUCCEEDED',
+      startedAt: '2026-06-03T00:06:00Z',
+      finishedAt: '2026-06-03T00:06:12Z',
+    }
+  }
+
+  const response = await apiClient.post('/api/v1/analysis/start', { productCode })
+  return normalizeAnalysisJob(response.data, productCode)
+}
+
 export async function fetchBackendHealth(): Promise<ServiceStatus> {
   if (isTestMode) {
     return { name: 'Backend API', status: 'UP' }
@@ -392,6 +708,8 @@ export async function fetchIssues(productCode = DEFAULT_PRODUCT_CODE): Promise<I
           issueId: 'iss-bluetooth-001',
           title: '连接稳定性偶发断连',
           aspect: 'bluetooth',
+          uxPrimaryLabel: '产品体验',
+          uxSecondaryLabel: '连接与稳定性',
           priorityScore: 0.554,
           evidenceSummary: '近30天断连反馈上升且竞品差距扩大。',
         },
@@ -465,11 +783,11 @@ export async function fetchCompare(
       comparisonProductCode,
       state: 'success',
       items: [
-        { aspect: 'battery', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
-        { aspect: 'bluetooth', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
-        { aspect: 'noise-canceling', ourScore: 0.5, competitorScore: 0.78, gap: -0.28 },
-        { aspect: 'comfort', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
-        { aspect: 'microphone', ourScore: 0.5, competitorScore: 0.22, gap: 0.28 },
+        { aspect: 'battery', uxSecondaryLabel: '电池与续航', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
+        { aspect: 'bluetooth', uxSecondaryLabel: '连接与稳定性', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
+        { aspect: 'noise-canceling', uxSecondaryLabel: '环境降噪', ourScore: 0.5, competitorScore: 0.78, gap: -0.28 },
+        { aspect: 'comfort', uxSecondaryLabel: '佩戴与人体工学', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
+        { aspect: 'microphone', uxSecondaryLabel: '通话与收音', ourScore: 0.5, competitorScore: 0.22, gap: 0.28 },
       ],
     }
   }
@@ -508,6 +826,7 @@ export async function fetchTrends(
   if (isTestMode) {
     return {
       aspect: fallbackAspect,
+      uxSecondaryLabel: normalizeUxSecondaryLabel(aspect, fallbackAspect),
       points: [
         { period: '2026-W06', negativeRate: 0.31, mentionVolume: 75 },
         { period: '2026-W09', negativeRate: 0.4, mentionVolume: 105 },
@@ -522,12 +841,14 @@ export async function fetchTrends(
     const notice = normalizeNotice(response.data.notice)
     return {
       aspect: normalizeAspectCode(response.data.aspect, 'battery') || fallbackAspect,
+      uxPrimaryLabel: normalizeNotice(response.data.uxPrimaryLabel),
+      uxSecondaryLabel: normalizeUxSecondaryLabel(response.data.uxSecondaryLabel, response.data.aspect),
       points,
       state: resolveChartState(points, response.data.state, notice),
       notice,
     }
   } catch (error) {
-    return { aspect: fallbackAspect, points: [], state: resolveRequestState(error) }
+    return { aspect: fallbackAspect, uxSecondaryLabel: fallbackAspect, points: [], state: resolveRequestState(error) }
   }
 }
 
@@ -566,6 +887,7 @@ export async function fetchWordCloud(
     return {
       productCode,
       aspect,
+      uxSecondaryLabel: aspect,
       items: [
         { keyword: '续航', frequency: 42, weight: 0.92, sentimentTag: 'POSITIVE' },
         { keyword: '断连', frequency: 31, weight: 0.85, sentimentTag: 'NEGATIVE' },
@@ -586,6 +908,8 @@ export async function fetchWordCloud(
     return {
       productCode: response.data.productCode ?? productCode,
       aspect: normalizeAspectCode(response.data.aspect, aspect === 'all' ? 'all' : 'battery'),
+      uxPrimaryLabel: normalizeNotice(response.data.uxPrimaryLabel),
+      uxSecondaryLabel: normalizeUxSecondaryLabel(response.data.uxSecondaryLabel, response.data.aspect),
       items,
       notice,
       state: resolveChartState(items, response.data.state, notice),
@@ -594,6 +918,7 @@ export async function fetchWordCloud(
     return {
       productCode,
       aspect: aspect === 'all' ? 'all' : normalizeAspectCode(aspect, 'battery'),
+      uxSecondaryLabel: aspect,
       items: [],
       state: resolveRequestState(error),
     }

@@ -14,7 +14,7 @@
         <thead>
           <tr>
             <th class="issue-column">问题</th>
-            <th class="aspect-column">方面</th>
+            <th class="aspect-column">UX 标签</th>
             <th class="score-column">优先级</th>
             <th class="evidence-column">证据</th>
           </tr>
@@ -25,7 +25,7 @@
               <strong>{{ item.title }}</strong>
             </td>
             <td class="aspect-column">
-              <span class="meta-pill">{{ item.aspect }}</span>
+              <span class="meta-pill">{{ displayUxLabel(item) }}</span>
             </td>
             <td class="score-column score-cell">
               <span class="score-pill">{{ item.priorityScore.toFixed(4) }}</span>
@@ -60,6 +60,10 @@ const stateMessage = computed(() => {
   }
   return props.message || '暂无问题数据'
 })
+
+function displayUxLabel(item: IssueItem): string {
+  return item.uxSecondaryLabel?.trim() || item.aspect
+}
 </script>
 
 <style scoped>

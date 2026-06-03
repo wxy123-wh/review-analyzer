@@ -1,0 +1,192 @@
+package review.backend.data;
+
+import review.backend.api.dto.AnalysisJobResponse;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class AnalysisJobRepository {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final SimpleJdbcInsert insertAnalysisJob;
+
+    private final RowMapper<AnalysisJobResponse> mapper = (rs, rowNum) -> new AnalysisJobResponse(
+            String.valueOf(rs.getLong("id")),
+            rs.getString("product_code"),
+            rs.getString("status"),
+            rs.getTimestamp("started_at").toInstant(),
+            rs.getTimestamp("finished_at") == null ? null : rs.getTimestamp("finished_at").toInstant(),
+            rs.getString("error_message")
+    );
+
+    public AnalysisJobRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.insertAnalysisJob = new SimpleJdbcInsert(jdbcTemplate)
+                .withTableName("analysis_jobs")
+                .usingColumns(
+                        "product_code",
+                        "status",
+                        "started_at",
+                        "finished_at",
+                        "error_message",
+                        "taxonomy_id",
+                        "taxonomy_version"
+                )
+                .usingGeneratedKeyColumns("id");
+    }
+
+    public AnalysisJobResponse create(String productCode, String status, Instant startedAt) {
+        return create(productCode, status, startedAt, null, null);
+    }
+
+    public AnalysisJobResponse create(
+            String productCode,
+            String status,
+            Instant startedAt,
+            Long taxonomyId,
+            Integer taxonomyVersion
+    ) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("product_code", productCode);
+        payload.put("status", status);
+        payload.put("started_at", Timestamp.from(startedAt));
+        payload.put("finished_at", null);
+        payload.put("error_message", null);
+        payload.put("taxonomy_id", taxonomyId);
+        payload.put("taxonomy_version", taxonomyVersion);
+        Number key = insertAnalysisJob.executeAndReturnKey(payload);
+        return findById(String.valueOf(key.longValue()))
+                .orElseThrow(() -> new IllegalStateException("analysis job insert succeeded but row was not found"));
+    }
+
+    public AnalysisJobResponse markRunning(String jobId) {
+        long id = requireId(jobId);
+        jdbcTemplate.update(
+                "UPDATE analysis_jobs SET status = ?, finished_at = NULL, error_message = NULL WHERE id = ?",
+                STATUS_RUNNING,
+                id
+        );
+        return findExisting(jobId);
+    }
+
+    public AnalysisJobResponse markSucceeded(String jobId, Instant finishedAt) {
+        return markSucceeded(jobId, finishedAt, null);
+    }
+
+    public AnalysisJobResponse markSucceeded(String jobId, Instant finishedAt, String errorMessage) {
+        long id = requireId(jobId);
+        jdbcTemplate.update(
+                "UPDATE analysis_jobs SET status = ?, finished_at = ?, error_message = ? WHERE id = ?",
+                STATUS_SUCCEEDED,
+                Timestamp.from(finishedAt),
+                errorMessage,
+                id
+        );
+        return findExisting(jobId);
+    }
+
+    public AnalysisJobResponse markFailed(String jobId, Instant finishedAt, String errorMessage) {
+        long id = requireId(jobId);
+        jdbcTemplate.update(
+                "UPDATE analysis_jobs SET status = ?, finished_at = ?, error_message = ? WHERE id = ?",
+                STATUS_FAILED,
+                Timestamp.from(finishedAt),
+                errorMessage,
+                id
+        );
+        return findExisting(jobId);
+    }
+
+    public Optional<AnalysisJobResponse> findLatestSucceededForProduct(String productCode) {
+        List<AnalysisJobResponse> rows = jdbcTemplate.query(
+                """
+                SELECT id, product_code, status, started_at, finished_at, error_message
+                FROM analysis_jobs
+                WHERE product_code = ?
+                  AND status = ?
+                ORDER BY finished_at DESC, id DESC
+                LIMIT 1
+                """,
+                mapper,
+                productCode,
+                STATUS_SUCCEEDED
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.getFirst());
+    }
+
+    public Optional<AnalysisJobResponse> findLatest() {
+        List<AnalysisJobResponse> rows = jdbcTemplate.query(
+                """
+                SELECT id, product_code, status, started_at, finished_at, error_message
+                FROM analysis_jobs
+                ORDER BY COALESCE(finished_at, started_at) DESC, id DESC
+                LIMIT 1
+                """,
+                mapper
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.getFirst());
+    }
+
+    public Optional<AnalysisJobResponse> findById(String jobId) {
+        Long id = parseId(jobId);
+        if (id == null) {
+            return Optional.empty();
+        }
+
+        List<AnalysisJobResponse> rows = jdbcTemplate.query(
+                """
+                SELECT id, product_code, status, started_at, finished_at, error_message
+                FROM analysis_jobs
+                WHERE id = ?
+                """,
+                mapper,
+                id
+        );
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(rows.getFirst());
+    }
+
+    private AnalysisJobResponse findExisting(String jobId) {
+        return findById(jobId)
+                .orElseThrow(() -> new IllegalStateException("analysis job row was not found after update, jobId=" + jobId));
+    }
+
+    private long requireId(String jobId) {
+        Long parsedId = parseId(jobId);
+        if (parsedId == null) {
+            throw new IllegalArgumentException("analysis job id is invalid: " + jobId);
+        }
+        return parsedId;
+    }
+
+    private static final String STATUS_RUNNING = "RUNNING";
+    private static final String STATUS_SUCCEEDED = "SUCCEEDED";
+    private static final String STATUS_FAILED = "FAILED";
+
+    private Long parseId(String jobId) {
+        if (jobId == null || jobId.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(jobId);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+}

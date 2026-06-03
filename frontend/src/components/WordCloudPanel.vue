@@ -4,7 +4,7 @@
       <div class="title-block">
         <span class="eyebrow">Keyword pulse</span>
         <div class="title-copy">
-          <h3>词云洞察（{{ aspectLabel }}）</h3>
+          <h3>词云洞察（{{ uxLabel }}）</h3>
           <p class="support">保留词云为主视图，说明、情绪图例与补充结论收拢到图外，提升信息分层。</p>
         </div>
       </div>
@@ -112,6 +112,7 @@ const isTestMode = import.meta.env.MODE === 'test'
 
 const props = defineProps<{
   aspect: string
+  uxSecondaryLabel?: string
   items: WordCloudItem[]
   state: ChartLoadState
   message?: string
@@ -131,6 +132,7 @@ const canRetry = computed(
   () => Boolean(chartRenderError.value) || ['empty', 'degraded', 'error', 'timeout', 'runtime-unavailable'].includes(props.state),
 )
 const aspectLabel = computed(() => aspectAlias[props.aspect] ?? props.aspect)
+const uxLabel = computed(() => props.uxSecondaryLabel?.trim() || aspectLabel.value)
 const topWord = computed(() => props.items[0] ?? null)
 const notice = computed(() => props.notice?.trim() ?? '')
 

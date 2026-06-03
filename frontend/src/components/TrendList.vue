@@ -4,7 +4,7 @@
       <div class="title-block">
         <span class="eyebrow">Trend signal</span>
         <div class="title-copy">
-          <h3>趋势图（{{ aspectLabel }}）</h3>
+          <h3>趋势图（{{ uxLabel }}）</h3>
           <p class="support">按周期查看负面率变化，点击点位后在下方锁定当前周期的关键值。</p>
         </div>
       </div>
@@ -108,6 +108,7 @@ const isTestMode = import.meta.env.MODE === 'test'
 
 const props = defineProps<{
   aspect: string
+  uxSecondaryLabel?: string
   points: TrendPoint[]
   state: ChartLoadState
   message?: string
@@ -129,6 +130,7 @@ const canRetry = computed(
   () => Boolean(chartRenderError.value) || ['empty', 'degraded', 'error', 'timeout', 'runtime-unavailable'].includes(props.state),
 )
 const aspectLabel = computed(() => aspectAlias[props.aspect] ?? props.aspect)
+const uxLabel = computed(() => props.uxSecondaryLabel?.trim() || aspectLabel.value)
 
 const stateMessage = computed(() => {
   if (props.state === 'empty') {
