@@ -17,12 +17,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnalysisMaterializationRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final ReviewSemanticLabelRepository reviewSemanticLabelRepository;
     private final SimpleJdbcInsert insertReviewAspect;
     private final SimpleJdbcInsert insertIssueCluster;
     private final SimpleJdbcInsert insertIssueScore;
 
-    public AnalysisMaterializationRepository(JdbcTemplate jdbcTemplate) {
+    public AnalysisMaterializationRepository(
+            JdbcTemplate jdbcTemplate,
+            ReviewSemanticLabelRepository reviewSemanticLabelRepository
+    ) {
         this.jdbcTemplate = jdbcTemplate;
+        this.reviewSemanticLabelRepository = reviewSemanticLabelRepository;
         this.insertReviewAspect = new SimpleJdbcInsert(jdbcTemplate)
                 .withTableName("review_aspects")
                 .usingColumns("review_id", "aspect", "sentiment_polarity", "sentiment_score", "confidence");
@@ -260,6 +265,7 @@ public class AnalysisMaterializationRepository {
                 "DELETE FROM review_aspects WHERE review_id IN (SELECT id FROM reviews_raw WHERE product_id = ?)",
                 productId
         );
+        reviewSemanticLabelRepository.replaceForProduct(productId, materialization.semanticLabels());
 
         for (ReviewAspectRecord reviewAspect : materialization.reviewAspects()) {
             Map<String, Object> payload = new HashMap<>();
@@ -302,6 +308,7 @@ public class AnalysisMaterializationRepository {
 
     public record Materialization(
             List<ReviewAspectRecord> reviewAspects,
+            List<ReviewSemanticLabelRepository.SemanticLabelRecord> semanticLabels,
             List<IssueClusterRecord> issueClusters
     ) {
     }

@@ -1,12 +1,13 @@
 flowchart TD
-    A["进入登录页并登录"] --> B{"演示数据是否已初始化?"}
-    B -- "否" --> C["调用 POST /api/v1/demo-data/init"]
-    C --> D["生成/更新 100 条评论并写入数据库"]
-    B -- "是" --> E["进入看板总览"]
-    D --> E
+    A["进入登录页并登录"] --> B{"真实评论是否已导入?"}
+    B -- "否" --> C["运行 crawler/jd_reviews.py 或准备 JSONL"]
+    C --> D["调用 POST /api/v1/reviews/import 写入 reviews_raw"]
+    D --> L["调用 POST /api/v1/analysis/start 生成物化结果"]
+    B -- "是" --> L
+    L --> E["进入看板总览"]
     E --> F["问题/对比/趋势/词云模块联动查询"]
     F --> G["识别高优先级问题"]
     G --> H["调用 POST /api/v1/actions 登记动作"]
     H --> I["调用 GET /api/v1/validation 验证效果"]
     I --> J["调用 POST /api/v1/showcase/reports/preview 预览报告"]
-    J --> K["形成演示闭环与复盘结论"]
+    J --> K["形成真实评论分析闭环与复盘结论"]

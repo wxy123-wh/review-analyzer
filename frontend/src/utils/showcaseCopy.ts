@@ -10,13 +10,8 @@ export function formatShowcaseStatus(status?: string): string {
       return '运行稳定'
     case 'DEGRADED':
       return '降级可用'
-    case 'CONTROLLED_DATA_ONLY':
-      return '受控数据'
     case 'RUNTIME_UNAVAILABLE':
       return '运行态不可用'
-    case 'DEMO':
-    case 'DEMO_DATA':
-      return '占位演示'
     default:
       return status.trim() || '加载中'
   }

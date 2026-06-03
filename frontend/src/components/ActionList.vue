@@ -5,7 +5,7 @@
         <span class="eyebrow">动作队列</span>
         <h3>改进行动登记</h3>
       </div>
-      <button type="button" class="create-btn" data-motion-hover="lift" @click="$emit('create-demo')">登记演示数据动作</button>
+      <button type="button" class="create-btn" data-motion-hover="lift" @click="$emit('create-action')">登记改进行动</button>
     </div>
     <p v-if="state === 'degraded' && stateMessage" class="notice">{{ stateMessage }}</p>
     <ul v-if="items.length > 0" class="action-list">
@@ -27,7 +27,7 @@ import { computed } from 'vue'
 import type { ActionItem, ContractState } from '../types/domain'
 
 defineEmits<{
-  (event: 'create-demo'): void
+  (event: 'create-action'): void
 }>()
 
 const props = defineProps<{
@@ -43,7 +43,7 @@ const stateMessage = computed(() => {
   if (props.state === 'degraded') {
     return props.message || '动作列表暂时只返回部分结果，可稍后重试刷新。'
   }
-  return props.message || '暂无动作，点击“登记演示数据动作”快速创建。'
+  return props.message || '暂无动作，请先从真实评论问题中登记改进行动。'
 })
 </script>
 

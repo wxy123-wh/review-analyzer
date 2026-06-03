@@ -1,0 +1,305 @@
+{
+  "headphones": [
+    {
+      "name": "音质",
+      "keywords": [
+        {
+          "keyword": "音质",
+          "weight": 2
+        },
+        {
+          "keyword": "低音",
+          "weight": 1
+        },
+        {
+          "keyword": "高音",
+          "weight": 1
+        },
+        {
+          "keyword": "三频",
+          "weight": 1
+        },
+        {
+          "keyword": "解析",
+          "weight": 1
+        },
+        {
+          "keyword": "失真",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "续航",
+      "keywords": [
+        {
+          "keyword": "续航",
+          "weight": 2
+        },
+        {
+          "keyword": "掉电快",
+          "weight": 2
+        },
+        {
+          "keyword": "电量",
+          "weight": 1
+        },
+        {
+          "keyword": "充不进",
+          "weight": 2
+        },
+        {
+          "keyword": "充电",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "降噪",
+      "keywords": [
+        {
+          "keyword": "降噪",
+          "weight": 2
+        },
+        {
+          "keyword": "ANC",
+          "weight": 1
+        },
+        {
+          "keyword": "通透",
+          "weight": 1
+        },
+        {
+          "keyword": "风噪",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "连接",
+      "keywords": [
+        {
+          "keyword": "连接",
+          "weight": 2
+        },
+        {
+          "keyword": "断连",
+          "weight": 2
+        },
+        {
+          "keyword": "延迟",
+          "weight": 1
+        },
+        {
+          "keyword": "蓝牙",
+          "weight": 1
+        },
+        {
+          "keyword": "配对",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "佩戴",
+      "keywords": [
+        {
+          "keyword": "佩戴",
+          "weight": 2
+        },
+        {
+          "keyword": "舒服",
+          "weight": 1
+        },
+        {
+          "keyword": "夹耳",
+          "weight": 1
+        },
+        {
+          "keyword": "疼",
+          "weight": 2
+        },
+        {
+          "keyword": "稳固",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "麦克风",
+      "keywords": [
+        {
+          "keyword": "麦克风",
+          "weight": 2
+        },
+        {
+          "keyword": "通话",
+          "weight": 1
+        },
+        {
+          "keyword": "拾音",
+          "weight": 1
+        },
+        {
+          "keyword": "噪声",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "外观",
+      "keywords": [
+        {
+          "keyword": "外观",
+          "weight": 2
+        },
+        {
+          "keyword": "颜值",
+          "weight": 1
+        },
+        {
+          "keyword": "做工",
+          "weight": 1
+        },
+        {
+          "keyword": "质感",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "性价比",
+      "keywords": [
+        {
+          "keyword": "性价比",
+          "weight": 2
+        },
+        {
+          "keyword": "值得",
+          "weight": 1
+        },
+        {
+          "keyword": "价格",
+          "weight": 1
+        },
+        {
+          "keyword": "划算",
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "smartphone": [
+    {
+      "name": "屏幕",
+      "keywords": [
+        {
+          "keyword": "屏幕",
+          "weight": 2
+        },
+        {
+          "keyword": "显示",
+          "weight": 1
+        },
+        {
+          "keyword": "清晰",
+          "weight": 1
+        },
+        {
+          "keyword": "刷新率",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "性能",
+      "keywords": [
+        {
+          "keyword": "性能",
+          "weight": 2
+        },
+        {
+          "keyword": "卡顿",
+          "weight": 2
+        },
+        {
+          "keyword": "流畅",
+          "weight": 1
+        },
+        {
+          "keyword": "发热",
+          "weight": 1
+        },
+        {
+          "keyword": "游戏",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "拍照",
+      "keywords": [
+        {
+          "keyword": "拍照",
+          "weight": 2
+        },
+        {
+          "keyword": "相机",
+          "weight": 1
+        },
+        {
+          "keyword": "清晰",
+          "weight": 1
+        },
+        {
+          "keyword": "夜景",
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "smartwatch": [
+    {
+      "name": "健康监测",
+      "keywords": [
+        {
+          "keyword": "心率",
+          "weight": 2
+        },
+        {
+          "keyword": "血氧",
+          "weight": 1
+        },
+        {
+          "keyword": "睡眠",
+          "weight": 1
+        },
+        {
+          "keyword": "准确",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "运动",
+      "keywords": [
+        {
+          "keyword": "运动",
+          "weight": 2
+        },
+        {
+          "keyword": "GPS",
+          "weight": 1
+        },
+        {
+          "keyword": "轨迹",
+          "weight": 1
+        },
+        {
+          "keyword": "防水",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

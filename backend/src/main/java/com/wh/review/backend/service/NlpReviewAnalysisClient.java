@@ -110,7 +110,21 @@ public class NlpReviewAnalysisClient {
     public record AnalyzeResponse(String jobId, List<AspectSentiment> aspectSentiments, List<IssueCluster> issueClusters) {
     }
 
-    public record AspectSentiment(int reviewIndex, String aspect, String polarity, Double score, Double confidence) {
+    public record AspectSentiment(
+            int reviewIndex,
+            String aspect,
+            String polarity,
+            Double score,
+            Double confidence,
+            String uxPrimaryLabel,
+            String uxSecondaryLabel,
+            String standardizedReason,
+            String evidence,
+            Integer negativeIntensityScore
+    ) {
+        public AspectSentiment(int reviewIndex, String aspect, String polarity, Double score, Double confidence) {
+            this(reviewIndex, aspect, polarity, score, confidence, null, null, null, null, null);
+        }
     }
 
     public record IssueCluster(String aspect, String title, int mentionCount) {

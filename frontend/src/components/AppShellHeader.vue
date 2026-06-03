@@ -3,13 +3,13 @@
     <div class="hero-shell" data-motion-spotlight="soft">
       <div class="hero-topline">
         <span class="hero-kicker">控制台视图</span>
-        <span class="hero-state">已接入演示模块导航</span>
+        <span class="hero-state">已接入真实评论分析导航</span>
       </div>
 
       <div class="hero-main">
         <div class="hero-copy">
           <h1>蓝牙耳机评论改进决策系统</h1>
-          <p>V1.5 演示扩展：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心</p>
+          <p>V1.5 真实评论链路：趋势图、词云、登录互动、流水线编排、可解释性分析与报告中心</p>
         </div>
 
         <span class="user-chip" data-motion-hover="lift">当前用户：{{ currentUser }}</span>

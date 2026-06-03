@@ -93,7 +93,7 @@ const navGroups = computed(() => {
 
   return [
     { label: '核心模块', items: core },
-    { label: '演示场景', items: showcase },
+    { label: '运行场景', items: showcase },
   ].filter((group) => group.items.length > 0)
 })
 </script>

@@ -37,7 +37,6 @@ public class PersistenceSchemaInitializer {
                 )
                 """,
                 """
-                """
                 CREATE TABLE IF NOT EXISTS sync_jobs (
                     id BIGSERIAL PRIMARY KEY,
                     provider VARCHAR(64) NOT NULL,
@@ -62,7 +61,6 @@ public class PersistenceSchemaInitializer {
                     content TEXT NOT NULL,
                     review_time TIMESTAMP WITH TIME ZONE,
                     anonymized_author_id VARCHAR(128),
-                    demo_data_version VARCHAR(32),
                     provider VARCHAR(64),
                     platform VARCHAR(64),
                     external_product_code VARCHAR(128),
@@ -81,6 +79,21 @@ public class PersistenceSchemaInitializer {
                     sentiment_polarity VARCHAR(16) NOT NULL,
                     sentiment_score NUMERIC(5,4) NOT NULL,
                     confidence NUMERIC(5,4) NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS review_semantic_labels (
+                    id BIGSERIAL PRIMARY KEY,
+                    review_id BIGINT NOT NULL REFERENCES reviews_raw(id),
+                    aspect VARCHAR(64) NOT NULL,
+                    sentiment_polarity VARCHAR(16) NOT NULL,
+                    confidence NUMERIC(5,4) NOT NULL,
+                    ux_primary_label VARCHAR(64),
+                    ux_secondary_label VARCHAR(64),
+                    standardized_reason VARCHAR(64),
+                    evidence TEXT,
+                    negative_intensity_score INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
@@ -146,14 +159,18 @@ public class PersistenceSchemaInitializer {
                 )
                 """,
                 """
-                CREATE TABLE IF NOT EXISTS demo_seed_versions (
+                CREATE TABLE IF NOT EXISTS data_quality_runs (
                     id BIGSERIAL PRIMARY KEY,
-                    seed_key VARCHAR(64) NOT NULL,
                     product_code VARCHAR(64) NOT NULL,
-                    data_version VARCHAR(32) NOT NULL,
-                    target_count INTEGER NOT NULL,
-                    last_seeded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(seed_key, product_code)
+                    raw_count INTEGER NOT NULL DEFAULT 0,
+                    cleaned_count INTEGER NOT NULL DEFAULT 0,
+                    removed_count INTEGER NOT NULL DEFAULT 0,
+                    html_cleaned_count INTEGER NOT NULL DEFAULT 0,
+                    exact_duplicate_count INTEGER NOT NULL DEFAULT 0,
+                    empty_content_count INTEGER NOT NULL DEFAULT 0,
+                    invalid_json_count INTEGER NOT NULL DEFAULT 0,
+                    summary_json TEXT NOT NULL,
+                    imported_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
                 "ALTER TABLE improvement_actions ADD COLUMN IF NOT EXISTS issue_ref VARCHAR(128)",
@@ -161,13 +178,17 @@ public class PersistenceSchemaInitializer {
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS fetched_count INTEGER NOT NULL DEFAULT 0",
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS analysis_handoff_status VARCHAR(64) NOT NULL DEFAULT 'NOT_READY'",
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS analysis_handoff_note TEXT",
-                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS demo_data_version VARCHAR(32)",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS provider VARCHAR(64)",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS platform VARCHAR(64)",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS external_product_code VARCHAR(128)",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS sync_job_id BIGINT",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS external_dedupe_key VARCHAR(255)",
-                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS fetch_metadata TEXT"
+                "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS fetch_metadata TEXT",
+                "ALTER TABLE review_semantic_labels ADD COLUMN IF NOT EXISTS ux_primary_label VARCHAR(64)",
+                "ALTER TABLE review_semantic_labels ADD COLUMN IF NOT EXISTS ux_secondary_label VARCHAR(64)",
+                "ALTER TABLE review_semantic_labels ADD COLUMN IF NOT EXISTS standardized_reason VARCHAR(64)",
+                "ALTER TABLE review_semantic_labels ADD COLUMN IF NOT EXISTS evidence TEXT",
+                "ALTER TABLE review_semantic_labels ADD COLUMN IF NOT EXISTS negative_intensity_score INTEGER NOT NULL DEFAULT 1"
         );
 
         for (String statement : statements) {

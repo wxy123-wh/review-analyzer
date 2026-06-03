@@ -12,7 +12,7 @@ describe('ShowcasePipelinePanel', () => {
           implemented: true,
           note: '流水线视图来自真实 sync/analysis/materialization/action/validation 状态。',
           stages: [
-            { name: 'SYNC', state: 'QUEUED', detail: 'provider=aggregator-demo; fetchedCount=0' },
+            { name: 'SYNC', state: 'QUEUED', detail: 'provider=local-jsonl; fetchedCount=0' },
             { name: 'ANALYSIS', state: 'RUNNING', detail: 'jobId=analysis-11' },
             { name: 'MATERIALIZATION', state: 'SUCCEEDED', detail: 'issueCount=5' },
             { name: 'VALIDATION', state: 'DEGRADED', detail: 'validation snapshots are lagging' },

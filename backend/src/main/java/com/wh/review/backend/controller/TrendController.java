@@ -1,5 +1,8 @@
 package com.wh.review.backend.controller;
 
+import static com.wh.review.backend.service.ReviewAggregationService.DEFAULT_PRODUCT_CODE;
+import static com.wh.review.backend.service.ReviewAggregationService.DEFAULT_TREND_ASPECT;
+
 import com.wh.review.backend.dto.TrendResponse;
 import com.wh.review.backend.service.InsightQueryService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +22,8 @@ public class TrendController {
 
     @GetMapping("/trends")
     public TrendResponse trends(
-            @RequestParam(value = "productCode", defaultValue = "demo-earphone") String productCode,
-            @RequestParam(value = "aspect", defaultValue = "battery") String aspect
+            @RequestParam(value = "productCode", defaultValue = DEFAULT_PRODUCT_CODE) String productCode,
+            @RequestParam(value = "aspect", defaultValue = DEFAULT_TREND_ASPECT) String aspect
     ) {
         return insightQueryService.trends(productCode, aspect);
     }

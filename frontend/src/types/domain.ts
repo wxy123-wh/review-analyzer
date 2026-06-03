@@ -21,7 +21,9 @@ export type CollectionContract<T> = {
 
 export type OverviewContract = {
   topIssue: IssueItem | null
+  topSellingPoint: PositiveInsightItem | null
   issueCount: number
+  positiveInsightCount: number
   actionCount: number
   validationCount: number
   state: ContractState
@@ -29,6 +31,20 @@ export type OverviewContract = {
 }
 
 export type IssueResponse = CollectionContract<IssueItem>
+
+export type PositiveInsightItem = {
+  sellingPointId: string
+  aspect: string
+  uxPrimaryLabel: string
+  uxSecondaryLabel: string
+  sellingPoint: string
+  mentionCount: number
+  positiveRate: number
+  score: number
+  evidence: string[]
+}
+
+export type PositiveInsightResponse = CollectionContract<PositiveInsightItem>
 
 export type CompareItem = {
   aspect: string

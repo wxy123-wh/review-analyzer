@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS reviews_raw (
     content TEXT NOT NULL,
     review_time TIMESTAMPTZ,
     anonymized_author_id VARCHAR(128),
-    demo_data_version VARCHAR(32),
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(source, source_review_id)
 );
@@ -37,6 +36,20 @@ CREATE TABLE IF NOT EXISTS review_aspects (
     sentiment_polarity VARCHAR(16) NOT NULL,
     sentiment_score NUMERIC(5,4) NOT NULL,
     confidence NUMERIC(5,4) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS review_semantic_labels (
+    id BIGSERIAL PRIMARY KEY,
+    review_id BIGINT NOT NULL REFERENCES reviews_raw(id),
+    aspect VARCHAR(64) NOT NULL,
+    sentiment_polarity VARCHAR(16) NOT NULL,
+    confidence NUMERIC(5,4) NOT NULL,
+    ux_primary_label VARCHAR(64),
+    ux_secondary_label VARCHAR(64),
+    standardized_reason VARCHAR(64),
+    evidence TEXT,
+    negative_intensity_score INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -108,12 +121,16 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     error_message TEXT
 );
 
-CREATE TABLE IF NOT EXISTS demo_seed_versions (
+CREATE TABLE IF NOT EXISTS data_quality_runs (
     id BIGSERIAL PRIMARY KEY,
-    seed_key VARCHAR(64) NOT NULL,
     product_code VARCHAR(64) NOT NULL,
-    data_version VARCHAR(32) NOT NULL,
-    target_count INTEGER NOT NULL,
-    last_seeded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(seed_key, product_code)
+    raw_count INTEGER NOT NULL DEFAULT 0,
+    cleaned_count INTEGER NOT NULL DEFAULT 0,
+    removed_count INTEGER NOT NULL DEFAULT 0,
+    html_cleaned_count INTEGER NOT NULL DEFAULT 0,
+    exact_duplicate_count INTEGER NOT NULL DEFAULT 0,
+    empty_content_count INTEGER NOT NULL DEFAULT 0,
+    invalid_json_count INTEGER NOT NULL DEFAULT 0,
+    summary_json TEXT NOT NULL,
+    imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

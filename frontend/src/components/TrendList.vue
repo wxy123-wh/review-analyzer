@@ -132,7 +132,7 @@ const aspectLabel = computed(() => aspectAlias[props.aspect] ?? props.aspect)
 
 const stateMessage = computed(() => {
   if (props.state === 'empty') {
-    return props.message || '暂无趋势数据，建议初始化演示评论数据后重试。'
+    return props.message || '暂无趋势数据，请先导入真实评论并启动分析后重试。'
   }
   if (props.state === 'degraded') {
     return props.message || '趋势数据暂时只保留最近一次可用时间窗，请稍后重试。'

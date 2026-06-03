@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -35,7 +36,7 @@ class AnalysisJobServiceTest {
     private AnalysisJobRepository analysisJobRepository;
 
     @Mock
-    private DemoReviewAggregationService demoReviewAggregationService;
+    private ReviewAggregationService reviewAggregationService;
 
     @Mock
     private AnalysisMaterializationRepository analysisMaterializationRepository;
@@ -49,7 +50,7 @@ class AnalysisJobServiceTest {
     void setUp() {
         analysisJobService = new AnalysisJobService(
                 analysisJobRepository,
-                demoReviewAggregationService,
+                reviewAggregationService,
                 analysisMaterializationRepository,
                 nlpReviewAnalysisClient
         );
@@ -59,27 +60,27 @@ class AnalysisJobServiceTest {
     void shouldRunAnalysisLifecycleAndPersistOutputs() {
         Instant startedAt = Instant.parse("2026-04-06T08:00:00Z");
         Instant finishedAt = Instant.parse("2026-04-06T08:01:00Z");
-        AnalysisJobResponse queued = response("11", "demo-earphone", "QUEUED", startedAt, null, null);
-        AnalysisJobResponse running = response("11", "demo-earphone", "RUNNING", startedAt, null, null);
-        AnalysisJobResponse succeeded = response("11", "demo-earphone", "SUCCEEDED", startedAt, finishedAt, null);
+        AnalysisJobResponse queued = response("11", "jd-100127936932", "QUEUED", startedAt, null, null);
+        AnalysisJobResponse running = response("11", "jd-100127936932", "RUNNING", startedAt, null, null);
+        AnalysisJobResponse succeeded = response("11", "jd-100127936932", "SUCCEEDED", startedAt, finishedAt, null);
 
-        when(analysisJobRepository.findLatestSucceededForProduct("demo-earphone"))
+        when(analysisJobRepository.findLatestSucceededForProduct("jd-100127936932"))
                 .thenReturn(Optional.empty());
-        when(analysisMaterializationRepository.findLatestSourceUpdateTime("demo-earphone"))
+        lenient().when(analysisMaterializationRepository.findLatestSourceUpdateTime("jd-100127936932"))
                 .thenReturn(Optional.of(startedAt.minusSeconds(10)));
-        when(analysisJobRepository.create(eq("demo-earphone"), eq("QUEUED"), any(Instant.class)))
+        when(analysisJobRepository.create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class)))
                 .thenReturn(queued);
         when(analysisJobRepository.markRunning("11"))
                 .thenReturn(running);
-        when(demoReviewAggregationService.loadReviews("demo-earphone"))
+        when(reviewAggregationService.loadReviews("jd-100127936932"))
                 .thenReturn(List.of(
-                        review(1L, "demo-earphone", "battery", "续航很好", DemoReviewAggregationService.Sentiment.NEGATIVE),
-                        review(2L, "demo-earphone", "battery", "蓝牙偶尔断开", DemoReviewAggregationService.Sentiment.POSITIVE),
-                        review(3L, "demo-earphone", "bluetooth", "通话收音发闷", DemoReviewAggregationService.Sentiment.NEGATIVE)
+                        review(1L, "jd-100127936932", "battery", "续航很好", ReviewAggregationService.Sentiment.NEGATIVE),
+                        review(2L, "jd-100127936932", "battery", "蓝牙偶尔断开", ReviewAggregationService.Sentiment.POSITIVE),
+                        review(3L, "jd-100127936932", "bluetooth", "通话收音发闷", ReviewAggregationService.Sentiment.NEGATIVE)
                 ));
         when(nlpReviewAnalysisClient.analyze(
                 eq("11"),
-                eq("demo-earphone"),
+                eq("jd-100127936932"),
                 eq(List.of("续航很好", "蓝牙偶尔断开", "通话收音发闷"))
         )).thenReturn(NlpReviewAnalysisClient.AnalyzeResult.success(new NlpReviewAnalysisClient.AnalyzeResponse(
                 "11",
@@ -96,107 +97,106 @@ class AnalysisJobServiceTest {
         when(analysisJobRepository.markSucceeded(eq("11"), any(Instant.class), isNull()))
                 .thenReturn(succeeded);
 
-        AnalysisJobResponse response = analysisJobService.createJob("demo-earphone");
+        AnalysisJobResponse response = analysisJobService.createJob("jd-100127936932");
 
         assertEquals("SUCCEEDED", response.status());
         assertNotNull(response.finishedAt());
         InOrder inOrder = inOrder(
                 analysisJobRepository,
                 analysisMaterializationRepository,
-                demoReviewAggregationService,
+                reviewAggregationService,
                 nlpReviewAnalysisClient
         );
-        inOrder.verify(analysisJobRepository).findLatestSucceededForProduct("demo-earphone");
-        inOrder.verify(analysisMaterializationRepository).findLatestSourceUpdateTime("demo-earphone");
-        inOrder.verify(analysisJobRepository).create(eq("demo-earphone"), eq("QUEUED"), any(Instant.class));
+        inOrder.verify(analysisJobRepository).findLatestSucceededForProduct("jd-100127936932");
+        inOrder.verify(analysisJobRepository).create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class));
         inOrder.verify(analysisJobRepository).markRunning("11");
-        inOrder.verify(demoReviewAggregationService).loadReviews("demo-earphone");
+        inOrder.verify(reviewAggregationService).loadReviews("jd-100127936932");
         inOrder.verify(nlpReviewAnalysisClient).analyze(
                 eq("11"),
-                eq("demo-earphone"),
+                eq("jd-100127936932"),
                 eq(List.of("续航很好", "蓝牙偶尔断开", "通话收音发闷"))
         );
-        inOrder.verify(analysisMaterializationRepository).replaceOutputs(eq("demo-earphone"), argThat(this::usesNlpAspectOutputs));
+        inOrder.verify(analysisMaterializationRepository).replaceOutputs(eq("jd-100127936932"), argThat(this::usesNlpAspectOutputs));
         inOrder.verify(analysisJobRepository).markSucceeded(eq("11"), any(Instant.class), isNull());
     }
 
     @Test
-    void shouldDegradeToControlledAnalysisWhenNlpIsUnavailable() {
+    void shouldDegradeToLocalFallbackAnalysisWhenNlpIsUnavailable() {
         Instant startedAt = Instant.parse("2026-04-06T08:00:00Z");
         Instant finishedAt = Instant.parse("2026-04-06T08:01:00Z");
-        AnalysisJobResponse queued = response("14", "demo-earphone", "QUEUED", startedAt, null, null);
-        AnalysisJobResponse running = response("14", "demo-earphone", "RUNNING", startedAt, null, null);
+        AnalysisJobResponse queued = response("14", "jd-100127936932", "QUEUED", startedAt, null, null);
+        AnalysisJobResponse running = response("14", "jd-100127936932", "RUNNING", startedAt, null, null);
         AnalysisJobResponse degraded = response(
                 "14",
-                "demo-earphone",
+                "jd-100127936932",
                 "SUCCEEDED",
                 startedAt,
                 finishedAt,
                 "degraded:nlp_unavailable:http-503"
         );
 
-        when(analysisJobRepository.findLatestSucceededForProduct("demo-earphone"))
+        when(analysisJobRepository.findLatestSucceededForProduct("jd-100127936932"))
                 .thenReturn(Optional.empty());
-        when(analysisMaterializationRepository.findLatestSourceUpdateTime("demo-earphone"))
+        lenient().when(analysisMaterializationRepository.findLatestSourceUpdateTime("jd-100127936932"))
                 .thenReturn(Optional.of(startedAt.minusSeconds(10)));
-        when(analysisJobRepository.create(eq("demo-earphone"), eq("QUEUED"), any(Instant.class)))
+        when(analysisJobRepository.create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class)))
                 .thenReturn(queued);
         when(analysisJobRepository.markRunning("14"))
                 .thenReturn(running);
-        when(demoReviewAggregationService.loadReviews("demo-earphone"))
+        when(reviewAggregationService.loadReviews("jd-100127936932"))
                 .thenReturn(List.of(
-                        review(1L, "demo-earphone", "battery", "续航衰减明显", DemoReviewAggregationService.Sentiment.NEGATIVE),
-                        review(2L, "demo-earphone", "bluetooth", "蓝牙断连", DemoReviewAggregationService.Sentiment.NEGATIVE)
+                        review(1L, "jd-100127936932", "battery", "续航衰减明显", ReviewAggregationService.Sentiment.NEGATIVE),
+                        review(2L, "jd-100127936932", "bluetooth", "蓝牙断连", ReviewAggregationService.Sentiment.NEGATIVE)
                 ));
         when(nlpReviewAnalysisClient.analyze(
                 eq("14"),
-                eq("demo-earphone"),
+                eq("jd-100127936932"),
                 eq(List.of("续航衰减明显", "蓝牙断连"))
         )).thenReturn(NlpReviewAnalysisClient.AnalyzeResult.degraded("degraded:nlp_unavailable:http-503"));
         when(analysisJobRepository.markSucceeded(eq("14"), any(Instant.class), eq("degraded:nlp_unavailable:http-503")))
                 .thenReturn(degraded);
 
-        AnalysisJobResponse response = analysisJobService.createJob("demo-earphone");
+        AnalysisJobResponse response = analysisJobService.createJob("jd-100127936932");
 
         assertEquals("SUCCEEDED", response.status());
         assertEquals("degraded:nlp_unavailable:http-503", response.errorMessage());
-        verify(analysisMaterializationRepository).replaceOutputs(eq("demo-earphone"), argThat(materialization ->
+        verify(analysisMaterializationRepository).replaceOutputs(eq("jd-100127936932"), argThat(materialization ->
                 materialization.reviewAspects().stream().map(ReviewAspectRecord::aspect).toList().equals(List.of("battery", "bluetooth"))
         ));
         verify(analysisJobRepository).markSucceeded(eq("14"), any(Instant.class), eq("degraded:nlp_unavailable:http-503"));
     }
 
     @Test
-    void shouldFallbackToControlledAnalysisWhenNlpResponseBreaksBackendAspectContract() {
+    void shouldFallbackToLocalFallbackAnalysisWhenNlpResponseBreaksBackendAspectContract() {
         Instant startedAt = Instant.parse("2026-04-06T08:00:00Z");
         Instant finishedAt = Instant.parse("2026-04-06T08:01:00Z");
-        AnalysisJobResponse queued = response("15", "demo-earphone", "QUEUED", startedAt, null, null);
-        AnalysisJobResponse running = response("15", "demo-earphone", "RUNNING", startedAt, null, null);
+        AnalysisJobResponse queued = response("15", "jd-100127936932", "QUEUED", startedAt, null, null);
+        AnalysisJobResponse running = response("15", "jd-100127936932", "RUNNING", startedAt, null, null);
         AnalysisJobResponse degraded = response(
                 "15",
-                "demo-earphone",
+                "jd-100127936932",
                 "SUCCEEDED",
                 startedAt,
                 finishedAt,
                 "degraded:nlp_invalid_response:unsupported-nlp-aspect=mystery-aspect"
         );
 
-        when(analysisJobRepository.findLatestSucceededForProduct("demo-earphone"))
+        when(analysisJobRepository.findLatestSucceededForProduct("jd-100127936932"))
                 .thenReturn(Optional.empty());
-        when(analysisMaterializationRepository.findLatestSourceUpdateTime("demo-earphone"))
+        lenient().when(analysisMaterializationRepository.findLatestSourceUpdateTime("jd-100127936932"))
                 .thenReturn(Optional.of(startedAt.minusSeconds(10)));
-        when(analysisJobRepository.create(eq("demo-earphone"), eq("QUEUED"), any(Instant.class)))
+        when(analysisJobRepository.create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class)))
                 .thenReturn(queued);
         when(analysisJobRepository.markRunning("15"))
                 .thenReturn(running);
-        when(demoReviewAggregationService.loadReviews("demo-earphone"))
+        when(reviewAggregationService.loadReviews("jd-100127936932"))
                 .thenReturn(List.of(
-                        review(1L, "demo-earphone", "battery", "续航衰减明显", DemoReviewAggregationService.Sentiment.NEGATIVE),
-                        review(2L, "demo-earphone", "bluetooth", "蓝牙断连", DemoReviewAggregationService.Sentiment.NEGATIVE)
+                        review(1L, "jd-100127936932", "battery", "续航衰减明显", ReviewAggregationService.Sentiment.NEGATIVE),
+                        review(2L, "jd-100127936932", "bluetooth", "蓝牙断连", ReviewAggregationService.Sentiment.NEGATIVE)
                 ));
         when(nlpReviewAnalysisClient.analyze(
                 eq("15"),
-                eq("demo-earphone"),
+                eq("jd-100127936932"),
                 eq(List.of("续航衰减明显", "蓝牙断连"))
         )).thenReturn(NlpReviewAnalysisClient.AnalyzeResult.success(new NlpReviewAnalysisClient.AnalyzeResponse(
                 "15",
@@ -212,11 +212,11 @@ class AnalysisJobServiceTest {
                 eq("degraded:nlp_invalid_response:unsupported-nlp-aspect=mystery-aspect")
         )).thenReturn(degraded);
 
-        AnalysisJobResponse response = analysisJobService.createJob("demo-earphone");
+        AnalysisJobResponse response = analysisJobService.createJob("jd-100127936932");
 
         assertEquals("SUCCEEDED", response.status());
         assertEquals("degraded:nlp_invalid_response:unsupported-nlp-aspect=mystery-aspect", response.errorMessage());
-        verify(analysisMaterializationRepository).replaceOutputs(eq("demo-earphone"), argThat(materialization ->
+        verify(analysisMaterializationRepository).replaceOutputs(eq("jd-100127936932"), argThat(materialization ->
                 materialization.reviewAspects().stream().map(ReviewAspectRecord::aspect).toList().equals(List.of("battery", "bluetooth"))
                         && materialization.reviewAspects().stream().map(ReviewAspectRecord::sentimentPolarity).toList()
                                 .equals(List.of("NEGATIVE", "NEGATIVE"))
@@ -245,13 +245,13 @@ class AnalysisJobServiceTest {
 
         when(analysisJobRepository.findLatestSucceededForProduct("missing-product"))
                 .thenReturn(Optional.empty());
-        when(analysisMaterializationRepository.findLatestSourceUpdateTime("missing-product"))
+        lenient().when(analysisMaterializationRepository.findLatestSourceUpdateTime("missing-product"))
                 .thenReturn(Optional.empty());
         when(analysisJobRepository.create(eq("missing-product"), eq("QUEUED"), any(Instant.class)))
                 .thenReturn(queued);
         when(analysisJobRepository.markRunning("12"))
                 .thenReturn(running);
-        when(demoReviewAggregationService.loadReviews("missing-product"))
+        when(reviewAggregationService.loadReviews("missing-product"))
                 .thenReturn(List.of());
         when(analysisJobRepository.markFailed(eq("12"), any(Instant.class), eq("no reviews found for productCode=missing-product")))
                 .thenReturn(failed);
@@ -267,21 +267,21 @@ class AnalysisJobServiceTest {
     @Test
     void shouldReuseSucceededJobWhenSourceDataHasNotChanged() {
         Instant finishedAt = Instant.parse("2026-04-06T08:05:00Z");
-        AnalysisJobResponse existing = response("13", "demo-earphone", "SUCCEEDED", finishedAt.minusSeconds(30), finishedAt, null);
+        AnalysisJobResponse existing = response("13", "jd-100127936932", "SUCCEEDED", finishedAt.minusSeconds(30), finishedAt, null);
 
-        when(analysisJobRepository.findLatestSucceededForProduct("demo-earphone"))
+        when(analysisJobRepository.findLatestSucceededForProduct("jd-100127936932"))
                 .thenReturn(Optional.of(existing));
-        when(analysisMaterializationRepository.findLatestSourceUpdateTime("demo-earphone"))
+        when(analysisMaterializationRepository.findLatestSourceUpdateTime("jd-100127936932"))
                 .thenReturn(Optional.of(finishedAt.minusSeconds(1)));
-        when(analysisMaterializationRepository.hasMaterializedOutputs("demo-earphone"))
+        when(analysisMaterializationRepository.hasMaterializedOutputs("jd-100127936932"))
                 .thenReturn(true);
 
-        AnalysisJobResponse response = analysisJobService.createJob("demo-earphone");
+        AnalysisJobResponse response = analysisJobService.createJob("jd-100127936932");
 
         assertEquals("13", response.jobId());
         assertEquals("SUCCEEDED", response.status());
-        verify(analysisJobRepository, never()).create(eq("demo-earphone"), eq("QUEUED"), any(Instant.class));
-        verifyNoInteractions(demoReviewAggregationService);
+        verify(analysisJobRepository, never()).create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class));
+        verify(reviewAggregationService, never()).loadReviews("jd-100127936932");
         verifyNoInteractions(nlpReviewAnalysisClient);
     }
 
@@ -296,14 +296,14 @@ class AnalysisJobServiceTest {
         return new AnalysisJobResponse(jobId, productCode, status, startedAt, finishedAt, errorMessage);
     }
 
-    private DemoReviewAggregationService.AggregatedReview review(
+    private ReviewAggregationService.AggregatedReview review(
             long reviewId,
             String productCode,
             String aspect,
             String content,
-            DemoReviewAggregationService.Sentiment sentiment
+            ReviewAggregationService.Sentiment sentiment
     ) {
-        return new DemoReviewAggregationService.AggregatedReview(
+        return new ReviewAggregationService.AggregatedReview(
                 reviewId,
                 productCode,
                 aspect,

@@ -3,8 +3,11 @@ package com.wh.review.backend.service;
 import com.wh.review.backend.dto.ActionResponse;
 import com.wh.review.backend.dto.CompareItem;
 import com.wh.review.backend.dto.CompareResponse;
+import com.wh.review.backend.dto.DataQualityResponse;
 import com.wh.review.backend.dto.IssueItem;
 import com.wh.review.backend.dto.IssueListResponse;
+import com.wh.review.backend.dto.PositiveInsightItem;
+import com.wh.review.backend.dto.PositiveInsightResponse;
 import com.wh.review.backend.dto.TrendPoint;
 import com.wh.review.backend.dto.TrendResponse;
 import com.wh.review.backend.dto.ValidationItem;
@@ -17,6 +20,10 @@ import com.wh.review.backend.persistence.AnalysisMaterializationRepository.Mater
 import com.wh.review.backend.persistence.AnalysisMaterializationRepository.MaterializedTrendReviewRecord;
 import com.wh.review.backend.persistence.AnalysisMaterializationRepository.MaterializedWordCloudReviewRecord;
 import com.wh.review.backend.persistence.ActionRepository.ActionValidationContext;
+import com.wh.review.backend.persistence.DataQualityRepository;
+import com.wh.review.backend.persistence.DataQualityRepository.DataQualityRun;
+import com.wh.review.backend.persistence.ReviewSemanticLabelRepository;
+import com.wh.review.backend.persistence.ReviewSemanticLabelRepository.PositiveInsightAggregate;
 import com.wh.review.backend.persistence.ValidationMetricsRepository;
 import com.wh.review.backend.persistence.ValidationMetricsRepository.MetricsPayload;
 import com.wh.review.backend.persistence.ValidationMetricsRepository.ValidationSnapshot;
@@ -40,31 +47,25 @@ import org.springframework.stereotype.Service;
 @Service
 public class InsightQueryService {
 
-    /**
-     * Wave-1 contract note:
-     * <p>v1 的唯一分析结果来源被固定为“analysis job 物化结果，查询侧消费它”。</p>
-     * <p>在 analysis job 真正执行前，本服务仍只提供受控演示数据查询与契约字段稳定性，
-     * 不能被当作长期正式的 compute-on-read 主实现。</p>
-     */
-
     private static final double W_NEGATIVE_RATE = 0.35;
     private static final double W_MENTION_VOLUME = 0.25;
     private static final double W_TREND_GROWTH = 0.20;
     private static final double W_COMPETITOR_GAP = 0.20;
-    private static final String NO_DATA_NOTICE = "当前暂无可分析的演示评论，请先初始化演示数据。";
+    private static final String NO_DATA_NOTICE = "当前暂无可分析的真实评论，请先通过爬虫或 JSONL 导入评论，再启动分析。";
     private static final String QUERY_FAILURE_NOTICE = "评论洞察正在更新，请稍后刷新重试。";
     private static final String STATE_SUCCESS = "success";
     private static final String STATE_EMPTY = "empty";
     private static final String STATE_DEGRADED = "degraded";
     private static final String STATE_ERROR = "error";
+    private static final int POSITIVE_INSIGHT_DEFAULT_LIMIT = 5;
     private static final String COMPARE_STATE_SUCCESS = "success";
     private static final String COMPARE_STATE_MISSING_TARGET = "missing-target";
     private static final String COMPARE_STATE_PRIMARY_UNAVAILABLE = "primary-unavailable";
     private static final String COMPARE_STATE_COMPARISON_UNAVAILABLE = "comparison-unavailable";
     private static final String COMPARE_STATE_ERROR = "error";
     private static final String COMPARE_MISSING_TARGET_NOTICE = "请选择需要对比的竞品后再查看对比结果。";
-    private static final String COMPARE_PRIMARY_UNAVAILABLE_NOTICE = "主产品暂无可用分析结果，请先完成受控数据初始化与分析。";
-    private static final String COMPARE_COMPARISON_UNAVAILABLE_NOTICE = "竞品暂无可用分析结果，请先完成受控数据初始化与分析。";
+    private static final String COMPARE_PRIMARY_UNAVAILABLE_NOTICE = "主产品暂无可用分析结果，请先导入真实评论并启动分析。";
+    private static final String COMPARE_COMPARISON_UNAVAILABLE_NOTICE = "竞品暂无可用分析结果，请先导入竞品真实评论并启动分析。";
     private static final String ACTION_NOT_FOUND_NOTICE = "未找到对应改进动作，请确认动作编号。";
     private static final String NO_ACTION_NOTICE = "当前暂无改进动作，请先创建动作后查看验证结果。";
     private static final int WORD_CLOUD_TOP_N = 24;
@@ -84,25 +85,31 @@ public class InsightQueryService {
 
     private final ActionService actionService;
     private final AnalysisMaterializationRepository analysisMaterializationRepository;
-    private final DemoReviewAggregationService demoReviewAggregationService;
+    private final DataQualityRepository dataQualityRepository;
+    private final ReviewSemanticLabelRepository reviewSemanticLabelRepository;
+    private final ReviewAggregationService reviewAggregationService;
     private final ValidationMetricsRepository validationMetricsRepository;
-    private final SimpleCache<String, List<DemoReviewAggregationService.AggregatedReview>> reviewsCache =
+    private final SimpleCache<String, List<ReviewAggregationService.AggregatedReview>> reviewsCache =
             new SimpleCache<>(10 * 60 * 1000); // 10 minutes TTL
 
     public InsightQueryService(
             ActionService actionService,
             AnalysisMaterializationRepository analysisMaterializationRepository,
-            DemoReviewAggregationService demoReviewAggregationService,
+            DataQualityRepository dataQualityRepository,
+            ReviewSemanticLabelRepository reviewSemanticLabelRepository,
+            ReviewAggregationService reviewAggregationService,
             ValidationMetricsRepository validationMetricsRepository
     ) {
         this.actionService = actionService;
         this.analysisMaterializationRepository = analysisMaterializationRepository;
-        this.demoReviewAggregationService = demoReviewAggregationService;
+        this.dataQualityRepository = dataQualityRepository;
+        this.reviewSemanticLabelRepository = reviewSemanticLabelRepository;
+        this.reviewAggregationService = reviewAggregationService;
         this.validationMetricsRepository = validationMetricsRepository;
     }
 
     public IssueListResponse listIssues(String productCode) {
-        String normalizedProductCode = demoReviewAggregationService.normalizeProductCode(productCode);
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
         try {
             List<MaterializedIssueRecord> records = analysisMaterializationRepository.findIssues(normalizedProductCode);
             if (records.isEmpty() && !analysisMaterializationRepository.hasMaterializedOutputs(normalizedProductCode)) {
@@ -110,7 +117,7 @@ public class InsightQueryService {
             }
 
             List<IssueItem> items = records.stream()
-                    .filter(record -> !DemoReviewAggregationService.ASPECT_UNKNOWN.equals(record.aspect()))
+                    .filter(record -> !ReviewAggregationService.ASPECT_UNKNOWN.equals(record.aspect()))
                     .filter(record -> record.negativeRate() > 0D)
                     .map(record -> new IssueItem(
                             buildIssueId(record.aspect(), record.clusterId()),
@@ -118,7 +125,7 @@ public class InsightQueryService {
                             record.aspect(),
                             roundTo4(record.priorityScore()),
                             buildIssueEvidenceSummary(
-                                    demoReviewAggregationService.aspectDisplayName(record.aspect()),
+                                    reviewAggregationService.aspectDisplayName(record.aspect()),
                                     record.mentionCount(),
                                     record.negativeCount(),
                                     record.negativeRate(),
@@ -139,7 +146,7 @@ public class InsightQueryService {
     }
 
     public CompareResponse compare(String productCode, String comparisonProductCode) {
-        String normalizedProductCode = demoReviewAggregationService.normalizeProductCode(productCode);
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
         String normalizedComparisonProductCode = normalizeComparisonProductCode(comparisonProductCode);
 
         if (normalizedComparisonProductCode == null) {
@@ -179,7 +186,7 @@ public class InsightQueryService {
                     analysisMaterializationRepository.findCompareAspectScores(normalizedComparisonProductCode)
             );
 
-            List<CompareItem> items = demoReviewAggregationService.allAspectCodes().stream()
+            List<CompareItem> items = reviewAggregationService.allAspectCodes().stream()
                     .map(aspect -> {
                         double ourScore = primaryScores.getOrDefault(aspect, 0D);
                         double competitorScore = comparisonScores.getOrDefault(aspect, 0D);
@@ -217,8 +224,8 @@ public class InsightQueryService {
     }
 
     public TrendResponse trends(String productCode, String aspect) {
-        String normalizedProductCode = demoReviewAggregationService.normalizeProductCode(productCode);
-        String normalizedAspect = demoReviewAggregationService.normalizeTrendAspect(aspect);
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
+        String normalizedAspect = reviewAggregationService.normalizeTrendAspect(aspect);
 
         try {
             List<MaterializedTrendReviewRecord> reviews = analysisMaterializationRepository.findTrendReviews(
@@ -234,7 +241,7 @@ public class InsightQueryService {
                 String period = toIsoWeekPeriod(review.reviewTime());
                 PeriodStats stats = periodStats.computeIfAbsent(period, key -> new PeriodStats());
                 stats.mentionCount++;
-                if (normalizeSentiment(review.sentimentPolarity()) == DemoReviewAggregationService.Sentiment.NEGATIVE) {
+                if (normalizeSentiment(review.sentimentPolarity()) == ReviewAggregationService.Sentiment.NEGATIVE) {
                     stats.negativeCount++;
                 }
             }
@@ -262,11 +269,11 @@ public class InsightQueryService {
     }
 
     public WordCloudResponse wordCloud(String productCode, String aspect) {
-        String normalizedProductCode = demoReviewAggregationService.normalizeProductCode(productCode);
-        String normalizedAspect = demoReviewAggregationService.normalizeWordCloudAspect(aspect);
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
+        String normalizedAspect = reviewAggregationService.normalizeWordCloudAspect(aspect);
 
         try {
-            String scopedAspect = DemoReviewAggregationService.ASPECT_ALL.equals(normalizedAspect)
+            String scopedAspect = ReviewAggregationService.ASPECT_ALL.equals(normalizedAspect)
                     ? null
                     : normalizedAspect;
             List<MaterializedWordCloudReviewRecord> reviews = analysisMaterializationRepository.findWordCloudReviews(
@@ -361,6 +368,142 @@ public class InsightQueryService {
         return new ValidationResponse(items, degraded ? STATE_DEGRADED : STATE_SUCCESS, degraded ? QUERY_FAILURE_NOTICE : null);
     }
 
+    public DataQualityResponse dataQuality(String productCode) {
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
+        try {
+            Optional<DataQualityRun> latestRun = dataQualityRepository.findLatest(normalizedProductCode);
+            if (latestRun.isEmpty()) {
+                return new DataQualityResponse(
+                        normalizedProductCode,
+                        STATE_EMPTY,
+                        "当前暂无清洗摘要，请先运行 pipeline/clean_reviews.py 并在导入时携带 cleaningSummary。",
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        null
+                );
+            }
+            DataQualityRun run = latestRun.get();
+            return new DataQualityResponse(
+                    run.productCode(),
+                    STATE_SUCCESS,
+                    null,
+                    run.rawCount(),
+                    run.cleanedCount(),
+                    run.removedCount(),
+                    run.htmlCleanedCount(),
+                    run.exactDuplicateCount(),
+                    run.emptyContentCount(),
+                    run.invalidJsonCount(),
+                    run.importedAt()
+            );
+        } catch (Exception ex) {
+            LOGGER.warn("failed to load data quality summary, productCode={}", normalizedProductCode, ex);
+            return new DataQualityResponse(
+                    normalizedProductCode,
+                    STATE_ERROR,
+                    QUERY_FAILURE_NOTICE,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null
+            );
+        }
+    }
+
+    public PositiveInsightResponse positiveInsights(String productCode, int limit) {
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
+        int normalizedLimit = limit <= 0 ? POSITIVE_INSIGHT_DEFAULT_LIMIT : Math.min(limit, 20);
+        try {
+            List<PositiveInsightAggregate> aggregates =
+                    reviewSemanticLabelRepository.findPositiveInsightAggregates(normalizedProductCode);
+            int totalPositiveLabels = reviewSemanticLabelRepository.countPositiveLabels(normalizedProductCode);
+            if (aggregates.isEmpty() || totalPositiveLabels <= 0) {
+                return new PositiveInsightResponse(
+                        STATE_EMPTY,
+                        "当前暂无可提炼的正面 UX 标签，请先导入真实评论并启动分析。",
+                        List.of()
+                );
+            }
+
+            List<PositiveInsightItem> items = aggregates.stream()
+                    .map(aggregate -> toPositiveInsightItem(normalizedProductCode, aggregate, totalPositiveLabels))
+                    .sorted(Comparator
+                            .comparingDouble(PositiveInsightItem::score)
+                            .reversed()
+                            .thenComparing(PositiveInsightItem::uxSecondaryLabel))
+                    .limit(normalizedLimit)
+                    .toList();
+            return new PositiveInsightResponse(items.isEmpty() ? STATE_EMPTY : STATE_SUCCESS, items);
+        } catch (Exception ex) {
+            LOGGER.warn("failed to load positive insights, productCode={}", normalizedProductCode, ex);
+            return new PositiveInsightResponse(STATE_ERROR, QUERY_FAILURE_NOTICE, List.of());
+        }
+    }
+
+    private PositiveInsightItem toPositiveInsightItem(
+            String productCode,
+            PositiveInsightAggregate aggregate,
+            int totalPositiveLabels
+    ) {
+        double mentionShare = totalPositiveLabels <= 0 ? 0D : (double) aggregate.mentionCount() / totalPositiveLabels;
+        double positiveRate = aggregate.mentionCount() == 0 ? 0D : (double) aggregate.positiveCount() / aggregate.mentionCount();
+        double avgConfidence = clamp01(aggregate.avgConfidence());
+        double score = roundTo4(mentionShare * 0.45D + positiveRate * 0.35D + avgConfidence * 0.20D);
+        List<String> evidence = reviewSemanticLabelRepository.findEvidence(
+                productCode,
+                aggregate.aspect(),
+                aggregate.uxSecondaryLabel(),
+                3
+        ).stream()
+                .filter(item -> item != null && !item.isBlank())
+                .distinct()
+                .limit(3)
+                .toList();
+        String sellingPoint = normalizeSellingPoint(aggregate.standardizedReason(), aggregate.aspect());
+        return new PositiveInsightItem(
+                buildSellingPointId(aggregate.aspect(), aggregate.uxSecondaryLabel()),
+                aggregate.aspect(),
+                aggregate.uxPrimaryLabel(),
+                aggregate.uxSecondaryLabel(),
+                sellingPoint,
+                aggregate.mentionCount(),
+                roundTo4(positiveRate),
+                score,
+                evidence
+        );
+    }
+
+    private String buildSellingPointId(String aspect, String uxSecondaryLabel) {
+        String safeAspect = aspect == null || aspect.isBlank()
+                ? "general"
+                : aspect.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+        String labelHash = Integer.toHexString((uxSecondaryLabel == null ? "" : uxSecondaryLabel).hashCode());
+        return "sp-" + safeAspect + "-" + labelHash;
+    }
+
+    private String normalizeSellingPoint(String standardizedReason, String aspect) {
+        if (standardizedReason != null && !standardizedReason.isBlank() && !"无明显问题".equals(standardizedReason.trim())) {
+            return standardizedReason.trim();
+        }
+        return switch (aspect == null ? "" : aspect) {
+            case "battery" -> "续航持久";
+            case "bluetooth" -> "连接稳定";
+            case "noise-canceling" -> "降噪明显";
+            case "comfort" -> "佩戴舒适";
+            case "microphone" -> "通话清晰";
+            default -> "正面体验稳定";
+        };
+    }
+
     private ValidationItem buildValidationFromAction(ActionValidationContext context) {
         ActionResponse action = context.action();
         Long actionNumericId = parseActionId(action.actionId());
@@ -371,14 +514,14 @@ public class InsightQueryService {
             }
         }
 
-        String productCode = demoReviewAggregationService.normalizeProductCode(action.productCode());
-        String aspect = resolveAspect(context);
-        String aspectName = aspect == null ? "综合问题" : demoReviewAggregationService.aspectDisplayName(aspect);
         try {
-            List<DemoReviewAggregationService.AggregatedReview> allReviews =
+            String productCode = reviewAggregationService.normalizeProductCode(action.productCode());
+            String aspect = resolveAspect(context);
+            String aspectName = aspect == null ? "综合问题" : reviewAggregationService.aspectDisplayName(aspect);
+            List<ReviewAggregationService.AggregatedReview> allReviews =
                     loadReviewsWithCache(productCode);
-            List<DemoReviewAggregationService.AggregatedReview> scopedReviews =
-                    demoReviewAggregationService.filterByAspect(allReviews, aspect);
+            List<ReviewAggregationService.AggregatedReview> scopedReviews =
+                    reviewAggregationService.filterByAspect(allReviews, aspect);
             ValidationSnapshot snapshot = createAndPersistValidationSnapshot(actionNumericId, context, scopedReviews, aspectName, aspect);
             return toValidationItem(action.actionId(), snapshot);
         } catch (Exception ex) {
@@ -396,7 +539,7 @@ public class InsightQueryService {
     private ValidationSnapshot createAndPersistValidationSnapshot(
             Long actionNumericId,
             ActionValidationContext context,
-            List<DemoReviewAggregationService.AggregatedReview> scopedReviews,
+            List<ReviewAggregationService.AggregatedReview> scopedReviews,
             String aspectName,
             String aspect
     ) {
@@ -404,10 +547,10 @@ public class InsightQueryService {
         Instant calculatedAt = Instant.now();
         Instant fallbackBoundary = resolveFallbackBoundary(scopedReviews, action.createdAt());
         Instant boundary = resolveEffectiveBoundary(context.launchedAt(), scopedReviews, fallbackBoundary);
-        List<DemoReviewAggregationService.AggregatedReview> before = scopedReviews.stream()
+        List<ReviewAggregationService.AggregatedReview> before = scopedReviews.stream()
                 .filter(review -> review.reviewTime().isBefore(boundary))
                 .toList();
-        List<DemoReviewAggregationService.AggregatedReview> after = scopedReviews.stream()
+        List<ReviewAggregationService.AggregatedReview> after = scopedReviews.stream()
                 .filter(review -> !review.reviewTime().isBefore(boundary))
                 .toList();
 
@@ -468,12 +611,12 @@ public class InsightQueryService {
     }
 
     private MetricsPayload metricsPayload(
-            List<DemoReviewAggregationService.AggregatedReview> reviews,
+            List<ReviewAggregationService.AggregatedReview> reviews,
             String aspect,
             Instant boundary
     ) {
         long negativeCount = reviews.stream()
-                .filter(review -> review.sentiment() == DemoReviewAggregationService.Sentiment.NEGATIVE)
+                .filter(review -> review.sentiment() == ReviewAggregationService.Sentiment.NEGATIVE)
                 .count();
         return new MetricsPayload(
                 reviews.size(),
@@ -484,7 +627,7 @@ public class InsightQueryService {
         );
     }
 
-    private Instant resolveFallbackBoundary(List<DemoReviewAggregationService.AggregatedReview> scopedReviews, Instant fallback) {
+    private Instant resolveFallbackBoundary(List<ReviewAggregationService.AggregatedReview> scopedReviews, Instant fallback) {
         if (scopedReviews.isEmpty()) {
             return fallback == null ? Instant.EPOCH : fallback;
         }
@@ -493,7 +636,7 @@ public class InsightQueryService {
 
     private Instant resolveEffectiveBoundary(
             Instant launchedAt,
-            List<DemoReviewAggregationService.AggregatedReview> scopedReviews,
+            List<ReviewAggregationService.AggregatedReview> scopedReviews,
             Instant fallbackBoundary
     ) {
         if (launchedAt == null) {
@@ -507,14 +650,14 @@ public class InsightQueryService {
         return fallbackBoundary;
     }
 
-    private Instant resolveWindowStart(List<DemoReviewAggregationService.AggregatedReview> scopedReviews, Instant boundary) {
+    private Instant resolveWindowStart(List<ReviewAggregationService.AggregatedReview> scopedReviews, Instant boundary) {
         if (scopedReviews.isEmpty()) {
             return boundary;
         }
         return scopedReviews.getFirst().reviewTime();
     }
 
-    private Instant resolveWindowEnd(List<DemoReviewAggregationService.AggregatedReview> scopedReviews, Instant boundary) {
+    private Instant resolveWindowEnd(List<ReviewAggregationService.AggregatedReview> scopedReviews, Instant boundary) {
         if (scopedReviews.isEmpty()) {
             return boundary;
         }
@@ -534,7 +677,7 @@ public class InsightQueryService {
 
     private String resolveAspect(ActionValidationContext context) {
         if (context.aspect() != null && !context.aspect().isBlank()) {
-            return demoReviewAggregationService.normalizeAspect(context.aspect());
+            return reviewAggregationService.normalizeAspect(context.aspect());
         }
         return resolveAspectByIssueId(context.action().issueId());
     }
@@ -621,21 +764,21 @@ public class InsightQueryService {
                 + beforeSampleCount + "条、后" + afterSampleCount + "条）";
 
         if (improvementRate > 0.005D) {
-            return "动作「" + actionName + "」在" + aspectName + "维度演示评论中" + windowNote + "，负向占比由 "
+            return "动作「" + actionName + "」在" + aspectName + "维度真实评论中" + windowNote + "，负向占比由 "
                     + beforePct + "% 降至 " + afterPct + "%，改善 " + deltaPct + "%。";
         }
         if (improvementRate < -0.005D) {
-            return "动作「" + actionName + "」在" + aspectName + "维度演示评论中" + windowNote + "，负向占比由 "
+            return "动作「" + actionName + "」在" + aspectName + "维度真实评论中" + windowNote + "，负向占比由 "
                     + beforePct + "% 升至 " + afterPct + "%，上升 " + deltaPct + "%，建议继续跟进。";
         }
-        return "动作「" + actionName + "」在" + aspectName + "维度演示评论中" + windowNote + "，负向占比基本持平（"
+        return "动作「" + actionName + "」在" + aspectName + "维度真实评论中" + windowNote + "，负向占比基本持平（"
                 + beforePct + "% -> " + afterPct + "%）。";
     }
 
     private String buildValidationInsufficientDataSummary(ActionResponse action, String aspectName, int sampleCount) {
         String actionName = actionDisplayName(action.actionName());
         return "动作「" + actionName + "」在" + aspectName + "维度仅有 " + sampleCount
-                + " 条演示评论，暂无法形成稳定的前后对比结论。";
+                + " 条真实评论，暂无法形成稳定的前后对比结论。";
     }
 
     private String actionDisplayName(String actionName) {
@@ -656,14 +799,14 @@ public class InsightQueryService {
         return WORD_ALIAS.getOrDefault(normalized, normalized);
     }
 
-    private DemoReviewAggregationService.Sentiment normalizeSentiment(String sentimentPolarity) {
+    private ReviewAggregationService.Sentiment normalizeSentiment(String sentimentPolarity) {
         if (sentimentPolarity == null || sentimentPolarity.isBlank()) {
-            return DemoReviewAggregationService.Sentiment.NEUTRAL;
+            return ReviewAggregationService.Sentiment.NEUTRAL;
         }
         return switch (sentimentPolarity.trim().toUpperCase(Locale.ROOT)) {
-            case "NEGATIVE" -> DemoReviewAggregationService.Sentiment.NEGATIVE;
-            case "POSITIVE" -> DemoReviewAggregationService.Sentiment.POSITIVE;
-            default -> DemoReviewAggregationService.Sentiment.NEUTRAL;
+            case "NEGATIVE" -> ReviewAggregationService.Sentiment.NEGATIVE;
+            case "POSITIVE" -> ReviewAggregationService.Sentiment.POSITIVE;
+            default -> ReviewAggregationService.Sentiment.NEUTRAL;
         };
     }
 
@@ -677,12 +820,12 @@ public class InsightQueryService {
         return "中性";
     }
 
-    private double computeNegativeRate(List<DemoReviewAggregationService.AggregatedReview> reviews) {
+    private double computeNegativeRate(List<ReviewAggregationService.AggregatedReview> reviews) {
         if (reviews.isEmpty()) {
             return 0D;
         }
         long negativeCount = reviews.stream()
-                .filter(review -> review.sentiment() == DemoReviewAggregationService.Sentiment.NEGATIVE)
+                .filter(review -> review.sentiment() == ReviewAggregationService.Sentiment.NEGATIVE)
                 .count();
         return roundTo4((double) negativeCount / reviews.size());
     }
@@ -717,8 +860,8 @@ public class InsightQueryService {
     private Map<String, Double> toAspectScoreMap(List<MaterializedCompareAspectRecord> records) {
         Map<String, Double> aspectScores = new HashMap<>();
         for (MaterializedCompareAspectRecord record : records) {
-            String normalizedAspect = demoReviewAggregationService.normalizeAspect(record.aspect());
-            if (DemoReviewAggregationService.ASPECT_UNKNOWN.equals(normalizedAspect) || record.mentionCount() <= 0) {
+            String normalizedAspect = reviewAggregationService.normalizeAspect(record.aspect());
+            if (ReviewAggregationService.ASPECT_UNKNOWN.equals(normalizedAspect) || record.mentionCount() <= 0) {
                 continue;
             }
             aspectScores.put(normalizedAspect, clamp01(record.avgSentimentScore()));
@@ -742,7 +885,7 @@ public class InsightQueryService {
         private int negativeCount;
     }
 
-    private List<DemoReviewAggregationService.AggregatedReview> loadReviewsWithCache(String productCode) {
-        return reviewsCache.get(productCode, () -> demoReviewAggregationService.loadReviews(productCode));
+    private List<ReviewAggregationService.AggregatedReview> loadReviewsWithCache(String productCode) {
+        return reviewsCache.get(productCode, () -> reviewAggregationService.loadReviews(productCode));
     }
 }

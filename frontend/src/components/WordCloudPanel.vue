@@ -136,7 +136,7 @@ const notice = computed(() => props.notice?.trim() ?? '')
 
 const stateMessage = computed(() => {
   if (props.state === 'empty') {
-    return props.message || '暂无词云数据，建议初始化演示评论数据后重试。'
+    return props.message || '暂无词云数据，请先导入真实评论并启动分析后重试。'
   }
   if (props.state === 'degraded') {
     return props.message || '词云数据暂时退化为受限结果，请稍后重试。'

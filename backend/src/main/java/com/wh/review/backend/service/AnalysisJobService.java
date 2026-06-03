@@ -6,6 +6,7 @@ import com.wh.review.backend.persistence.AnalysisMaterializationRepository.Issue
 import com.wh.review.backend.persistence.AnalysisMaterializationRepository.Materialization;
 import com.wh.review.backend.persistence.AnalysisMaterializationRepository.ReviewAspectRecord;
 import com.wh.review.backend.persistence.AnalysisJobRepository;
+import com.wh.review.backend.persistence.ReviewSemanticLabelRepository.SemanticLabelRecord;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,12 +21,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class AnalysisJobService {
 
-    /**
-     * v1 contract hardening:
-     * analysis job 是未来唯一的分析结果物化入口，查询侧应消费 job 产出的结果。
-     * 当前实现基于受控演示评论同步执行，并将结果物化到既有分析表中。
-     */
-
     private static final String STATUS_QUEUED = "QUEUED";
     private static final String STATUS_FAILED = "FAILED";
     private static final String SENTIMENT_NEGATIVE = "NEGATIVE";
@@ -38,24 +33,27 @@ public class AnalysisJobService {
     private static final double W_COMPETITOR_GAP = 0.20D;
 
     private final AnalysisJobRepository analysisJobRepository;
-    private final DemoReviewAggregationService demoReviewAggregationService;
+    private final ReviewAggregationService reviewAggregationService;
     private final AnalysisMaterializationRepository analysisMaterializationRepository;
     private final NlpReviewAnalysisClient nlpReviewAnalysisClient;
 
     public AnalysisJobService(
             AnalysisJobRepository analysisJobRepository,
-            DemoReviewAggregationService demoReviewAggregationService,
+            ReviewAggregationService reviewAggregationService,
             AnalysisMaterializationRepository analysisMaterializationRepository,
             NlpReviewAnalysisClient nlpReviewAnalysisClient
     ) {
         this.analysisJobRepository = analysisJobRepository;
-        this.demoReviewAggregationService = demoReviewAggregationService;
+        this.reviewAggregationService = reviewAggregationService;
         this.analysisMaterializationRepository = analysisMaterializationRepository;
         this.nlpReviewAnalysisClient = nlpReviewAnalysisClient;
     }
 
     public AnalysisJobResponse createJob(String productCode) {
-        String normalizedProductCode = demoReviewAggregationService.normalizeProductCode(productCode);
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
+        if (normalizedProductCode == null || normalizedProductCode.isBlank()) {
+            normalizedProductCode = productCode == null ? "" : productCode.trim();
+        }
         Optional<AnalysisJobResponse> reusableJob = findReusableJob(normalizedProductCode);
         if (reusableJob.isPresent()) {
             return reusableJob.get();
@@ -65,15 +63,15 @@ public class AnalysisJobService {
         AnalysisJobResponse runningJob = analysisJobRepository.markRunning(queuedJob.jobId());
 
         try {
-            List<DemoReviewAggregationService.AggregatedReview> reviews =
-                    demoReviewAggregationService.loadReviews(normalizedProductCode);
+            List<ReviewAggregationService.AggregatedReview> reviews =
+                    reviewAggregationService.loadReviews(normalizedProductCode);
             if (reviews.isEmpty()) {
                 throw new IllegalStateException("no reviews found for productCode=" + normalizedProductCode);
             }
             NlpReviewAnalysisClient.AnalyzeResult nlpResult = nlpReviewAnalysisClient.analyze(
                     runningJob.jobId(),
                     normalizedProductCode,
-                    reviews.stream().map(DemoReviewAggregationService.AggregatedReview::content).toList()
+                    reviews.stream().map(ReviewAggregationService.AggregatedReview::content).toList()
             );
             AnalysisExecution execution = buildAnalysisExecution(reviews, nlpResult);
             analysisMaterializationRepository.replaceOutputs(
@@ -119,24 +117,24 @@ public class AnalysisJobService {
     }
 
     private AnalysisExecution buildAnalysisExecution(
-            List<DemoReviewAggregationService.AggregatedReview> sourceReviews,
+            List<ReviewAggregationService.AggregatedReview> sourceReviews,
             NlpReviewAnalysisClient.AnalyzeResult nlpResult
     ) {
         if (!nlpResult.isSuccess()) {
-            return new AnalysisExecution(controlledAnalysis(sourceReviews), nlpResult.degradedMessage());
+            return new AnalysisExecution(localFallbackAnalysis(sourceReviews), nlpResult.degradedMessage());
         }
 
         try {
             return new AnalysisExecution(nlpAnalysis(sourceReviews, nlpResult.response()), nlpResult.degradedMessage());
         } catch (IllegalStateException ex) {
             return new AnalysisExecution(
-                    controlledAnalysis(sourceReviews),
+                    localFallbackAnalysis(sourceReviews),
                     "degraded:nlp_invalid_response:" + sanitizeContractMessage(ex.getMessage())
             );
         }
     }
 
-    private List<AnalyzedReview> controlledAnalysis(List<DemoReviewAggregationService.AggregatedReview> sourceReviews) {
+    private List<AnalyzedReview> localFallbackAnalysis(List<ReviewAggregationService.AggregatedReview> sourceReviews) {
         return sourceReviews.stream()
                 .map(review -> new AnalyzedReview(
                         review.reviewId(),
@@ -145,20 +143,25 @@ public class AnalysisJobService {
                         review.reviewTime(),
                         sentimentPolarity(review.sentiment()),
                         sentimentScore(review.sentiment()),
-                        CONFIDENCE_DEFAULT
+                        CONFIDENCE_DEFAULT,
+                        defaultUxPrimaryLabel(review.aspect()),
+                        defaultUxSecondaryLabel(review.aspect()),
+                        defaultStandardizedReason(review.aspect(), sentimentPolarity(review.sentiment())),
+                        evidence(review.content()),
+                        defaultNegativeIntensityScore(sentimentPolarity(review.sentiment()))
                 ))
                 .toList();
     }
 
     private List<AnalyzedReview> nlpAnalysis(
-            List<DemoReviewAggregationService.AggregatedReview> sourceReviews,
+            List<ReviewAggregationService.AggregatedReview> sourceReviews,
             NlpReviewAnalysisClient.AnalyzeResponse response
     ) {
         List<AnalyzedReview> analyzedReviews = new ArrayList<>(sourceReviews.size());
         for (NlpReviewAnalysisClient.AspectSentiment aspectSentiment : response.aspectSentiments()) {
-            DemoReviewAggregationService.AggregatedReview review = sourceReviews.get(aspectSentiment.reviewIndex());
-            String normalizedAspect = demoReviewAggregationService.normalizeAspect(aspectSentiment.aspect());
-            if (DemoReviewAggregationService.ASPECT_UNKNOWN.equals(normalizedAspect)) {
+            ReviewAggregationService.AggregatedReview review = sourceReviews.get(aspectSentiment.reviewIndex());
+            String normalizedAspect = normalizeNlpAspect(aspectSentiment.aspect());
+            if (ReviewAggregationService.ASPECT_UNKNOWN.equals(normalizedAspect)) {
                 throw new IllegalStateException("unsupported nlp aspect=" + aspectSentiment.aspect());
             }
             String polarity = normalizePolarity(aspectSentiment.polarity());
@@ -169,7 +172,12 @@ public class AnalysisJobService {
                     review.reviewTime(),
                     polarity,
                     sentimentScore(polarity),
-                    decimal(clampConfidence(aspectSentiment.confidence()))
+                    decimal(clampConfidence(aspectSentiment.confidence())),
+                    normalizedLabel(aspectSentiment.uxPrimaryLabel(), defaultUxPrimaryLabel(normalizedAspect)),
+                    normalizedLabel(aspectSentiment.uxSecondaryLabel(), defaultUxSecondaryLabel(normalizedAspect)),
+                    normalizedLabel(aspectSentiment.standardizedReason(), defaultStandardizedReason(normalizedAspect, polarity)),
+                    normalizedLabel(aspectSentiment.evidence(), evidence(review.content())),
+                    clampNegativeIntensity(aspectSentiment.negativeIntensityScore(), defaultNegativeIntensityScore(polarity))
             ));
         }
         analyzedReviews.sort(Comparator.comparing(AnalyzedReview::reviewTime).thenComparing(AnalyzedReview::reviewId));
@@ -187,6 +195,20 @@ public class AnalysisJobService {
                 ))
                 .toList();
 
+        List<SemanticLabelRecord> semanticLabels = reviews.stream()
+                .map(review -> new SemanticLabelRecord(
+                        review.reviewId(),
+                        review.aspect(),
+                        review.sentimentPolarity(),
+                        review.confidence(),
+                        review.uxPrimaryLabel(),
+                        review.uxSecondaryLabel(),
+                        review.standardizedReason(),
+                        review.evidence(),
+                        review.negativeIntensityScore()
+                ))
+                .toList();
+
         Map<String, List<AnalyzedReview>> groupedByAspect = new HashMap<>();
         for (AnalyzedReview review : reviews) {
             groupedByAspect.computeIfAbsent(review.aspect(), ignored -> new ArrayList<>()).add(review);
@@ -200,7 +222,7 @@ public class AnalysisJobService {
         List<IssueClusterRecord> issueClusters = new ArrayList<>();
         for (Map.Entry<String, List<AnalyzedReview>> entry : groupedByAspect.entrySet()) {
             String aspect = entry.getKey();
-            if (DemoReviewAggregationService.ASPECT_UNKNOWN.equals(aspect)) {
+            if (ReviewAggregationService.ASPECT_UNKNOWN.equals(aspect)) {
                 continue;
             }
 
@@ -251,10 +273,10 @@ public class AnalysisJobService {
             ));
         }
 
-        return new Materialization(reviewAspects, issueClusters);
+        return new Materialization(reviewAspects, semanticLabels, issueClusters);
     }
 
-    private String sentimentPolarity(DemoReviewAggregationService.Sentiment sentiment) {
+    private String sentimentPolarity(ReviewAggregationService.Sentiment sentiment) {
         return switch (sentiment) {
             case NEGATIVE -> SENTIMENT_NEGATIVE;
             case NEUTRAL -> SENTIMENT_NEUTRAL;
@@ -274,7 +296,7 @@ public class AnalysisJobService {
         };
     }
 
-    private BigDecimal sentimentScore(DemoReviewAggregationService.Sentiment sentiment) {
+    private BigDecimal sentimentScore(ReviewAggregationService.Sentiment sentiment) {
         return switch (sentiment) {
             case NEGATIVE -> new BigDecimal("0.1500");
             case NEUTRAL -> new BigDecimal("0.5000");
@@ -312,10 +334,95 @@ public class AnalysisJobService {
         };
     }
 
+    private String normalizeNlpAspect(String aspect) {
+        String normalizedAspect = reviewAggregationService.normalizeAspect(aspect);
+        if (normalizedAspect == null || normalizedAspect.isBlank()) {
+            String rawAspect = aspect == null ? "" : aspect.trim();
+            normalizedAspect = switch (rawAspect) {
+                case "battery", "bluetooth", "noise-canceling", "comfort", "microphone" -> rawAspect;
+                default -> ReviewAggregationService.ASPECT_UNKNOWN;
+            };
+        }
+        return normalizedAspect;
+    }
+
+    private String defaultUxPrimaryLabel(String aspect) {
+        return switch (aspect) {
+            case "battery", "bluetooth" -> "产品硬件";
+            case "noise-canceling", "microphone" -> "声音表现";
+            case "comfort" -> "产品体验";
+            default -> "无明显问题";
+        };
+    }
+
+    private String defaultUxSecondaryLabel(String aspect) {
+        return switch (aspect) {
+            case "battery" -> "电池与续航";
+            case "bluetooth" -> "连接与稳定性";
+            case "noise-canceling" -> "降噪与通透";
+            case "comfort" -> "佩戴与人体工学";
+            case "microphone" -> "麦克风与通话";
+            default -> "无明显问题";
+        };
+    }
+
+    private String defaultStandardizedReason(String aspect, String sentimentPolarity) {
+        if (SENTIMENT_POSITIVE.equals(sentimentPolarity)) {
+            return switch (aspect) {
+                case "battery" -> "续航持久";
+                case "bluetooth" -> "连接稳定";
+                case "noise-canceling" -> "降噪明显";
+                case "comfort" -> "佩戴舒适";
+                case "microphone" -> "通话清晰";
+                default -> "无明显问题";
+            };
+        }
+        if (SENTIMENT_NEGATIVE.equals(sentimentPolarity)) {
+            return switch (aspect) {
+                case "battery" -> "续航不足";
+                case "bluetooth" -> "蓝牙断连";
+                case "noise-canceling" -> "降噪不足";
+                case "comfort" -> "佩戴不适";
+                case "microphone" -> "通话不清晰";
+                default -> "综合体验问题";
+            };
+        }
+        return "无明显问题";
+    }
+
+    private int defaultNegativeIntensityScore(String sentimentPolarity) {
+        return SENTIMENT_NEGATIVE.equals(sentimentPolarity) ? 3 : 1;
+    }
+
+    private int clampNegativeIntensity(Integer value, int fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        return Math.max(1, Math.min(5, value));
+    }
+
+    private String normalizedLabel(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value.trim();
+    }
+
+    private String evidence(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        String normalized = content.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 40 ? normalized : normalized.substring(0, 40);
+    }
+
     private String keywords(String aspect, List<AnalyzedReview> reviews) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         values.add(aspect);
-        values.add(demoReviewAggregationService.aspectDisplayName(aspect));
+        String displayName = reviewAggregationService.aspectDisplayName(aspect);
+        if (displayName != null && !displayName.isBlank()) {
+            values.add(displayName);
+        }
         for (AnalyzedReview review : reviews) {
             values.addAll(extractKeywords(review.content()));
             if (values.size() >= 4) {
@@ -404,7 +511,12 @@ public class AnalysisJobService {
             Instant reviewTime,
             String sentimentPolarity,
             BigDecimal sentimentScore,
-            BigDecimal confidence
+            BigDecimal confidence,
+            String uxPrimaryLabel,
+            String uxSecondaryLabel,
+            String standardizedReason,
+            String evidence,
+            int negativeIntensityScore
     ) {
     }
 }

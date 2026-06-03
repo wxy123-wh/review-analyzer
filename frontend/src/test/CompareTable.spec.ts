@@ -15,14 +15,14 @@ describe('CompareTable', () => {
       props: {
         items,
         state: 'success',
-        productCode: 'demo-earphone',
-        comparisonProductCode: 'demo-earphone-competitor',
+        productCode: 'jd-100127936932',
+        comparisonProductCode: 'jd-competitor',
       },
     })
 
     expect(wrapper.text()).toContain('竞品对比概览')
-    expect(wrapper.text()).toContain('主产品：demo-earphone')
-    expect(wrapper.text()).toContain('对比产品：demo-earphone-competitor')
+    expect(wrapper.text()).toContain('主产品：jd-100127936932')
+    expect(wrapper.text()).toContain('对比产品：jd-competitor')
     expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     expect(wrapper.text()).toContain('battery')
     expect(wrapper.text()).toContain('bluetooth')
@@ -36,7 +36,7 @@ describe('CompareTable', () => {
         items: [],
         state: 'missing-target',
         message: '请选择需要对比的竞品后再查看对比结果。',
-        productCode: 'demo-earphone',
+        productCode: 'jd-100127936932',
       },
     })
 
@@ -49,13 +49,13 @@ describe('CompareTable', () => {
       props: {
         items: [],
         state: 'comparison-unavailable',
-        message: '竞品暂无可用分析结果，请先完成受控数据初始化与分析。',
-        productCode: 'demo-earphone',
-        comparisonProductCode: 'demo-earphone-competitor',
+        message: '竞品暂无可用分析结果，请先完成真实评论初始化与分析。',
+        productCode: 'jd-100127936932',
+        comparisonProductCode: 'jd-competitor',
       },
     })
 
-    expect(wrapper.text()).toContain('竞品暂无可用分析结果，请先完成受控数据初始化与分析。')
+    expect(wrapper.text()).toContain('竞品暂无可用分析结果，请先完成真实评论初始化与分析。')
     expect(wrapper.findAll('tbody tr')).toHaveLength(0)
   })
 })

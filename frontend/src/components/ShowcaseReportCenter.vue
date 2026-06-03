@@ -44,7 +44,7 @@
               <option value="issues">问题</option>
               <option value="compare">对比</option>
               <option value="trends">趋势</option>
-              <option value="showcase">演示模块</option>
+              <option value="showcase">运行模块</option>
             </select>
           </label>
 
@@ -103,7 +103,7 @@ const moduleLabels: Record<string, string> = {
   issues: '问题',
   compare: '对比',
   trends: '趋势',
-  showcase: '演示模块',
+  showcase: '运行模块',
 }
 
 const statusLabel = computed(() => (props.data?.status ? formatShowcaseStatus(props.data.status) : '就绪'))

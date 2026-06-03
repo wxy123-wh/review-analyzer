@@ -44,8 +44,16 @@
               <p>{{ overview.topIssue?.title ?? '暂无' }}</p>
             </article>
             <article class="metric">
+              <h3>Top 卖点</h3>
+              <p>{{ overview.topSellingPoint?.sellingPoint ?? '暂无' }}</p>
+            </article>
+            <article class="metric">
               <h3>问题数量</h3>
               <p>{{ overview.issueCount }}</p>
+            </article>
+            <article class="metric">
+              <h3>卖点数量</h3>
+              <p>{{ overview.positiveInsightCount }}</p>
             </article>
             <article class="metric">
               <h3>已登记动作</h3>
@@ -55,6 +63,12 @@
         </template>
 
         <IssueTable v-else-if="activeModule === 'issues'" :items="issues" :state="issueState" :message="issueMessage" />
+        <PositiveInsightPanel
+          v-else-if="activeModule === 'positive-insights'"
+          :items="positiveInsights"
+          :state="positiveInsightState"
+          :message="positiveInsightMessage"
+        />
         <CompareTable
           v-else-if="activeModule === 'compare'"
           :items="compareItems"
@@ -85,7 +99,7 @@
           :items="actions"
           :state="actionState"
           :message="actionMessage"
-          @create-demo="createDemoAction"
+          @create-action="createRealReviewAction"
         />
         <ValidationList
           v-else-if="activeModule === 'validation'"
@@ -126,6 +140,7 @@ import AppShellSidebar from './components/AppShellSidebar.vue'
 import CompareTable from './components/CompareTable.vue'
 import IssueTable from './components/IssueTable.vue'
 import LoginGate from './components/LoginGate.vue'
+import PositiveInsightPanel from './components/PositiveInsightPanel.vue'
 import ShowcaseAgentArenaPanel from './components/ShowcaseAgentArenaPanel.vue'
 import ShowcaseChaosPanel from './components/ShowcaseChaosPanel.vue'
 import ShowcaseExplainabilityPanel from './components/ShowcaseExplainabilityPanel.vue'
@@ -136,11 +151,14 @@ import TrendList from './components/TrendList.vue'
 import ValidationList from './components/ValidationList.vue'
 import WordCloudPanel from './components/WordCloudPanel.vue'
 import {
+  DEFAULT_COMPARE_PRODUCT_CODE,
+  DEFAULT_PRODUCT_CODE,
   createAction,
   fetchBackendHealth,
   fetchActions,
   fetchCompare,
   fetchIssues,
+  fetchPositiveInsights,
   fetchShowcaseAgentArena,
   fetchShowcaseChaos,
   fetchShowcaseExplainability,
@@ -148,7 +166,7 @@ import {
   fetchTrends,
   fetchValidation,
   fetchWordCloud,
-  nlpDemoStatus,
+  nlpServiceStatus,
   previewShowcaseReport,
 } from './api/client'
 import { useMotionPreferences } from './motion/preferences'
@@ -163,6 +181,8 @@ import type {
   IssueItem,
   IssueResponse,
   OverviewContract,
+  PositiveInsightItem,
+  PositiveInsightResponse,
   ServiceStatus,
   ShowcaseAgentArenaData,
   ShowcaseChaosData,
@@ -182,6 +202,7 @@ useMotionPreferences()
 type ModuleId =
   | 'overview'
   | 'issues'
+  | 'positive-insights'
   | 'compare'
   | 'trends'
   | 'wordcloud'
@@ -193,7 +214,7 @@ type ModuleId =
   | 'showcase-chaos'
   | 'showcase-report-center'
 
-type ModuleContractState = 'real' | 'controlled-data-only' | 'placeholder' | 'gated-placeholder'
+type ModuleContractState = 'real' | 'placeholder' | 'gated-placeholder'
 type ModuleContractStrategy = 'keep' | 'replace' | 'hide-by-default'
 
 type ModuleContract = {
@@ -231,12 +252,11 @@ const chaosModuleVisible = isFeatureEnabled(import.meta.env.VITE_SHOW_CHAOS_MODU
 const internalAccessUsername = `${import.meta.env.VITE_INTERNAL_ACCESS_USERNAME ?? 'wxy'}`.trim() || 'wxy'
 const internalAccessPassword = `${import.meta.env.VITE_INTERNAL_ACCESS_PASSWORD ?? '123456'}`.trim() || '123456'
 const internalAccessDisplayName = `${import.meta.env.VITE_INTERNAL_ACCESS_DISPLAY_NAME ?? '内部体验账号'}`.trim() || '内部体验账号'
-const internalAccessHint = `${import.meta.env.VITE_INTERNAL_ACCESS_HINT ?? '仅用于内部首发验收与演示环境访问。'}`.trim()
+const internalAccessHint = `${import.meta.env.VITE_INTERNAL_ACCESS_HINT ?? '仅用于内部验收与真实评论分析。'}`.trim()
 
 const moduleStateLabels: Record<ModuleContractState, string> = {
   real: '真实能力',
-  'controlled-data-only': '受控数据',
-  placeholder: '占位演示',
+  placeholder: '占位',
   'gated-placeholder': '开关占位',
 }
 
@@ -251,7 +271,7 @@ const moduleContracts: ModuleContract[] = [
     id: 'overview',
     label: '总览',
     icon: 'O',
-    state: 'controlled-data-only',
+    state: 'real',
     dataSource: 'client-composed from health/issues/actions/validation contracts',
     strategy: 'keep',
   },
@@ -260,7 +280,15 @@ const moduleContracts: ModuleContract[] = [
     label: '问题',
     icon: 'I',
     state: 'real',
-    dataSource: 'backend query service over controlled demo reviews',
+    dataSource: 'backend query service over imported real reviews',
+    strategy: 'keep',
+  },
+  {
+    id: 'positive-insights',
+    label: '卖点',
+    icon: 'S',
+    state: 'real',
+    dataSource: 'backend positive UX label aggregation over imported real reviews',
     strategy: 'keep',
   },
   {
@@ -268,7 +296,7 @@ const moduleContracts: ModuleContract[] = [
     label: '对比',
     icon: 'C',
     state: 'real',
-    dataSource: 'backend compare query over materialized controlled demo reviews',
+    dataSource: 'backend compare query over materialized imported real reviews',
     strategy: 'keep',
   },
   {
@@ -276,7 +304,7 @@ const moduleContracts: ModuleContract[] = [
     label: '趋势图',
     icon: 'T',
     state: 'real',
-    dataSource: 'backend query service over controlled demo reviews',
+    dataSource: 'backend query service over imported real reviews',
     strategy: 'keep',
   },
   {
@@ -284,7 +312,7 @@ const moduleContracts: ModuleContract[] = [
     label: '词云',
     icon: 'W',
     state: 'real',
-    dataSource: 'backend query service over controlled demo reviews',
+    dataSource: 'backend query service over imported real reviews',
     strategy: 'keep',
   },
   {
@@ -323,7 +351,7 @@ const moduleContracts: ModuleContract[] = [
     id: 'showcase-explainability',
     label: '可解释性',
     icon: 'E',
-    state: 'controlled-data-only',
+    state: 'real',
     dataSource: 'deterministic score weights, not model introspection',
     strategy: 'keep',
   },
@@ -366,8 +394,8 @@ const isAuthenticated = ref(false)
 const currentUser = ref('内部访客')
 const activeModule = ref<ModuleId>('overview')
 const trendAspect = ref('battery')
-const compareProductCode = ref('demo-earphone')
-const compareComparisonProductCode = ref('demo-earphone-competitor')
+const compareProductCode = ref(DEFAULT_PRODUCT_CODE)
+const compareComparisonProductCode = ref(DEFAULT_COMPARE_PRODUCT_CODE)
 const compareState = ref<CompareState>('idle')
 const compareMessage = ref('')
 const trendState = ref<ChartLoadState>('idle')
@@ -383,22 +411,27 @@ const loadError = ref('')
 
 const serviceStatuses = ref<ServiceStatus[]>([
   { name: 'Backend API', status: 'UNKNOWN' },
-  nlpDemoStatus(),
+  nlpServiceStatus(),
 ])
 const issues = ref<IssueItem[]>([])
+const positiveInsights = ref<PositiveInsightItem[]>([])
 const compareItems = ref<CompareItem[]>([])
 const trendPoints = ref<TrendPoint[]>([])
 const actions = ref<ActionItem[]>([])
 const validations = ref<ValidationItem[]>([])
 const issueState = ref<ContractState>('idle')
 const issueMessage = ref('')
+const positiveInsightState = ref<ContractState>('idle')
+const positiveInsightMessage = ref('')
 const actionState = ref<ContractState>('idle')
 const actionMessage = ref('')
 const validationState = ref<ContractState>('idle')
 const validationMessage = ref('')
 const overview = ref<OverviewContract>({
   topIssue: null,
+  topSellingPoint: null,
   issueCount: 0,
+  positiveInsightCount: 0,
   actionCount: 0,
   validationCount: 0,
   state: 'idle',
@@ -442,22 +475,29 @@ function resolveContractMessage(
 }
 
 function syncOverviewContract(): void {
-  const notices = [issueMessage.value, actionMessage.value, validationMessage.value]
+  const notices = [issueMessage.value, positiveInsightMessage.value, actionMessage.value, validationMessage.value]
     .map((item) => item.trim())
     .filter((item, index, items) => item.length > 0 && items.indexOf(item) === index)
-  const states = [issueState.value, actionState.value, validationState.value]
+  const states = [issueState.value, positiveInsightState.value, actionState.value, validationState.value]
   let state: ContractState = 'success'
   if (states.every((item) => item === 'idle' || item === 'loading')) {
     state = 'loading'
   } else if (states.some((item) => ['degraded', 'error', 'runtime-unavailable', 'disabled'].includes(item))) {
     state = 'degraded'
-  } else if (issues.value.length === 0 && actions.value.length === 0 && validations.value.length === 0) {
+  } else if (
+    issues.value.length === 0 &&
+    positiveInsights.value.length === 0 &&
+    actions.value.length === 0 &&
+    validations.value.length === 0
+  ) {
     state = 'empty'
   }
 
   overview.value = {
     topIssue: issues.value[0] ?? null,
+    topSellingPoint: positiveInsights.value[0] ?? null,
     issueCount: issues.value.length,
+    positiveInsightCount: positiveInsights.value.length,
     actionCount: actions.value.length,
     validationCount: validations.value.length,
     state,
@@ -483,13 +523,26 @@ function applyIssueResponse(response: IssueResponse): void {
   syncOverviewContract()
 }
 
+function applyPositiveInsightResponse(response: PositiveInsightResponse): void {
+  positiveInsights.value = response.items
+  positiveInsightState.value = response.state
+  positiveInsightMessage.value = resolveContractMessage(
+    response.state,
+    response.notice,
+    '暂无可提炼的正面卖点',
+    '卖点结果暂时回退为部分数据，请稍后刷新。',
+    '卖点接口请求失败，请稍后重试。',
+  )
+  syncOverviewContract()
+}
+
 function applyActionResponse(response: ActionResponse): void {
   actions.value = response.items
   actionState.value = response.state
   actionMessage.value = resolveContractMessage(
     response.state,
     response.notice,
-    '暂无动作，点击“登记演示数据动作”快速创建。',
+    '暂无动作，请先从真实评论问题中登记改进行动。',
     '动作列表暂时只返回部分结果，可稍后重试刷新。',
     '动作接口请求失败，请稍后重试。',
   )
@@ -516,7 +569,7 @@ function applyTrendResponse(response: TrendResponse): void {
   trendMessage.value = resolveContractMessage(
     response.state,
     response.notice,
-    '暂无趋势数据，建议先初始化演示评论数据。',
+    '暂无趋势数据，请先导入真实评论并启动分析。',
     '趋势数据暂时只保留最近一次可用时间窗，请稍后重试。',
     '趋势接口请求失败，请稍后重试。',
     '趋势运行态暂不可用，请稍后重试。',
@@ -534,9 +587,9 @@ function applyCompareResponse(response: CompareResponse): void {
   if (response.state === 'missing-target') {
     compareMessage.value = response.notice?.trim() || '请选择需要对比的竞品后再查看对比结果。'
   } else if (response.state === 'comparison-unavailable') {
-    compareMessage.value = response.notice?.trim() || '竞品暂无可用分析结果，请先完成受控数据初始化与分析。'
+    compareMessage.value = response.notice?.trim() || '竞品暂无可用分析结果，请先导入竞品真实评论并启动分析。'
   } else if (response.state === 'primary-unavailable') {
-    compareMessage.value = response.notice?.trim() || '主产品暂无可用分析结果，请先完成受控数据初始化与分析。'
+    compareMessage.value = response.notice?.trim() || '主产品暂无可用分析结果，请先导入真实评论并启动分析。'
   } else if (response.state === 'error') {
     compareMessage.value = response.notice?.trim() || '竞品对比接口请求失败，请稍后重试。'
   } else {
@@ -551,7 +604,7 @@ function applyWordCloudResponse(response: WordCloudResponse): void {
   wordCloudMessage.value = resolveContractMessage(
     response.state,
     response.notice,
-    '暂无词云数据，建议先初始化演示评论数据。',
+    '暂无词云数据，请先导入真实评论并启动分析。',
     '词云数据暂时退化为受限结果，请稍后重试。',
     '词云接口请求失败，请稍后重试。',
     '词云运行态暂不可用，请稍后重试。',
@@ -590,22 +643,33 @@ async function loadDashboard(): Promise<void> {
   loading.value = true
   loadError.value = ''
   issueState.value = 'loading'
+  positiveInsightState.value = 'loading'
   actionState.value = 'loading'
   validationState.value = 'loading'
   syncOverviewContract()
   compareState.value = 'loading'
   trendState.value = 'loading'
   try {
-    const [backendStatus, issueResponse, actionResponse, compareResponse, trendResponse, validationResponse] = await Promise.all([
+    const [
+      backendStatus,
+      issueResponse,
+      positiveInsightResponse,
+      actionResponse,
+      compareResponse,
+      trendResponse,
+      validationResponse,
+    ] = await Promise.all([
       fetchBackendHealth(),
       fetchIssues(),
+      fetchPositiveInsights(),
       fetchActions(),
       fetchCompare(),
       fetchTrends(undefined, trendAspect.value),
       fetchValidation(),
     ])
-    serviceStatuses.value = [backendStatus, nlpDemoStatus()]
+    serviceStatuses.value = [backendStatus, nlpServiceStatus()]
     applyIssueResponse(issueResponse)
+    applyPositiveInsightResponse(positiveInsightResponse)
     applyActionResponse(actionResponse)
     applyCompareResponse(compareResponse)
     applyTrendResponse(trendResponse)
@@ -613,6 +677,7 @@ async function loadDashboard(): Promise<void> {
   } catch {
     loadError.value = '加载失败，请检查后端服务是否可用。'
     applyIssueResponse({ items: [], state: 'error', notice: '问题接口请求失败，请稍后重试。' })
+    applyPositiveInsightResponse({ items: [], state: 'error', notice: '卖点接口请求失败，请稍后重试。' })
     applyActionResponse({ items: [], state: 'error', notice: '动作接口请求失败，请稍后重试。' })
     applyValidationResponse({ items: [], state: 'error', notice: '验证接口请求失败，请稍后重试。' })
     applyCompareResponse({
@@ -641,14 +706,14 @@ async function reloadWordCloudData(): Promise<void> {
   applyWordCloudResponse(response)
 }
 
-async function createDemoAction(): Promise<void> {
+async function createRealReviewAction(): Promise<void> {
   const issue = issues.value[0]
   if (!issue) {
     return
   }
   try {
     const action = await createAction({
-      productCode: 'demo-earphone',
+      productCode: compareProductCode.value,
       issueId: issue.issueId,
       actionName: `处理：${issue.title}`,
       actionDesc: issue.evidenceSummary,

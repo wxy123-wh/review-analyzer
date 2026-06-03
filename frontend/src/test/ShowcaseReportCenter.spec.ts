@@ -25,7 +25,7 @@ describe('ShowcaseReportCenter', () => {
     expect(wrapper.findAll('.preview-card')).toHaveLength(1)
 
     await wrapper.get('select').setValue('showcase')
-    expect(wrapper.text()).toContain('演示模块')
+    expect(wrapper.text()).toContain('运行模块')
 
     await wrapper.get('.preview-button').trigger('click')
     expect(wrapper.emitted('preview')).toEqual([['showcase']])

@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 import ShowcaseExplainabilityPanel from '../components/ShowcaseExplainabilityPanel.vue'
 
 describe('ShowcaseExplainabilityPanel', () => {
-  it('renders controlled-data contributions with dominant feature and weight coverage', () => {
+  it('renders real-review contributions with dominant feature and weight coverage', () => {
     const wrapper = mount(ShowcaseExplainabilityPanel, {
       props: {
         data: {
-          status: 'CONTROLLED_DATA_ONLY',
+          status: 'LIVE',
           implemented: true,
           note: '当前解释的是固定权重问题分数拆解。',
           featureContributions: [
@@ -21,7 +21,7 @@ describe('ShowcaseExplainabilityPanel', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('受控数据')
+    expect(wrapper.text()).toContain('真实评论')
     expect(wrapper.text()).toContain('特征数量')
     expect(wrapper.text()).toContain('4')
     expect(wrapper.text()).toContain('主导特征')

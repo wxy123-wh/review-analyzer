@@ -7,7 +7,7 @@ import type { ActionItem } from '../types/domain'
 const items: ActionItem[] = [
   {
     actionId: 'action-1',
-    productCode: 'demo-earphone',
+    productCode: 'jd-100127936932',
     issueId: 'iss-battery-7',
     actionName: '处理：续航体验波动',
     actionDesc: '基于动作关联评论窗口回看负向率变化。',
@@ -35,11 +35,11 @@ describe('ActionList', () => {
       props: {
         items: [],
         state: 'empty',
-        message: '暂无动作，点击“登记演示数据动作”快速创建。',
+        message: '暂无动作，请先从真实评论问题中登记改进行动。',
       },
     })
 
-    expect(wrapper.text()).toContain('暂无动作，点击“登记演示数据动作”快速创建。')
+    expect(wrapper.text()).toContain('暂无动作，请先从真实评论问题中登记改进行动。')
   })
 
   it('renders degraded-state notice while preserving available actions', () => {

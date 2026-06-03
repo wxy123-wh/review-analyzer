@@ -17,8 +17,6 @@ public class SyncJobService {
     private static final String STATUS_FAILED = "FAILED";
     private static final String STATUS_UNSUPPORTED = "UNSUPPORTED";
     private static final String ONEBOUND_PROVIDER = "onebound";
-    private static final String AGGREGATOR_DEMO_PROVIDER = "aggregator-demo";
-    private static final String HANDOFF_CONTROLLED_DATA_PATH = "CONTROLLED_DATA_PATH";
     private static final String HANDOFF_PENDING_EXTERNAL_SYNC = "PENDING_EXTERNAL_SYNC";
     private static final String HANDOFF_READY_FOR_ANALYSIS = "READY_FOR_ANALYSIS";
     private static final String HANDOFF_EMPTY_EXTERNAL_SOURCE = "EMPTY_EXTERNAL_SOURCE";
@@ -47,24 +45,6 @@ public class SyncJobService {
         String normalizedPlatform = normalizePlatform(platform);
         Instant startedAt = Instant.now();
 
-        if (AGGREGATOR_DEMO_PROVIDER.equals(normalizedProvider)) {
-            return syncJobRepository.create(
-                    buildResponse(
-                            null,
-                            provider,
-                            normalizedPlatform,
-                            targetProductCode,
-                            STATUS_QUEUED,
-                            startedAt,
-                            0,
-                            null,
-                            HANDOFF_CONTROLLED_DATA_PATH,
-                            "controlled-data path remains primary; no external fetch attempted"
-                    ),
-                    null
-            );
-        }
-
         if (!ONEBOUND_PROVIDER.equals(normalizedProvider)) {
             return syncJobRepository.create(
                     buildResponse(
@@ -77,7 +57,7 @@ public class SyncJobService {
                             0,
                             "unsupported sync provider=" + normalizedProvider,
                             HANDOFF_UNSUPPORTED_SOURCE,
-                            "second-track skeleton only supports provider=onebound for external sync"
+                            "only provider=onebound is supported here; local JSONL should use POST /api/v1/reviews/import"
                     ),
                     Instant.now()
             );
@@ -157,7 +137,7 @@ public class SyncJobService {
                     Instant.now(),
                     sanitizeError(ex.getMessage()),
                     HANDOFF_BLOCKED_SYNC_FAILED,
-                    "external raw review persistence blocked; controlled-data launch path remains available"
+                    "external raw review persistence blocked; import real reviews through JSONL or retry the external sync"
             );
         }
     }

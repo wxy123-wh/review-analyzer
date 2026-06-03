@@ -3,11 +3,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI
 
 from .analyzer import (
-    build_clusters,
-    confidence_from_text,
-    detect_aspect,
-    detect_polarity,
-    score_from_polarity,
+    analyze_reviews,
 )
 from .schemas import AnalyzeRequest, AnalyzeResponse
 
@@ -24,23 +20,10 @@ def health() -> dict:
 
 @app.post('/analyze', response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> dict:
-    aspect_sentiments: list[dict] = []
-
-    for idx, review in enumerate(payload.reviews):
-        aspect = detect_aspect(review)
-        polarity = detect_polarity(review)
-        aspect_sentiments.append(
-            {
-                'reviewIndex': idx,
-                'aspect': aspect,
-                'polarity': polarity,
-                'score': score_from_polarity(polarity),
-                'confidence': confidence_from_text(review),
-            }
-        )
+    aspect_sentiments, issue_clusters, _mode = analyze_reviews(payload.productCode, payload.reviews)
 
     return {
         'jobId': payload.jobId,
         'aspectSentiments': aspect_sentiments,
-        'issueClusters': build_clusters(aspect_sentiments),
+        'issueClusters': issue_clusters,
     }

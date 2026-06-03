@@ -11,6 +11,8 @@ import type {
   ContractState,
   IssueItem,
   IssueResponse,
+  PositiveInsightItem,
+  PositiveInsightResponse,
   ServiceStatus,
   ShowcaseAgentArenaData,
   ShowcaseChaosData,
@@ -27,7 +29,8 @@ import { normalizeShowcaseStatus } from '../utils/showcaseCopy'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const isTestMode = import.meta.env.MODE === 'test'
-export const DEFAULT_COMPARE_PRODUCT_CODE = 'demo-earphone-competitor'
+export const DEFAULT_PRODUCT_CODE = 'jd-100127936932'
+export const DEFAULT_COMPARE_PRODUCT_CODE = 'jd-competitor'
 
 const CANONICAL_COMPARE_ASPECTS = [
   'battery',
@@ -269,6 +272,39 @@ function normalizeIssueItems(rawItems: unknown): IssueItem[] {
     .filter((item): item is IssueItem => item !== null)
 }
 
+function normalizePositiveInsightItems(rawItems: unknown): PositiveInsightItem[] {
+  if (!Array.isArray(rawItems)) {
+    return []
+  }
+  return rawItems
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) {
+        return null
+      }
+      const record = item as Record<string, unknown>
+      const sellingPointId = typeof record.sellingPointId === 'string' ? record.sellingPointId : ''
+      const sellingPoint = typeof record.sellingPoint === 'string' ? record.sellingPoint : ''
+      const uxSecondaryLabel = typeof record.uxSecondaryLabel === 'string' ? record.uxSecondaryLabel : ''
+      if (!sellingPointId || !sellingPoint || !uxSecondaryLabel) {
+        return null
+      }
+      return {
+        sellingPointId,
+        aspect: normalizeAspectCode(record.aspect, 'general'),
+        uxPrimaryLabel: typeof record.uxPrimaryLabel === 'string' ? record.uxPrimaryLabel : '',
+        uxSecondaryLabel,
+        sellingPoint,
+        mentionCount: typeof record.mentionCount === 'number' ? record.mentionCount : 0,
+        positiveRate: typeof record.positiveRate === 'number' ? record.positiveRate : 0,
+        score: typeof record.score === 'number' ? record.score : 0,
+        evidence: Array.isArray(record.evidence)
+          ? record.evidence.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+          : [],
+      }
+    })
+    .filter((item): item is PositiveInsightItem => item !== null)
+}
+
 function normalizeActionItems(rawItems: unknown): ActionItem[] {
   if (!Array.isArray(rawItems)) {
     return []
@@ -343,11 +379,11 @@ export async function fetchBackendHealth(): Promise<ServiceStatus> {
   }
 }
 
-export function nlpDemoStatus(): ServiceStatus {
+export function nlpServiceStatus(): ServiceStatus {
   return { name: 'NLP Service', status: isTestMode ? 'UP' : 'UNKNOWN' }
 }
 
-export async function fetchIssues(productCode = 'demo-earphone'): Promise<IssueResponse> {
+export async function fetchIssues(productCode = DEFAULT_PRODUCT_CODE): Promise<IssueResponse> {
   if (isTestMode) {
     return {
       state: 'success',
@@ -381,8 +417,46 @@ export async function fetchIssues(productCode = 'demo-earphone'): Promise<IssueR
   }
 }
 
+export async function fetchPositiveInsights(productCode = DEFAULT_PRODUCT_CODE): Promise<PositiveInsightResponse> {
+  if (isTestMode) {
+    return {
+      state: 'success',
+      items: [
+        {
+          sellingPointId: 'sp-comfort-test',
+          aspect: 'comfort',
+          uxPrimaryLabel: '产品体验',
+          uxSecondaryLabel: '佩戴与人体工学',
+          sellingPoint: '佩戴舒适',
+          mentionCount: 12,
+          positiveRate: 0.86,
+          score: 0.78,
+          evidence: ['戴了几个小时耳朵也不疼', '跑步不容易掉'],
+        },
+      ],
+    }
+  }
+
+  try {
+    const response = await apiClient.get('/api/v1/positive-insights', { params: { productCode } })
+    const items = normalizePositiveInsightItems(response.data.items)
+    const notice = normalizeNotice(response.data.notice)
+    return {
+      items,
+      notice,
+      state: resolveCollectionState(items, response.data.state, notice),
+    }
+  } catch {
+    return {
+      items: [],
+      state: 'error',
+      notice: '卖点接口请求失败，请稍后重试。',
+    }
+  }
+}
+
 export async function fetchCompare(
-  productCode = 'demo-earphone',
+  productCode = DEFAULT_PRODUCT_CODE,
   comparisonProductCode = DEFAULT_COMPARE_PRODUCT_CODE,
 ): Promise<CompareResponse> {
   if (isTestMode) {
@@ -426,7 +500,7 @@ export async function fetchCompare(
 }
 
 export async function fetchTrends(
-  productCode = 'demo-earphone',
+  productCode = DEFAULT_PRODUCT_CODE,
   aspect = 'battery',
 ): Promise<TrendResponse> {
   const fallbackAspect = normalizeAspectCode(aspect, 'battery')
@@ -485,7 +559,7 @@ function normalizeWordCloudItems(rawItems: unknown): WordCloudItem[] {
 }
 
 export async function fetchWordCloud(
-  productCode = 'demo-earphone',
+  productCode = DEFAULT_PRODUCT_CODE,
   aspect = 'all',
 ): Promise<WordCloudResponse> {
   if (isTestMode) {
@@ -498,7 +572,7 @@ export async function fetchWordCloud(
         { keyword: '降噪', frequency: 27, weight: 0.78, sentimentTag: 'POSITIVE' },
         { keyword: '佩戴', frequency: 24, weight: 0.7, sentimentTag: 'NEUTRAL' },
       ],
-      notice: '演示模式词云数据',
+      notice: '真实评论词云测试数据',
       state: 'success',
     }
   }
@@ -550,7 +624,7 @@ export async function fetchActions(): Promise<ActionResponse> {
       items: [
         {
           actionId: 'action-test-1',
-          productCode: 'demo-earphone',
+          productCode: DEFAULT_PRODUCT_CODE,
           issueId: 'iss-battery-7',
           actionName: '处理：续航体验波动',
           actionDesc: '基于动作关联评论窗口回看负向率变化。',
@@ -623,9 +697,9 @@ export async function fetchShowcasePipeline(): Promise<ShowcasePipelineData> {
       implemented: true,
       note: 'v1-state=live; strategy=keep; data-source=sync_jobs+analysis_jobs+materialized_outputs+actions+validation; stages are synthesized from persisted v1 pipeline state.',
       stages: [
-        { name: 'SYNC', state: 'QUEUED', detail: 'provider=aggregator-demo; productCode=demo-earphone; fetchedCount=0' },
-        { name: 'ANALYSIS', state: 'SUCCEEDED', detail: 'productCode=demo-earphone; jobId=analysis-test-1' },
-        { name: 'MATERIALIZATION', state: 'SUCCEEDED', detail: 'productCode=demo-earphone; issueCount=3; outputs align with the latest persisted analysis window' },
+        { name: 'SYNC', state: 'SUCCEEDED', detail: `provider=local-jsonl; productCode=${DEFAULT_PRODUCT_CODE}; fetchedCount=3` },
+        { name: 'ANALYSIS', state: 'SUCCEEDED', detail: `productCode=${DEFAULT_PRODUCT_CODE}; jobId=analysis-test-1` },
+        { name: 'MATERIALIZATION', state: 'SUCCEEDED', detail: `productCode=${DEFAULT_PRODUCT_CODE}; issueCount=3; outputs align with the latest persisted analysis window` },
         { name: 'ACTIONS', state: 'SUCCEEDED', detail: 'actions=1; planned=1; latestAction=处理：续航体验波动' },
         { name: 'VALIDATION', state: 'SUCCEEDED', detail: 'validationCount=1; latestImprovementRate=11.00%' },
       ],
@@ -682,9 +756,9 @@ export async function fetchShowcaseAgentArena(): Promise<ShowcaseAgentArenaData>
 export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabilityData> {
   if (isTestMode) {
     return {
-      status: 'CONTROLLED_DATA_ONLY',
+      status: 'LIVE',
       implemented: true,
-      note: 'v1-state=controlled-data-only; strategy=keep; data-source=materialized_issue_scores+deterministic-score-weights; 当前解释的是固定权重问题得分拆解。',
+      note: 'v1-state=live; strategy=keep; data-source=materialized_issue_scores+deterministic-score-weights; 当前解释的是真实评论物化后的固定权重问题得分拆解。',
       featureContributions: [
         { feature: 'negative_rate', weight: 0.41 },
         { feature: 'mention_volume', weight: 0.28 },
@@ -698,13 +772,13 @@ export async function fetchShowcaseExplainability(): Promise<ShowcaseExplainabil
     const response = await apiClient.get('/api/v1/showcase/explainability')
     return normalizeShowcaseData(
       response.data as ShowcaseExplainabilityData,
-      'v1-state=controlled-data-only; strategy=keep; data-source=deterministic-score-weights; 可解释性运行态暂不可用。',
+      'v1-state=live; strategy=keep; data-source=deterministic-score-weights; 可解释性运行态暂不可用。',
     )
   } catch {
     return {
-      status: 'CONTROLLED_DATA_ONLY',
+      status: 'RUNTIME_UNAVAILABLE',
       implemented: true,
-      note: 'v1-state=controlled-data-only; strategy=keep; data-source=deterministic-score-weights; 可解释性接口暂不可用，当前仅保留固定权重拆解。',
+      note: 'v1-state=runtime-unavailable; strategy=keep; data-source=deterministic-score-weights; 可解释性接口暂不可用。',
       featureContributions: [],
     }
   }
@@ -717,9 +791,9 @@ export async function fetchShowcaseChaos(): Promise<ShowcaseChaosData> {
       implemented: true,
       note: 'v1-state=runtime-state; strategy=keep; data-source=sync_jobs+analysis_jobs+materialized_outputs; 当前展示最近运行态告警与降级信号。',
       drills: [
-        { scenario: 'sync-runtime', state: 'DEGRADED', detail: 'provider=aggregator-demo; productCode=demo-earphone; latest sync remains queued' },
-        { scenario: 'analysis-runtime', state: 'STABLE', detail: 'productCode=demo-earphone; latest analysis completed successfully' },
-        { scenario: 'materialization-runtime', state: 'STABLE', detail: 'productCode=demo-earphone; materialized outputs are aligned with the latest analysis window' },
+        { scenario: 'sync-runtime', state: 'STABLE', detail: `provider=local-jsonl; productCode=${DEFAULT_PRODUCT_CODE}; imported reviews are ready` },
+        { scenario: 'analysis-runtime', state: 'STABLE', detail: `productCode=${DEFAULT_PRODUCT_CODE}; latest analysis completed successfully` },
+        { scenario: 'materialization-runtime', state: 'STABLE', detail: `productCode=${DEFAULT_PRODUCT_CODE}; materialized outputs are aligned with the latest analysis window` },
       ],
     }
   }

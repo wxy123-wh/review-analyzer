@@ -55,11 +55,11 @@ describe('TrendList', () => {
         aspect: 'audio',
         points: [],
         state: 'empty',
-        message: '暂无趋势数据，建议初始化演示评论数据后重试。',
+        message: '暂无趋势数据，请先导入真实评论并启动分析后重试。',
       },
     })
 
-    expect(wrapper.text()).toContain('暂无趋势数据，建议初始化演示评论数据后重试。')
+    expect(wrapper.text()).toContain('暂无趋势数据，请先导入真实评论并启动分析后重试。')
     const refreshButton = wrapper.findAll('button').find((button) => button.text() === '刷新数据')
     expect(refreshButton).toBeDefined()
     await refreshButton!.trigger('click')

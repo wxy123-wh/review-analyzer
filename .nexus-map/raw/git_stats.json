@@ -1,0 +1,231 @@
+﻿{
+  "analysis_period_days": 90,
+  "stats": {
+    "total_commits": 28,
+    "total_authors": 2
+  },
+  "hotspots": [
+    {
+      "path": "frontend/src/test/App.spec.ts",
+      "changes": 11,
+      "risk": "medium"
+    },
+    {
+      "path": "openspec/changes/pm-demo-chinese-overhaul-v1/tasks.md",
+      "changes": 9,
+      "risk": "medium"
+    },
+    {
+      "path": "README.md",
+      "changes": 8,
+      "risk": "medium"
+    },
+    {
+      "path": "backend/src/test/java/com/wh/review/backend/ApiSmokeTest.java",
+      "changes": 7,
+      "risk": "medium"
+    },
+    {
+      "path": "frontend/src/App.vue",
+      "changes": 7,
+      "risk": "medium"
+    },
+    {
+      "path": "frontend/src/components/LoginGate.vue",
+      "changes": 7,
+      "risk": "medium"
+    },
+    {
+      "path": "frontend/src/api/client.ts",
+      "changes": 6,
+      "risk": "medium"
+    },
+    {
+      "path": "openspec/changes/showcase-overdrive-v1/tasks.md",
+      "changes": 6,
+      "risk": "medium"
+    },
+    {
+      "path": "backend/src/test/java/com/wh/review/backend/PersistenceIntegrationTest.java",
+      "changes": 5,
+      "risk": "medium"
+    },
+    {
+      "path": "frontend/src/components/ShowcaseChaosPanel.vue",
+      "changes": 5,
+      "risk": "medium"
+    },
+    {
+      "path": "backend/src/main/java/com/wh/review/backend/service/InsightQueryService.java",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/components/ActionList.vue",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/components/ShowcaseAgentArenaPanel.vue",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/components/ShowcaseExplainabilityPanel.vue",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/components/ShowcasePipelinePanel.vue",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/components/ShowcaseReportCenter.vue",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/components/TrendList.vue",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/src/types/domain.ts",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": "frontend/package.json",
+      "changes": 4,
+      "risk": "low"
+    },
+    {
+      "path": ".env.example",
+      "changes": 3,
+      "risk": "low"
+    }
+  ],
+  "coupling_pairs": [
+    {
+      "file_a": "frontend/src/App.vue",
+      "file_b": "frontend/src/test/App.spec.ts",
+      "co_changes": 7,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "frontend/src/components/LoginGate.vue",
+      "file_b": "frontend/src/test/App.spec.ts",
+      "co_changes": 7,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "frontend/src/App.vue",
+      "file_b": "frontend/src/api/client.ts",
+      "co_changes": 6,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "frontend/src/api/client.ts",
+      "file_b": "frontend/src/test/App.spec.ts",
+      "co_changes": 6,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "backend/src/test/java/com/wh/review/backend/ApiSmokeTest.java",
+      "co_changes": 5,
+      "coupling_score": 0.714
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/App.vue",
+      "co_changes": 5,
+      "coupling_score": 0.714
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/test/App.spec.ts",
+      "co_changes": 5,
+      "coupling_score": 0.625
+    },
+    {
+      "file_a": "backend/src/test/java/com/wh/review/backend/ApiSmokeTest.java",
+      "file_b": "backend/src/test/java/com/wh/review/backend/PersistenceIntegrationTest.java",
+      "co_changes": 5,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "frontend/src/App.vue",
+      "file_b": "frontend/src/components/ShowcaseChaosPanel.vue",
+      "co_changes": 5,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "frontend/src/components/ShowcaseChaosPanel.vue",
+      "file_b": "frontend/src/test/App.spec.ts",
+      "co_changes": 5,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/api/client.ts",
+      "co_changes": 4,
+      "coupling_score": 0.667
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/ActionList.vue",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/LoginGate.vue",
+      "co_changes": 4,
+      "coupling_score": 0.571
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/ShowcaseAgentArenaPanel.vue",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/ShowcaseChaosPanel.vue",
+      "co_changes": 4,
+      "coupling_score": 0.8
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/ShowcaseExplainabilityPanel.vue",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/ShowcasePipelinePanel.vue",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "README.md",
+      "file_b": "frontend/src/components/ShowcaseReportCenter.vue",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "backend/src/main/java/com/wh/review/backend/service/InsightQueryService.java",
+      "file_b": "backend/src/test/java/com/wh/review/backend/ApiSmokeTest.java",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    },
+    {
+      "file_a": "frontend/src/App.vue",
+      "file_b": "frontend/src/components/ActionList.vue",
+      "co_changes": 4,
+      "coupling_score": 1.0
+    }
+  ]
+}

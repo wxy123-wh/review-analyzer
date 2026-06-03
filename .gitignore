@@ -16,6 +16,7 @@ frontend/dist/
 
 # Python
 nlp-service/.venv/
+.pytest_cache/
 nlp-service/__pycache__/
 nlp-service/.pytest_cache/
 **/__pycache__/
@@ -28,3 +29,12 @@ nlp-service/.pytest_cache/
 # OS files
 *.swp
 .worktrees/
+
+# Local clone used for project merge/import work.
+/wh/
+.tmp/
+.tmp/external/
+.tmp/m2/
+
+# Raw crawler output is generated locally.
+crawler/output/

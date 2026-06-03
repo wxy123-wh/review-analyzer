@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -44,8 +45,8 @@ class SyncJobServiceTest {
     @BeforeEach
     void setUp() {
         syncJobService = new SyncJobService(oneBoundReviewClient, oneBoundProperties, externalReviewRawRepository, syncJobRepository);
-        when(oneBoundProperties.getDefaultPlatform()).thenReturn("taobao");
-        when(syncJobRepository.create(any(SyncJobResponse.class), nullable(Instant.class)))
+        lenient().when(oneBoundProperties.getDefaultPlatform()).thenReturn("taobao");
+        lenient().when(syncJobRepository.create(any(SyncJobResponse.class), nullable(Instant.class)))
                 .thenAnswer(invocation -> {
                     SyncJobResponse draft = invocation.getArgument(0);
                     return new SyncJobResponse(
@@ -59,9 +60,9 @@ class SyncJobServiceTest {
                             draft.errorMessage(),
                             draft.analysisHandoffStatus(),
                             draft.analysisHandoffNote()
-                    );
+                        );
                 });
-        when(syncJobRepository.updateOutcome(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt(), any(Instant.class), nullable(String.class), anyString(), anyString()))
+        lenient().when(syncJobRepository.updateOutcome(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt(), any(Instant.class), nullable(String.class), anyString(), anyString()))
                 .thenAnswer(invocation -> new SyncJobResponse(
                         invocation.getArgument(0),
                         "onebound",
@@ -77,18 +78,18 @@ class SyncJobServiceTest {
     }
 
     @Test
-    void shouldKeepQueuedWhenProviderIsNotOneBound() {
-        SyncJobResponse response = syncJobService.createJob("aggregator-demo", null, "demo-earphone");
+    void shouldMarkLegacySeedProviderUnsupported() {
+        SyncJobResponse response = syncJobService.createJob("legacy-seed", null, "jd-product");
 
-        assertEquals("QUEUED", response.status());
+        assertEquals("UNSUPPORTED", response.status());
         assertEquals(0, response.fetchedCount());
-        assertEquals("CONTROLLED_DATA_PATH", response.analysisHandoffStatus());
+        assertEquals("UNSUPPORTED_SOURCE", response.analysisHandoffStatus());
         verifyNoInteractions(oneBoundReviewClient);
     }
 
     @Test
     void shouldMarkUnsupportedWhenProviderIsUnknown() {
-        SyncJobResponse response = syncJobService.createJob("mystery-sync", "taobao", "demo-earphone");
+        SyncJobResponse response = syncJobService.createJob("mystery-sync", "taobao", "jd-product");
 
         assertEquals("UNSUPPORTED", response.status());
         assertTrue(response.errorMessage().contains("unsupported sync provider"));

@@ -6,7 +6,7 @@
           <span class="eyebrow">Explainability signal</span>
           <span class="status-badge">{{ statusLabel }}</span>
         </div>
-        <h3>可解释性分析</h3>
+        <h3>真实评论可解释性分析</h3>
         <p class="note">{{ data?.note ?? '加载中...' }}</p>
       </div>
 

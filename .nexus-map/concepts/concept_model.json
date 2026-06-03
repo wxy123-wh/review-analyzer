@@ -1,0 +1,158 @@
+{
+  "$schema": "nexus-mapper/concept-model/v1",
+  "generated_at": "2026-06-03T00:00:00+08:00",
+  "repo_path": "D:/code/review-analyzer",
+  "generator": "nexus-mapper v2",
+  "nodes": [
+    {
+      "id": "frontend-console",
+      "type": "System",
+      "label": "Frontend Console",
+      "responsibility": "提供 Vue 单页验收看板、内部访问门禁、图表列表组件和 showcase 展示模块。",
+      "implementation_status": "implemented",
+      "code_path": "frontend/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["Vue 3", "TypeScript", "Vite", "Axios", "Vitest", "@antv/g2plot", "GSAP"],
+      "related_reqs": [],
+      "complexity": "medium",
+      "hotspot": true
+    },
+    {
+      "id": "backend-api",
+      "type": "System",
+      "label": "Backend API",
+      "responsibility": "提供 REST 接口、同步任务、分析任务、演示数据初始化、洞察查询、动作登记和 showcase 运行态。",
+      "implementation_status": "implemented",
+      "code_path": "backend/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["Spring Boot 3.3.3", "Java 21", "Spring Web", "Spring JDBC", "PostgreSQL", "H2 Test"],
+      "related_reqs": [],
+      "complexity": "high",
+      "hotspot": true
+    },
+    {
+      "id": "nlp-service",
+      "type": "System",
+      "label": "NLP Service",
+      "responsibility": "提供 FastAPI 文本分析接口，用关键词规则识别评论方面、情感极性、置信度和问题簇。",
+      "implementation_status": "implemented",
+      "code_path": "nlp-service/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["Python", "FastAPI", "Pydantic", "pytest", "keyword rules"],
+      "related_reqs": [],
+      "complexity": "low",
+      "hotspot": false
+    },
+    {
+      "id": "data-infra",
+      "type": "System",
+      "label": "Data and Infra",
+      "responsibility": "通过 Docker Compose、PostgreSQL 初始化 SQL 和运行配置支撑整套开发与生产部署。",
+      "implementation_status": "implemented",
+      "code_path": "infra/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["Docker Compose", "PostgreSQL 16", "Redis 7", "SQL"],
+      "related_reqs": [],
+      "complexity": "medium",
+      "hotspot": false
+    },
+    {
+      "id": "docs-acceptance",
+      "type": "System",
+      "label": "Docs and Acceptance",
+      "responsibility": "沉淀操作手册、接口文档、代码文档、需求图和个人工作总结等答辩材料。",
+      "implementation_status": "implemented",
+      "code_path": "docs/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["Markdown", "Mermaid", "Word documents"],
+      "related_reqs": [],
+      "complexity": "low",
+      "hotspot": true
+    },
+    {
+      "id": "legacy-reference",
+      "type": "System",
+      "label": "Legacy Reference",
+      "responsibility": "保存旧版 wh-source 和 wh 目录代码，作为历史参考，不属于当前主运行链路。",
+      "implementation_status": "implemented",
+      "code_path": "legacy/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["legacy Java", "legacy Vue", "legacy Python"],
+      "related_reqs": [],
+      "complexity": "medium",
+      "hotspot": false
+    },
+    {
+      "id": "review-domain",
+      "type": "Domain",
+      "label": "Review Decision Domain",
+      "responsibility": "围绕耳机评论采集、方面识别、情感判断、问题优先级、改进行动和效果验证建模。",
+      "implementation_status": "implemented",
+      "code_path": "backend/src/main/java/com/wh/review/backend/",
+      "evidence_path": null,
+      "evidence_gap": null,
+      "tech_stack": ["REST contracts", "materialized analysis", "controlled demo data"],
+      "related_reqs": [],
+      "complexity": "high",
+      "hotspot": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "frontend-console",
+      "target": "backend-api",
+      "type": "depends_on",
+      "description": "frontend/src/api/client.ts 调用 /api/v1/* 后端接口。"
+    },
+    {
+      "source": "backend-api",
+      "target": "nlp-service",
+      "type": "depends_on",
+      "description": "NlpReviewAnalysisClient 调用 NLP_BASE_URL + /analyze；失败时后端降级到受控规则分析。"
+    },
+    {
+      "source": "backend-api",
+      "target": "data-infra",
+      "type": "depends_on",
+      "description": "Spring JDBC 读写 products、reviews_raw、analysis_jobs、issue_clusters 等 PostgreSQL 表。"
+    },
+    {
+      "source": "data-infra",
+      "target": "backend-api",
+      "type": "supports",
+      "description": "docker-compose.yml 编排 postgres、redis、nlp-service、backend、frontend。"
+    },
+    {
+      "source": "backend-api",
+      "target": "review-domain",
+      "type": "implements",
+      "description": "后端服务和仓储承载评论分析、物化查询、动作验证等核心领域逻辑。"
+    },
+    {
+      "source": "docs-acceptance",
+      "target": "backend-api",
+      "type": "documents",
+      "description": "docs/代码文档.md 和 docs/接口文档.md 描述当前后端接口与服务实现。"
+    },
+    {
+      "source": "docs-acceptance",
+      "target": "frontend-console",
+      "type": "documents",
+      "description": "README.md 和 docs/代码文档.md 描述前端模块、启动方式和验收路径。"
+    }
+  ],
+  "metadata": {
+    "total_files": 695,
+    "total_lines": 92423,
+    "languages": ["java", "javascript", "python", "sql", "typescript", "vue"],
+    "git_commits_analyzed": 28,
+    "analysis_days": 90,
+    "notes": "Vue and SQL files were parsed with module-only AST coverage; detailed frontend and schema conclusions combine AST/file-tree evidence with manual inspection."
+  }
+}

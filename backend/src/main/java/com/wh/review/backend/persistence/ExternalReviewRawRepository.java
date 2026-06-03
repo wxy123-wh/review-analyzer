@@ -31,7 +31,6 @@ public class ExternalReviewRawRepository {
                         "content",
                         "review_time",
                         "anonymized_author_id",
-                        "demo_data_version",
                         "provider",
                         "platform",
                         "external_product_code",
@@ -69,7 +68,6 @@ public class ExternalReviewRawRepository {
                 payload.put("content", review.content());
                 payload.put("review_time", review.reviewTime() == null ? null : Timestamp.from(review.reviewTime()));
                 payload.put("anonymized_author_id", review.anonymizedAuthorId());
-                payload.put("demo_data_version", null);
                 payload.put("provider", provider);
                 payload.put("platform", platform);
                 payload.put("external_product_code", productCode);
@@ -115,7 +113,6 @@ public class ExternalReviewRawRepository {
                     content = ?,
                     review_time = ?,
                     anonymized_author_id = ?,
-                    demo_data_version = NULL,
                     provider = ?,
                     platform = ?,
                     external_product_code = ?,

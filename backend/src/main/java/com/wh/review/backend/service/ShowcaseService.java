@@ -24,6 +24,7 @@ import com.wh.review.backend.persistence.AnalysisMaterializationRepository;
 import com.wh.review.backend.persistence.AnalysisMaterializationRepository.TopIssueScoreBreakdown;
 import com.wh.review.backend.persistence.SyncJobRepository;
 import com.wh.review.backend.persistence.SyncJobRepository.SyncJobSnapshot;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,7 +36,6 @@ public class ShowcaseService {
     private static final String STATUS_LIVE = "LIVE";
     private static final String STATUS_STABLE = "STABLE";
     private static final String STATUS_DEGRADED = "DEGRADED";
-    private static final String STATUS_CONTROLLED_DATA_ONLY = "CONTROLLED_DATA_ONLY";
     private static final String STATUS_RUNTIME_UNAVAILABLE = "RUNTIME_UNAVAILABLE";
     private static final String STATUS_UNAVAILABLE = "UNAVAILABLE";
     private static final String STATUS_IDLE = "IDLE";
@@ -49,7 +49,7 @@ public class ShowcaseService {
     private static final double W_TREND_GROWTH = 0.20D;
     private static final double W_COMPETITOR_GAP = 0.20D;
 
-    private final DemoReviewAggregationService demoReviewAggregationService;
+    private final ReviewAggregationService reviewAggregationService;
     private final SyncJobRepository syncJobRepository;
     private final AnalysisJobRepository analysisJobRepository;
     private final AnalysisMaterializationRepository analysisMaterializationRepository;
@@ -57,14 +57,14 @@ public class ShowcaseService {
     private final ActionService actionService;
 
     public ShowcaseService(
-            DemoReviewAggregationService demoReviewAggregationService,
+            ReviewAggregationService reviewAggregationService,
             SyncJobRepository syncJobRepository,
             AnalysisJobRepository analysisJobRepository,
             AnalysisMaterializationRepository analysisMaterializationRepository,
             InsightQueryService insightQueryService,
             ActionService actionService
     ) {
-        this.demoReviewAggregationService = demoReviewAggregationService;
+        this.reviewAggregationService = reviewAggregationService;
         this.syncJobRepository = syncJobRepository;
         this.analysisJobRepository = analysisJobRepository;
         this.analysisMaterializationRepository = analysisMaterializationRepository;
@@ -150,10 +150,10 @@ public class ShowcaseService {
                 .map(this::buildIssueContributions)
                 .orElseGet(this::buildFixedWeightContributions);
         return new ShowcaseExplainabilityResponse(
-                STATUS_CONTROLLED_DATA_ONLY,
+                STATUS_LIVE,
                 true,
                 buildContractNote(
-                        "controlled-data-only",
+                        "live",
                         "keep",
                         topIssue.isPresent()
                                 ? "materialized_issue_scores+deterministic-score-weights"
@@ -162,9 +162,9 @@ public class ShowcaseService {
                                 .map(issue -> "productCode=" + productCode
                                         + "; issue=" + issue.title()
                                         + "; aspect=" + issue.aspect()
-                                        + "; using current fixed-weight issue score decomposition rather than model attribution")
+                                        + "; using current fixed-weight issue score decomposition over imported real reviews rather than model attribution")
                                 .orElse("productCode=" + productCode
-                                        + "; no materialized issue score is available yet, so the view exposes the live fixed-weight scoring decomposition only")
+                                        + "; no materialized issue score is available yet, so the view exposes the fixed-weight scoring decomposition only")
                 ),
                 contributions
         );
@@ -197,8 +197,8 @@ public class ShowcaseService {
         String productCode = resolveProductCode(analysisJobRepository.findLatest(), syncJobRepository.findLatest());
         IssueListResponse issueResponse = insightQueryService.listIssues(productCode);
         List<IssueItem> issues = issueResponse.items();
-        CompareResponse compare = insightQueryService.compare(productCode, DemoDataInitializationService.DEFAULT_COMPARE_PRODUCT_CODE);
-        TrendResponse trends = insightQueryService.trends(productCode, DemoReviewAggregationService.DEFAULT_TREND_ASPECT);
+        CompareResponse compare = insightQueryService.compare(productCode, ReviewAggregationService.DEFAULT_COMPARE_PRODUCT_CODE);
+        TrendResponse trends = insightQueryService.trends(productCode, ReviewAggregationService.DEFAULT_TREND_ASPECT);
         List<ActionResponse> actions = actionService.listAll().stream()
                 .filter(action -> productCode.equals(action.productCode()))
                 .toList();
@@ -235,7 +235,7 @@ public class ShowcaseService {
                 && !latestSyncJob.get().targetProductCode().isBlank()) {
             return latestSyncJob.get().targetProductCode();
         }
-        return demoReviewAggregationService.normalizeProductCode(DemoReviewAggregationService.DEFAULT_PRODUCT_CODE);
+        return reviewAggregationService.normalizeProductCode(ReviewAggregationService.DEFAULT_PRODUCT_CODE);
     }
 
     private ShowcaseStage buildSyncStage(SyncJobSnapshot latestSyncJob) {
@@ -475,7 +475,7 @@ public class ShowcaseService {
                     "对比状态：" + compare.state() + (compare.notice() == null ? "。" : "，" + compare.notice())
             );
             case "trends" -> List.of(
-                    "趋势范围：产品 " + productCode + "，关注维度 " + DemoReviewAggregationService.DEFAULT_TREND_ASPECT + "。",
+                    "趋势范围：产品 " + productCode + "，关注维度 " + ReviewAggregationService.DEFAULT_TREND_ASPECT + "。",
                     latestTrendPoint == null
                             ? "趋势信号：" + safeValue(trends.notice())
                             : "最新趋势：" + latestTrendPoint.period() + " 负面率 "

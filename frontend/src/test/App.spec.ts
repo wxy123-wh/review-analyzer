@@ -10,6 +10,7 @@ const clientMocks = vi.hoisted(() => ({
   fetchBackendHealth: vi.fn(),
   fetchCompare: vi.fn(),
   fetchIssues: vi.fn(),
+  fetchPositiveInsights: vi.fn(),
   fetchShowcaseAgentArena: vi.fn(),
   fetchShowcaseChaos: vi.fn(),
   fetchShowcaseExplainability: vi.fn(),
@@ -17,16 +18,19 @@ const clientMocks = vi.hoisted(() => ({
   fetchTrends: vi.fn(),
   fetchValidation: vi.fn(),
   fetchWordCloud: vi.fn(),
-  nlpDemoStatus: vi.fn(),
+  nlpServiceStatus: vi.fn(),
   previewShowcaseReport: vi.fn(),
 }))
 
 vi.mock('../api/client', () => ({
+  DEFAULT_COMPARE_PRODUCT_CODE: 'jd-competitor',
+  DEFAULT_PRODUCT_CODE: 'jd-100127936932',
   createAction: clientMocks.createAction,
   fetchActions: clientMocks.fetchActions,
   fetchBackendHealth: clientMocks.fetchBackendHealth,
   fetchCompare: clientMocks.fetchCompare,
   fetchIssues: clientMocks.fetchIssues,
+  fetchPositiveInsights: clientMocks.fetchPositiveInsights,
   fetchShowcaseAgentArena: clientMocks.fetchShowcaseAgentArena,
   fetchShowcaseChaos: clientMocks.fetchShowcaseChaos,
   fetchShowcaseExplainability: clientMocks.fetchShowcaseExplainability,
@@ -34,7 +38,7 @@ vi.mock('../api/client', () => ({
   fetchTrends: clientMocks.fetchTrends,
   fetchValidation: clientMocks.fetchValidation,
   fetchWordCloud: clientMocks.fetchWordCloud,
-  nlpDemoStatus: clientMocks.nlpDemoStatus,
+  nlpServiceStatus: clientMocks.nlpServiceStatus,
   previewShowcaseReport: clientMocks.previewShowcaseReport,
 }))
 
@@ -72,12 +76,28 @@ describe('App shell', () => {
         },
       ],
     })
+    clientMocks.fetchPositiveInsights.mockResolvedValue({
+      state: 'success',
+      items: [
+        {
+          sellingPointId: 'sp-comfort-test',
+          aspect: 'comfort',
+          uxPrimaryLabel: '产品体验',
+          uxSecondaryLabel: '佩戴与人体工学',
+          sellingPoint: '佩戴舒适',
+          mentionCount: 12,
+          positiveRate: 0.86,
+          score: 0.78,
+          evidence: ['戴了几个小时耳朵也不疼'],
+        },
+      ],
+    })
     clientMocks.fetchActions.mockResolvedValue({
       state: 'success',
       items: [
         {
           actionId: 'action-test-1',
-          productCode: 'demo-earphone',
+          productCode: 'jd-100127936932',
           issueId: 'iss-battery-7',
           actionName: '处理：续航体验波动',
           actionDesc: '基于动作关联评论窗口回看负向率变化。',
@@ -87,8 +107,8 @@ describe('App shell', () => {
       ],
     })
     clientMocks.fetchCompare.mockResolvedValue({
-      productCode: 'demo-earphone',
-      comparisonProductCode: 'demo-earphone-competitor',
+      productCode: 'jd-100127936932',
+      comparisonProductCode: 'jd-competitor',
       state: 'success',
       items: [
         { aspect: 'battery', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
@@ -116,24 +136,24 @@ describe('App shell', () => {
       ],
     })
     clientMocks.fetchWordCloud.mockResolvedValue({
-      productCode: 'demo-earphone',
+      productCode: 'jd-100127936932',
       aspect: 'all',
       items: [
         { keyword: '续航', frequency: 42, weight: 0.92, sentimentTag: 'POSITIVE' },
         { keyword: '断连', frequency: 31, weight: 0.85, sentimentTag: 'NEGATIVE' },
       ],
-      notice: '演示模式词云数据',
+      notice: '真实评论词云测试数据',
       state: 'success',
     })
-    clientMocks.nlpDemoStatus.mockReturnValue({ name: 'NLP Service', status: 'UP' })
+    clientMocks.nlpServiceStatus.mockReturnValue({ name: 'NLP Service', status: 'UP' })
     clientMocks.fetchShowcasePipeline.mockResolvedValue({
       status: 'LIVE',
       implemented: true,
       note: '流水线视图来自真实 sync/analysis/materialization/action/validation 状态。',
       stages: [
-        { name: 'SYNC', state: 'QUEUED', detail: 'provider=aggregator-demo; productCode=demo-earphone; fetchedCount=0' },
-        { name: 'ANALYSIS', state: 'SUCCEEDED', detail: 'productCode=demo-earphone; jobId=analysis-test-1' },
-        { name: 'MATERIALIZATION', state: 'SUCCEEDED', detail: 'productCode=demo-earphone; issueCount=3' },
+        { name: 'SYNC', state: 'QUEUED', detail: 'provider=local-jsonl; productCode=jd-100127936932; fetchedCount=0' },
+        { name: 'ANALYSIS', state: 'SUCCEEDED', detail: 'productCode=jd-100127936932; jobId=analysis-test-1' },
+        { name: 'MATERIALIZATION', state: 'SUCCEEDED', detail: 'productCode=jd-100127936932; issueCount=3' },
       ],
     })
     clientMocks.fetchShowcaseAgentArena.mockResolvedValue({
@@ -146,7 +166,7 @@ describe('App shell', () => {
       ],
     })
     clientMocks.fetchShowcaseExplainability.mockResolvedValue({
-      status: 'CONTROLLED_DATA_ONLY',
+      status: 'LIVE',
       implemented: true,
       note: '当前解释的是固定权重问题分数拆解，不是模型内部归因。',
       featureContributions: [
@@ -184,7 +204,7 @@ describe('App shell', () => {
     expect(wrapper.find('[data-testid="login-gate"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Internal-use access')
     expect(wrapper.text()).toContain('使用当前环境凭据进入看板')
-    expect(wrapper.text()).toContain('仅用于内部首发验收与演示环境访问。')
+    expect(wrapper.text()).toContain('仅用于内部验收与真实评论分析。')
     expect(wrapper.text()).toContain('账号')
     expect(wrapper.text()).toContain('密码')
     expect(wrapper.text()).not.toContain('Nexus')
@@ -286,10 +306,18 @@ describe('App shell', () => {
     await enterDashboard(wrapper)
 
     expect(clientMocks.fetchIssues).toHaveBeenCalledTimes(1)
+    expect(clientMocks.fetchPositiveInsights).toHaveBeenCalledTimes(1)
     expect(clientMocks.fetchActions).toHaveBeenCalledTimes(1)
     expect(clientMocks.fetchValidation).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('连接稳定性偶发断连')
+    expect(wrapper.text()).toContain('佩戴舒适')
     expect(wrapper.text()).toContain('1')
+
+    await wrapper.get('[data-testid="nav-positive-insights"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('正面卖点')
+    expect(wrapper.text()).toContain('佩戴与人体工学')
+    expect(wrapper.text()).toContain('戴了几个小时耳朵也不疼')
 
     await wrapper.get('[data-testid="nav-compare"]').trigger('click')
     await flushPromises()
@@ -306,7 +334,7 @@ describe('App shell', () => {
     await flushPromises()
     expect(clientMocks.fetchWordCloud).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('词云洞察（全部）')
-    expect(wrapper.text()).toContain('演示模式词云数据')
+    expect(wrapper.text()).toContain('真实评论词云测试数据')
     expect(wrapper.text()).toContain('续航')
 
     await wrapper.get('[data-testid="nav-actions"]').trigger('click')
@@ -371,7 +399,7 @@ describe('App shell', () => {
       notice: '趋势数据暂时只保留最近一次可用时间窗，请稍后重试。',
     })
     clientMocks.fetchWordCloud.mockResolvedValueOnce({
-      productCode: 'demo-earphone',
+      productCode: 'jd-100127936932',
       aspect: 'all',
       items: [],
       state: 'runtime-unavailable',
@@ -412,7 +440,7 @@ describe('App shell', () => {
 
     await wrapper.get('[data-testid="nav-showcase-explainability"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('受控数据')
+    expect(wrapper.text()).toContain('真实评论')
     expect(wrapper.text()).toContain('negative_rate')
 
     await wrapper.get('[data-testid="nav-showcase-report-center"]').trigger('click')

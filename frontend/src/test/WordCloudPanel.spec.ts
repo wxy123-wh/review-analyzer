@@ -16,7 +16,7 @@ describe('WordCloudPanel', () => {
         aspect: 'all',
         items,
         state: 'success',
-        notice: '演示数据已按词频聚合。',
+        notice: '真实评论已按词频聚合。',
       },
     })
 
@@ -34,7 +34,7 @@ describe('WordCloudPanel', () => {
     expect(wrapper.text()).toContain('当前高频词')
     expect(wrapper.find('.summary').text()).toContain('续航')
     expect(wrapper.find('.summary').text()).toContain('正向')
-    expect(wrapper.text()).toContain('演示数据已按词频聚合。')
+    expect(wrapper.text()).toContain('真实评论已按词频聚合。')
     expect(wrapper.text()).toContain('触控提示：轻触词项可查看关键词与词频详情。')
   })
 
@@ -58,11 +58,11 @@ describe('WordCloudPanel', () => {
         aspect: 'audio',
         items: [],
         state: 'empty',
-        message: '暂无词云数据，建议初始化演示评论数据后重试。',
+        message: '暂无词云数据，请先导入真实评论并启动分析后重试。',
       },
     })
 
-    expect(wrapper.text()).toContain('暂无词云数据，建议初始化演示评论数据后重试。')
+    expect(wrapper.text()).toContain('暂无词云数据，请先导入真实评论并启动分析后重试。')
     const refreshButton = wrapper.findAll('button').find((button) => button.text() === '刷新数据')
     expect(refreshButton).toBeDefined()
     await refreshButton!.trigger('click')
