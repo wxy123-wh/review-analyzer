@@ -14,7 +14,7 @@
         <article class="metric-card metric-card--accent" data-motion-hover="lift">
           <span class="metric-label">阶段总数</span>
           <strong>{{ totalStages }}</strong>
-          <p>当前演示回放中可见的编排节点。</p>
+          <p>当前可从真实运行态推断出的链路节点。</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">进行中</span>
@@ -24,7 +24,7 @@
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">已完成</span>
           <strong>{{ completedStages }}</strong>
-          <p>已标记完成的阶段数量。</p>
+          <p>已进入稳定或完成状态的阶段数量。</p>
         </article>
       </div>
     </header>
@@ -95,7 +95,7 @@ const timelineSupport = computed(() => {
   if (runningStages.value > 0) {
     return `有 ${runningStages.value} 个阶段处于推进中`
   }
-  return '当前仅展示演示回放状态'
+  return '当前展示最近一次真实运行态摘要'
 })
 
 function normalizeState(state: string): string {
@@ -103,7 +103,7 @@ function normalizeState(state: string): string {
 }
 
 function isCompletedState(state: string): boolean {
-  return ['DONE', 'SUCCESS', 'COMPLETED'].includes(normalizeState(state))
+  return ['DONE', 'SUCCESS', 'COMPLETED', 'SUCCEEDED', 'STABLE', 'LIVE'].includes(normalizeState(state))
 }
 
 function isRunningState(state: string): boolean {
@@ -112,6 +112,10 @@ function isRunningState(state: string): boolean {
 
 function isQueuedState(state: string): boolean {
   return ['QUEUED', 'PENDING', 'IDLE'].includes(normalizeState(state))
+}
+
+function isErrorState(state: string): boolean {
+  return ['FAILED', 'DEGRADED', 'UNAVAILABLE', 'RUNTIME_UNAVAILABLE'].includes(normalizeState(state))
 }
 
 function stateTone(state: string): string {
@@ -123,6 +127,9 @@ function stateTone(state: string): string {
   }
   if (isQueuedState(state)) {
     return 'unknown'
+  }
+  if (isErrorState(state)) {
+    return 'down'
   }
   return 'default'
 }
@@ -338,6 +345,12 @@ h4 {
   color: var(--color-semantic-unknown);
   border-color: var(--color-semantic-unknown-soft);
   background: var(--color-semantic-unknown-soft);
+}
+
+.state-pill.down {
+  color: var(--color-semantic-down);
+  border-color: rgba(255, 123, 133, 0.28);
+  background: rgba(255, 123, 133, 0.12);
 }
 
 .empty {

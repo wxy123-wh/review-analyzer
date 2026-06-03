@@ -1,0 +1,31 @@
+#!/bin/sh
+# Maven Wrapper (minimal) for *nix systems.
+
+BASEDIR=$(cd "$(dirname "$0")"; pwd -P)
+
+WRAPPER_DIR="$BASEDIR/.mvn/wrapper"
+WRAPPER_JAR="$WRAPPER_DIR/maven-wrapper.jar"
+WRAPPER_PROPERTIES="$WRAPPER_DIR/maven-wrapper.properties"
+
+if [ ! -f "$WRAPPER_JAR" ]; then
+  WRAPPER_URL=$(grep -E '^wrapperUrl=' "$WRAPPER_PROPERTIES" | cut -d= -f2-)
+  if [ -z "$WRAPPER_URL" ]; then
+    WRAPPER_URL="https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar"
+  fi
+  mkdir -p "$WRAPPER_DIR"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$WRAPPER_URL" -o "$WRAPPER_JAR"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q "$WRAPPER_URL" -O "$WRAPPER_JAR"
+  else
+    echo "Neither curl nor wget is available to download Maven Wrapper." >&2
+    exit 1
+  fi
+fi
+
+JAVA_EXE="java"
+if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  JAVA_EXE="$JAVA_HOME/bin/java"
+fi
+
+exec "$JAVA_EXE" -classpath "$WRAPPER_JAR" -Dmaven.multiModuleProjectDirectory="$BASEDIR" org.apache.maven.wrapper.MavenWrapperMain "$@"

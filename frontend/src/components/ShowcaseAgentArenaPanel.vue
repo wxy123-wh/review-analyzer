@@ -14,7 +14,7 @@
         <article class="metric-card metric-card--accent" data-motion-hover="lift">
           <span class="metric-label">智能体数量</span>
           <strong>{{ totalAgents }}</strong>
-          <p>当前视图中可见的协同节点。</p>
+          <p>由真实子系统状态合成的席位数量。</p>
         </article>
         <article class="metric-card" data-motion-hover="lift">
           <span class="metric-label">平均置信度</span>
@@ -101,7 +101,11 @@ const confidenceSupport = computed(() => {
 
 const runningSupport = computed(() => {
   const active = agents.value.find((agent) => isRunningState(agent.state))
-  return active ? `${active.agentName} 正在推进 ${active.role}` : '当前没有运行中的节点'
+  if (active) {
+    return `${active.agentName} 正在推进 ${active.role}`
+  }
+  const attention = agents.value.find((agent) => isAttentionState(agent.state))
+  return attention ? `${attention.agentName} 当前处于 ${attention.state}` : '当前没有运行中的节点'
 })
 
 const roleSupport = computed(() => {
@@ -123,12 +127,26 @@ function isIdleState(state: string): boolean {
   return ['IDLE', 'QUEUED', 'PENDING'].includes(normalizeState(state))
 }
 
+function isHealthyState(state: string): boolean {
+  return ['SUCCEEDED', 'SUCCESS', 'STABLE', 'LIVE', 'READY'].includes(normalizeState(state))
+}
+
+function isAttentionState(state: string): boolean {
+  return ['FAILED', 'DEGRADED', 'UNAVAILABLE', 'RUNTIME_UNAVAILABLE'].includes(normalizeState(state))
+}
+
 function stateTone(state: string): string {
   if (isRunningState(state)) {
     return 'accent'
   }
+  if (isHealthyState(state)) {
+    return 'up'
+  }
   if (isIdleState(state)) {
     return 'unknown'
+  }
+  if (isAttentionState(state)) {
+    return 'down'
   }
   return 'default'
 }
@@ -363,6 +381,18 @@ tbody tr:hover td {
   color: var(--color-semantic-unknown);
   border-color: var(--color-semantic-unknown-soft);
   background: var(--color-semantic-unknown-soft);
+}
+
+.state-pill.up {
+  color: var(--color-semantic-up);
+  border-color: var(--color-semantic-up-soft);
+  background: var(--color-semantic-up-soft);
+}
+
+.state-pill.down {
+  color: var(--color-semantic-down);
+  border-color: rgba(255, 123, 133, 0.28);
+  background: rgba(255, 123, 133, 0.12);
 }
 
 .empty {

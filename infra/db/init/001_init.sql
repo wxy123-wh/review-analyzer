@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS reviews_raw (
     content TEXT NOT NULL,
     review_time TIMESTAMPTZ,
     anonymized_author_id VARCHAR(128),
-    demo_data_version VARCHAR(32),
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(source, source_review_id)
 );
@@ -34,9 +33,60 @@ CREATE TABLE IF NOT EXISTS review_aspects (
     id BIGSERIAL PRIMARY KEY,
     review_id BIGINT NOT NULL REFERENCES reviews_raw(id),
     aspect VARCHAR(64) NOT NULL,
+    ux_primary_label VARCHAR(64),
+    ux_secondary_label VARCHAR(64),
     sentiment_polarity VARCHAR(16) NOT NULL,
     sentiment_score NUMERIC(5,4) NOT NULL,
     confidence NUMERIC(5,4) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ux_taxonomies (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    product_category VARCHAR(128) NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ux_primary_labels (
+    id BIGSERIAL PRIMARY KEY,
+    taxonomy_id BIGINT NOT NULL REFERENCES ux_taxonomies(id),
+    label_name VARCHAR(64) NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ux_secondary_labels (
+    id BIGSERIAL PRIMARY KEY,
+    taxonomy_id BIGINT NOT NULL REFERENCES ux_taxonomies(id),
+    primary_label_id BIGINT NOT NULL REFERENCES ux_primary_labels(id),
+    label_name VARCHAR(64) NOT NULL,
+    synonyms TEXT,
+    description TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS product_taxonomy_bindings (
+    product_code VARCHAR(64) PRIMARY KEY,
+    taxonomy_id BIGINT NOT NULL REFERENCES ux_taxonomies(id),
+    bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS review_semantic_labels (
+    id BIGSERIAL PRIMARY KEY,
+    review_id BIGINT NOT NULL REFERENCES reviews_raw(id),
+    aspect VARCHAR(64) NOT NULL,
+    sentiment_polarity VARCHAR(16) NOT NULL,
+    confidence NUMERIC(5,4) NOT NULL,
+    taxonomy_id BIGINT,
+    taxonomy_version INTEGER,
+    ux_primary_label VARCHAR(64),
+    ux_secondary_label VARCHAR(64),
+    standardized_reason VARCHAR(64),
+    evidence TEXT,
+    negative_intensity_score INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -44,6 +94,8 @@ CREATE TABLE IF NOT EXISTS issue_clusters (
     id BIGSERIAL PRIMARY KEY,
     product_id BIGINT NOT NULL REFERENCES products(id),
     aspect VARCHAR(64) NOT NULL,
+    ux_primary_label VARCHAR(64),
+    ux_secondary_label VARCHAR(64),
     title VARCHAR(255) NOT NULL,
     keywords TEXT NOT NULL,
     representative_review_ids TEXT NOT NULL,
@@ -96,7 +148,12 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     fetched_count INTEGER NOT NULL DEFAULT 0,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ,
-    error_message TEXT
+    error_message TEXT,
+    analysis_handoff_status VARCHAR(64) NOT NULL DEFAULT 'NOT_READY',
+    analysis_handoff_note TEXT,
+    source_url TEXT,
+    external_job_id VARCHAR(128),
+    taxonomy_id BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS analysis_jobs (
@@ -105,15 +162,21 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     status VARCHAR(32) NOT NULL,
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMPTZ,
-    error_message TEXT
+    error_message TEXT,
+    taxonomy_id BIGINT,
+    taxonomy_version INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS demo_seed_versions (
+CREATE TABLE IF NOT EXISTS data_quality_runs (
     id BIGSERIAL PRIMARY KEY,
-    seed_key VARCHAR(64) NOT NULL,
     product_code VARCHAR(64) NOT NULL,
-    data_version VARCHAR(32) NOT NULL,
-    target_count INTEGER NOT NULL,
-    last_seeded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(seed_key, product_code)
+    raw_count INTEGER NOT NULL DEFAULT 0,
+    cleaned_count INTEGER NOT NULL DEFAULT 0,
+    removed_count INTEGER NOT NULL DEFAULT 0,
+    html_cleaned_count INTEGER NOT NULL DEFAULT 0,
+    exact_duplicate_count INTEGER NOT NULL DEFAULT 0,
+    empty_content_count INTEGER NOT NULL DEFAULT 0,
+    invalid_json_count INTEGER NOT NULL DEFAULT 0,
+    summary_json TEXT NOT NULL,
+    imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

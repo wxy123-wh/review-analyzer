@@ -34,6 +34,7 @@ services:
     restart: unless-stopped
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-8080}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5175,http://127.0.0.1:5175}
       NLP_BASE_URL: ${NLP_BASE_URL:-http://nlp-service:8000}
       ONEBOUND_BASE_URL: ${ONEBOUND_BASE_URL:-https://api-gw.onebound.cn}
       ONEBOUND_API_KEY: ${ONEBOUND_API_KEY:-}
@@ -60,6 +61,11 @@ services:
       dockerfile: Dockerfile.prod
       args:
         VITE_API_BASE_URL: /api
+        VITE_INTERNAL_ACCESS_USERNAME: ${VITE_INTERNAL_ACCESS_USERNAME:-wxy}
+        VITE_INTERNAL_ACCESS_PASSWORD: ${VITE_INTERNAL_ACCESS_PASSWORD:-123456}
+        VITE_INTERNAL_ACCESS_DISPLAY_NAME: ${VITE_INTERNAL_ACCESS_DISPLAY_NAME:-内部体验账号}
+        VITE_INTERNAL_ACCESS_HINT: ${VITE_INTERNAL_ACCESS_HINT:-仅用于内部首发验收与演示环境访问。}
+        VITE_SHOW_CHAOS_MODULE: ${VITE_SHOW_CHAOS_MODULE:-false}
     restart: unless-stopped
     depends_on:
       backend:

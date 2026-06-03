@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775110358478,
+  "lastScanned": 1775488050711,
   "projectRoot": "D:\\code\\review-analyzer",
   "techStack": {
     "languages": [],
@@ -38,7 +38,7 @@
       "path": "backend",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775110358395,
+      "lastAccessed": 1775488050633,
       "keyFiles": [
         "Dockerfile",
         "pom.xml"
@@ -48,7 +48,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 3,
-      "lastAccessed": 1775110358396,
+      "lastAccessed": 1775488050634,
       "keyFiles": [
         "代码文档.md",
         "接口文档.md",
@@ -58,28 +58,28 @@
     "frontend": {
       "path": "frontend",
       "purpose": null,
-      "fileCount": 8,
-      "lastAccessed": 1775110358397,
+      "fileCount": 9,
+      "lastAccessed": 1775488050635,
       "keyFiles": [
+        "CHART_VISUAL_ENHANCEMENTS.md",
         "Dockerfile",
         "Dockerfile.prod",
         "index.html",
-        "nginx.prod.conf",
-        "package-lock.json"
+        "nginx.prod.conf"
       ]
     },
     "infra": {
       "path": "infra",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775110358398,
+      "lastAccessed": 1775488050636,
       "keyFiles": []
     },
     "nlp-service": {
       "path": "nlp-service",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775110358399,
+      "lastAccessed": 1775488050636,
       "keyFiles": [
         "Dockerfile",
         "requirements.txt"
@@ -89,55 +89,46 @@
       "path": "openspec",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1775110358400,
-      "keyFiles": []
-    },
-    "pm-demo-chinese-overhaul-v1.local-backup-20260324-092333": {
-      "path": "pm-demo-chinese-overhaul-v1.local-backup-20260324-092333",
-      "purpose": null,
-      "fileCount": 0,
-      "lastAccessed": 1775110358403,
+      "lastAccessed": 1775488050637,
       "keyFiles": []
     },
     "backend\\src": {
       "path": "backend\\src",
       "purpose": "Source code",
       "fileCount": 0,
-      "lastAccessed": 1775110358406,
+      "lastAccessed": 1775488050637,
       "keyFiles": []
+    },
+    "frontend\\dist": {
+      "path": "frontend\\dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1775488050638,
+      "keyFiles": [
+        "index.html"
+      ]
     },
     "frontend\\node_modules": {
       "path": "frontend\\node_modules",
       "purpose": "Dependencies",
       "fileCount": 1,
-      "lastAccessed": 1775110358412,
+      "lastAccessed": 1775488050639,
       "keyFiles": []
     },
     "frontend\\scripts": {
       "path": "frontend\\scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1775110358413,
+      "lastAccessed": 1775488050640,
       "keyFiles": [
         "check-banned-copy-terms.mjs"
-      ]
-    },
-    "frontend\\src": {
-      "path": "frontend\\src",
-      "purpose": "Source code",
-      "fileCount": 4,
-      "lastAccessed": 1775110358413,
-      "keyFiles": [
-        "App.vue",
-        "env.d.ts",
-        "main.ts"
       ]
     },
     "nlp-service\\app": {
       "path": "nlp-service\\app",
       "purpose": "Application code",
       "fileCount": 4,
-      "lastAccessed": 1775110358415,
+      "lastAccessed": 1775488050641,
       "keyFiles": [
         "analyzer.py",
         "main.py",
@@ -148,7 +139,7 @@
       "path": "nlp-service\\tests",
       "purpose": "Test files",
       "fileCount": 3,
-      "lastAccessed": 1775110358415,
+      "lastAccessed": 1775488050641,
       "keyFiles": [
         "conftest.py",
         "test_analyze.py",
@@ -158,111 +149,81 @@
   },
   "hotPaths": [
     {
-      "path": "frontend\\src\\App.vue",
-      "accessCount": 21,
-      "lastAccessed": 1775114844358,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\ActionList.vue",
-      "accessCount": 11,
-      "lastAccessed": 1775115487199,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\WordCloudPanel.vue",
-      "accessCount": 9,
-      "lastAccessed": 1775114816159,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\TrendList.vue",
-      "accessCount": 7,
-      "lastAccessed": 1775115214630,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src",
-      "accessCount": 6,
-      "lastAccessed": 1775110743120,
-      "type": "directory"
-    },
-    {
-      "path": "frontend\\src\\components\\StatusCard.vue",
-      "accessCount": 4,
-      "lastAccessed": 1775110695709,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\IssueTable.vue",
-      "accessCount": 4,
-      "lastAccessed": 1775114868954,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\CompareTable.vue",
-      "accessCount": 4,
-      "lastAccessed": 1775114868970,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\LoadingSpinner.vue",
-      "accessCount": 3,
-      "lastAccessed": 1775110731200,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\components\\LoginGate.vue",
+      "path": "docs\\项目初始设计文档.md",
       "accessCount": 2,
-      "lastAccessed": 1775110691377,
+      "lastAccessed": 1775488360041,
       "type": "file"
     },
     {
-      "path": "frontend\\src\\components\\AnimatedCharacters.vue",
-      "accessCount": 2,
-      "lastAccessed": 1775110743079,
-      "type": "file"
-    },
-    {
-      "path": "frontend\\src\\styles.css",
+      "path": "docs\\代码文档.md",
       "accessCount": 1,
-      "lastAccessed": 1775110443155,
+      "lastAccessed": 1775488163745,
       "type": "file"
     },
     {
       "path": "frontend\\package.json",
       "accessCount": 1,
-      "lastAccessed": 1775110450799,
+      "lastAccessed": 1775488168647,
       "type": "file"
     },
     {
-      "path": "C:\\Users\\wxy\\.claude\\plugins\\marketplaces\\omc\\docs\\shared\\agent-tiers.md",
+      "path": "backend\\pom.xml",
       "accessCount": 1,
-      "lastAccessed": 1775110611857,
+      "lastAccessed": 1775488168808,
       "type": "file"
     },
     {
-      "path": "frontend/src",
+      "path": "infra\\db\\init\\001_init.sql",
       "accessCount": 1,
-      "lastAccessed": 1775110731267,
-      "type": "directory"
-    },
-    {
-      "path": "frontend\\src\\components",
-      "accessCount": 1,
-      "lastAccessed": 1775115126445,
-      "type": "directory"
-    },
-    {
-      "path": "frontend\\src\\styles\\chart-styles.css",
-      "accessCount": 1,
-      "lastAccessed": 1775115275604,
+      "lastAccessed": 1775488174665,
       "type": "file"
     },
     {
-      "path": "frontend\\CHART_VISUAL_ENHANCEMENTS.md",
+      "path": "docker-compose.yml",
       "accessCount": 1,
-      "lastAccessed": 1775115554696,
+      "lastAccessed": 1775488318393,
+      "type": "file"
+    },
+    {
+      "path": "docs\\接口文档.md",
+      "accessCount": 1,
+      "lastAccessed": 1775488318438,
+      "type": "file"
+    },
+    {
+      "path": "nlp-service\\app\\main.py",
+      "accessCount": 1,
+      "lastAccessed": 1775488323192,
+      "type": "file"
+    },
+    {
+      "path": "nlp-service\\requirements.txt",
+      "accessCount": 1,
+      "lastAccessed": 1775488332923,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1775488332944,
+      "type": "file"
+    },
+    {
+      "path": "docs\\requirements\\diagrams\\system-context.mmd",
+      "accessCount": 1,
+      "lastAccessed": 1775488360911,
+      "type": "file"
+    },
+    {
+      "path": "docs\\requirements\\diagrams\\data-er.mmd",
+      "accessCount": 1,
+      "lastAccessed": 1775488361360,
+      "type": "file"
+    },
+    {
+      "path": "docs\\requirements\\diagrams\\flow-closed-loop.mmd",
+      "accessCount": 1,
+      "lastAccessed": 1775488361807,
       "type": "file"
     }
   ],

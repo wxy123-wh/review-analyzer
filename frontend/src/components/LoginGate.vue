@@ -5,10 +5,10 @@
 
     <div class="auth-stage" data-motion-reveal style="--motion-delay: 40ms">
       <div class="stage-copy" data-motion-reveal style="--motion-delay: 80ms">
-        <span class="stage-kicker">Demo auth entry</span>
-        <h1>把演示登录做成值得记住的第一眼。</h1>
+        <span class="stage-kicker">Internal-use access</span>
+        <h1>用内部体验入口守住首发基线。</h1>
         <p>
-          这里仍然只是本地前端演示入口：账号密码校验、错误提示与进入事件都保持原样，但体验被重组成更沉稳、更可信的旗舰首屏。
+          这里仍然只做前端内部访问门禁：不接入真实认证，只把当前环境下的凭据、提示和进入行为收敛成可配置的首发入口。
         </p>
       </div>
 
@@ -31,8 +31,8 @@
 
       <div class="stage-context" data-motion-reveal style="--motion-delay: 160ms">
         <article class="context-card" data-motion-hover="lift" data-motion-spotlight="soft">
-          <span class="context-label">体验说明</span>
-          <p>不接入真实单点登录，不伪装企业集成，只展示当前仓库里已存在的演示鉴权流程。</p>
+          <span class="context-label">访问说明</span>
+          <p>不接入真实单点登录，也不伪装企业集成，只保留当前仓库需要的内部体验门禁。</p>
         </article>
         <article class="context-card" data-motion-hover="lift" data-motion-spotlight="soft">
           <span class="context-label">交互锚点</span>
@@ -44,27 +44,28 @@
     <div class="auth-panel">
       <div class="panel-shell" data-motion-reveal data-motion-spotlight="soft" style="--motion-delay: 120ms">
         <div class="panel-topline">
-          <span class="panel-eyebrow">演示访问</span>
-          <span class="panel-status">仅用于本地体验</span>
+          <span class="panel-eyebrow">内部访问</span>
+          <span class="panel-status">环境门禁已启用</span>
         </div>
 
         <div class="panel-copy">
-          <h2>使用既有演示账号进入看板</h2>
-          <p>凭据与校验规则保持不变，登录成功后仍会触发现有的 <code>enter</code> 事件。</p>
+          <h2>使用当前环境凭据进入看板</h2>
+          <p>凭据来自当前前端环境配置，登录成功后仍会触发现有的 <code>enter</code> 事件。</p>
         </div>
 
         <div class="demo-note" data-motion-hover="lift">
-          <span class="demo-note-label">演示凭据</span>
+          <span class="demo-note-label">当前环境凭据</span>
           <div class="demo-note-grid">
             <div>
               <span>账号</span>
-              <strong>wxy</strong>
+              <strong>{{ expectedUsername }}</strong>
             </div>
             <div>
               <span>密码</span>
-              <strong>123456</strong>
+              <strong>{{ expectedPassword }}</strong>
             </div>
           </div>
+          <p v-if="accessHint" class="demo-note-hint">{{ accessHint }}</p>
         </div>
 
         <form class="form" @submit.prevent="submit">
@@ -146,7 +147,7 @@
             </button>
           </div>
 
-          <p id="login-helper" class="assistive-copy">使用演示账号凭据进入，键盘 Tab 顺序保持为账号、密码、可见性切换、登录按钮。</p>
+          <p id="login-helper" class="assistive-copy">使用当前环境配置的内部访问凭据进入，键盘 Tab 顺序保持为账号、密码、可见性切换、登录按钮。</p>
 
           <div v-if="error" id="login-error-message" data-testid="login-error" class="error-box" role="alert">{{ error }}</div>
 
@@ -164,12 +165,21 @@ import { ref } from 'vue'
 
 import AnimatedCharacters from './AnimatedCharacters.vue'
 
-const emit = defineEmits<{
-  (event: 'enter', payload: { username: string }): void
-}>()
+const props = withDefaults(defineProps<{
+  expectedUsername?: string
+  expectedPassword?: string
+  displayName?: string
+  accessHint?: string
+}>(), {
+  expectedUsername: 'wxy',
+  expectedPassword: '123456',
+  displayName: '内部体验账号',
+  accessHint: '',
+})
 
-const DEMO_USERNAME = 'wxy'
-const DEMO_PASSWORD = '123456'
+const emit = defineEmits<{
+  (event: 'enter', payload: { username: string; displayName: string }): void
+}>()
 
 const username = ref('')
 const password = ref('')
@@ -218,7 +228,7 @@ async function submit(): Promise<void> {
   loading.value = true
   await wait(800)
 
-  const valid = username.value === DEMO_USERNAME && password.value === DEMO_PASSWORD
+  const valid = username.value === props.expectedUsername && password.value === props.expectedPassword
   if (!valid) {
     error.value = '账号或密码有误，请重新输入'
     loading.value = false
@@ -226,7 +236,7 @@ async function submit(): Promise<void> {
   }
 
   loading.value = false
-  emit('enter', { username: username.value })
+  emit('enter', { username: username.value, displayName: props.displayName })
 }
 </script>
 
@@ -476,6 +486,12 @@ async function submit(): Promise<void> {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+.demo-note-hint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .demo-note-grid div {

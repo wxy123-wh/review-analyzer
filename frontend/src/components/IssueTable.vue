@@ -7,12 +7,14 @@
       </div>
     </header>
 
+    <p v-if="state === 'degraded' && stateMessage" class="notice">{{ stateMessage }}</p>
+
     <div v-if="items.length > 0" class="table-shell">
       <table>
         <thead>
           <tr>
             <th class="issue-column">问题</th>
-            <th class="aspect-column">方面</th>
+            <th class="aspect-column">UX 标签</th>
             <th class="score-column">优先级</th>
             <th class="evidence-column">证据</th>
           </tr>
@@ -23,7 +25,7 @@
               <strong>{{ item.title }}</strong>
             </td>
             <td class="aspect-column">
-              <span class="meta-pill">{{ item.aspect }}</span>
+              <span class="meta-pill">{{ displayUxLabel(item) }}</span>
             </td>
             <td class="score-column score-cell">
               <span class="score-pill">{{ item.priorityScore.toFixed(4) }}</span>
@@ -34,16 +36,34 @@
       </table>
     </div>
 
-    <p v-else class="empty">暂无问题数据</p>
+    <p v-else class="empty" :class="{ 'empty--error': state === 'error' }">{{ stateMessage }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import type { IssueItem } from '../types/domain'
+import { computed } from 'vue'
 
-defineProps<{
+import type { ContractState, IssueItem } from '../types/domain'
+
+const props = defineProps<{
   items: IssueItem[]
+  state: ContractState
+  message?: string
 }>()
+
+const stateMessage = computed(() => {
+  if (props.state === 'error') {
+    return props.message || '问题接口请求失败，请稍后重试。'
+  }
+  if (props.state === 'degraded') {
+    return props.message || '问题列表暂时回退为受限结果，请稍后刷新。'
+  }
+  return props.message || '暂无问题数据'
+})
+
+function displayUxLabel(item: IssueItem): string {
+  return item.uxSecondaryLabel?.trim() || item.aspect
+}
 </script>
 
 <style scoped>
@@ -71,6 +91,7 @@ defineProps<{
 }
 
 .head,
+.notice,
 .table-shell,
 .empty {
   position: relative;
@@ -119,6 +140,17 @@ h3 {
   background: rgba(8, 16, 29, 0.56);
   box-shadow: var(--shadow-inset-soft);
   scrollbar-width: thin;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px dashed rgba(255, 123, 133, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(39, 13, 20, 0.24);
+  color: var(--color-semantic-down);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 table {
@@ -220,6 +252,11 @@ tbody tr:last-child td {
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   line-height: var(--line-height-normal);
+}
+
+.empty--error {
+  border-color: rgba(255, 123, 133, 0.28);
+  color: var(--color-semantic-down);
 }
 
 @media (max-width: 720px) {
