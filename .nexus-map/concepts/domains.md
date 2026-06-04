@@ -6,7 +6,7 @@
 
 ## Product
 
-`products` 表中的商品。当前默认商品编码是 `jd-100127936932`。`productCode` 是数据库查询键，不适合当用户主展示名；`productName` 来自爬虫 CLI 输入、JSONL 内容或前端数据接入页手填。注意：`POST /api/v1/reviews/clean-jsonl` 只做文件清洗，不写 `products.product_name`；商品信息要在后续数据库导入步骤才进入 `products`。竞品对比不再在前端配置竞品属性，只输入主商品和竞品的 `productCode`；两者都必须已在数据库中存在并完成分析物化。如果两个商品绑定的 taxonomy 既不是同一个 `taxonomyId`，也不是结构等价的标签体系，后端返回 `taxonomy-mismatch`。
+`products` 表中的商品。当前默认商品编码是 `jd-100127936932`。`productCode` 是数据库查询键，不适合当用户主展示名；`productName` 来自爬虫 CLI 输入、JSONL 内容或前端数据接入页手填。注意：`POST /api/v1/reviews/clean-jsonl` 只做文件清洗，不写 `products.product_name`；商品信息要在后续数据库导入步骤才进入 `products`。`GET /api/v1/reviews/imported-products` 会把已经导入 `reviews_raw` 的商品聚合成数据库商品历史，返回商品名、商品编号、入库评论数、已分析评论数、是否下游就绪、是否绑定 taxonomy、最近分析状态和最近导入时间。前端数据接入页可以选择历史商品作为“当前展示商品”；`App.vue` 顶部固定显示当前展示商品，并用该 `productCode` 刷新问题、卖点、趋势、词云、竞品主商品输入和前后对比主商品。竞品对比不再在前端配置竞品属性，只输入主商品和竞品的 `productCode`；两者都必须已在数据库中存在并完成分析物化。如果两个商品绑定的 taxonomy 既不是同一个 `taxonomyId`，也不是结构等价的标签体系，后端返回 `taxonomy-mismatch`。
 
 ## Review
 
@@ -16,13 +16,13 @@
 - cleaned JSONL：清洗阶段去除空内容、非法 JSON、HTML 噪声、平台占位评价和精确重复；如果内容是“此用户未及时填写评价内容 | [追评]: ...”，只剥掉占位前缀并保留真实追评。`POST /api/v1/reviews/clean-jsonl` 输出 `cleaned_reviews_<productCode>.jsonl`、`removed_reviews_<productCode>.jsonl`、`cleaning_summary_<productCode>.json` 和 sample，摘要含 `placeholderContentCount`，handoff 为 `READY_FOR_TAXONOMY_BINDING`。这个步骤不写数据库。
 - `reviews_raw`：清洗后的评论导入数据库后进入分析主链路。当前前端显式导入数据库时优先使用 `cleanedOutputPath`，后端收到 `cleaned_reviews_*.jsonl` 时直接读取 cleaned 文件和同目录 summary 入库，不再重复清洗 raw JSONL；但启动 LLM 分析时如果数据库已经有该商品评论，前端会复用现有 `reviews_raw`，不会为了启动分析再次覆盖导入 cleaned JSONL。
 
-当前代码没有找到 `POST /api/v1/demo-data/init` controller。真实外部评论同步和导入入口已经存在，当前前端通过 `GET /api/v1/reviews/jsonl-files` 自动识别 `crawler/output` 下的 raw JSONL，并把候选选择、手动路径兜底、商品名称、raw/cleaned JSONL 文件反馈、已保存 taxonomy 选择与绑定、数据库导入和异步分析启动放在 `ProductSetupPanel` 中。UX 标签编辑不再挤在数据接入页内，而是在左侧同级业务模块 `taxonomy` 中完成。前端主流程不再负责启动爬虫。
+当前代码没有找到 `POST /api/v1/demo-data/init` controller。真实外部评论同步和导入入口已经存在，当前前端通过 `GET /api/v1/reviews/jsonl-files` 自动识别 `crawler/output` 下的 raw JSONL，并把候选选择、手动路径兜底、商品名称、raw/cleaned JSONL 文件反馈、已保存 taxonomy 选择与绑定、数据库导入和异步分析启动放在 `ProductSetupPanel` 中。`ProductSetupPanel` 还会读取数据库商品历史，选择历史商品只切换当前看板展示对象，不会重新导入或重新分析；真正重新导入仍必须点击导入数据库。UX 标签编辑不再挤在数据接入页内，而是在左侧同级业务模块 `taxonomy` 中完成。前端主流程不再负责启动爬虫。
 
 刷新页面后的进度恢复由 `GET /api/v1/reviews/intake-status` 提供。该接口按 `productCode` 和可选 `inputPath` 汇总 raw/cleaned 文件是否存在、清洗摘要、taxonomy 是否已绑定、数据库已导入评论数、已物化分析评论数、最新 LLM analysis job，以及默认最近 10 条评论。前端数据接入页优先用这个台账显示每一步状态，而不是只靠按钮亮/灭或本次点击返回值。
 
 ## Taxonomy Binding
 
-UX 标签不由爬虫或前端自动决定。左侧独立 `taxonomy` 模块负责编辑和保存可复用 taxonomy，包括 taxonomy 名称、商品品类、UX 一级标签和 UX 二级标签。保存成功后，这套 taxonomy 会出现在数据接入页“商品品类”下拉框中；数据接入页只负责选择一个已保存 taxonomy、只读预览标签树，并绑定到当前商品，不再提供内联 UX 标签编辑。后端在同步 `POST /api/v1/analysis/start` 或异步 `POST /api/v1/analysis/jobs` 分析时读取当前 `productCode` 绑定的 taxonomy，把它作为 NLP/规则分析的候选标签体系。`clean-jsonl` 完成后返回 `READY_FOR_TAXONOMY_BINDING`，表示下一步应先绑定 taxonomy；分析后如果更换 taxonomy，需要重新分析。
+UX 标签不由爬虫或前端自动决定。左侧独立 `taxonomy` 模块负责编辑和保存可复用 taxonomy，包括 taxonomy 名称、商品品类、UX 一级标签和 UX 二级标签。保存成功后，这套 taxonomy 会出现在数据接入页 taxonomy 下拉框中；数据接入页只负责选择一个已保存 taxonomy、只读预览标签树，并绑定到当前商品，不再提供内联 UX 标签编辑。`GET /api/v1/taxonomies` 只返回每个 taxonomy 系列的当前 active 版本；默认 taxonomy 只保留一个当前候选，历史重复默认项会被置为 inactive。`GET /api/v1/products/{productCode}/taxonomy` 只读取绑定或默认候选，不会偷偷写入绑定；绑定动作必须走 `PUT /api/v1/products/{productCode}/taxonomy`。前端在接口失败或 taxonomy 没有有效标签时不会生成默认 UX 草稿。后端在同步 `POST /api/v1/analysis/start` 或异步 `POST /api/v1/analysis/jobs` 分析时读取当前 `productCode` 绑定的 taxonomy，把它作为 NLP/规则分析的候选标签体系。`clean-jsonl` 完成后返回 `READY_FOR_TAXONOMY_BINDING`，表示下一步应先绑定 taxonomy；分析后如果更换 taxonomy，需要重新分析。
 
 ## Aspect
 
@@ -55,11 +55,11 @@ UX 标签不由爬虫或前端自动决定。左侧独立 `taxonomy` 模块负�
 当前主流程分四步：
 
 1. `POST /api/v1/reviews/clean-jsonl`：只读取 raw JSONL，执行清洗、去重、占位评价处理，写入 `crawler/output/cleaned/`，返回 cleaned/removed/summary/sample 和 handoff `READY_FOR_TAXONOMY_BINDING`，不写 `products`、`reviews_raw`、`sync_jobs`、`data_quality_runs`。
-2. 绑定 taxonomy：先在左侧 `taxonomy` 模块维护并保存标签体系，再回到数据接入页从“商品品类”下拉框选择已保存 taxonomy，预览后绑定到当前商品。
+2. 绑定 taxonomy：先在左侧 `taxonomy` 模块维护并保存标签体系，再回到数据接入页从 taxonomy 下拉框选择已保存 taxonomy，预览后绑定到当前商品。
 3. 导入数据库：用户执行导入动作时，前端只有在 cleaned 文件实际存在时才把 `cleanedOutputPath` 传给 `POST /api/v1/reviews/import-jsonl`；此时请求会带 `replaceExisting=true`。后端会先检查同商品是否有 `QUEUED`/`RUNNING` 的 LLM 分析任务；如果有，会拒绝覆盖导入，防止把正在分析任务持有的旧 `reviews_raw.id` 删除；如果没有，才清空该商品旧物化输出并删除旧本地 JSONL 评论，再直接读取 cleaned JSONL 并复用同目录 cleaning summary，形成新的 `products` 和 `reviews_raw`。如果用户跳过清洗直接传 raw JSONL，该接口仍兼容旧流程，会先清洗再入库。
 4. `POST /api/v1/analysis/jobs`：启动异步 LLM 分析；如果 `intake-status.importedReviewCount > 0`，前端直接复用现有入库评论，不再自动覆盖导入 cleaned JSONL。之后用 `GET /api/v1/analysis/jobs/{id}` 轮询；每批 LLM 结果写入数据库后都会更新物化计数，前端看到 `downstreamReady=true` 或物化计数增长时就刷新下游图表。
 
-贯穿四步的状态接口是 `GET /api/v1/reviews/intake-status`：前端加载、清洗、绑定、导入、启动分析和轮询期间都会刷新它。它让用户看到每一步的数据情况：文件路径、文件是否存在、清洗数量、入库数量、已分析数量、`downstreamReady`、最新任务状态，以及最近评论列表（默认 10 条）。如果刷新页面后数据库已有评论，前端可复用该台账继续启动 LLM 分析；只有用户明确执行导入数据库动作时，才会用 cleaned JSONL 覆盖旧评论，避免下游图表继续读未清洗数据。
+贯穿四步的状态接口是 `GET /api/v1/reviews/intake-status`：前端加载、清洗、绑定、导入、启动分析和轮询期间都会刷新它。它让用户看到每一步的数据情况：文件路径、文件是否存在、清洗数量、入库数量、已分析数量、`downstreamReady`、最新任务状态，以及最近评论列表（默认 10 条）。商品历史接口是 `GET /api/v1/reviews/imported-products`，只负责列出已入库商品供切换当前展示，不承担清洗、导入或分析。选择历史商品后，前端会立刻用该商品编号重新读取下游图表；如果刷新页面后数据库已有评论，前端可复用该台账继续启动 LLM 分析；只有用户明确执行导入数据库动作时，才会用 cleaned JSONL 覆盖旧评论，避免下游图表继续读未清洗数据。
 
 Docker Compose 后端通过 `./crawler/output:/app/crawler/output` 挂载读取宿主机生成的 JSONL。
 

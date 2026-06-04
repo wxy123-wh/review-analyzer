@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -104,6 +105,47 @@ class PersistenceIntegrationTest {
         long firstJobId = analyzeAndReadJobId(productCode);
         long secondJobId = analyzeAndReadJobId(productCode);
         assertNotEquals(firstJobId, secondJobId);
+    }
+
+    @Test
+    void taxonomyListShouldExposeOnlyCurrentDefaultTaxonomy() throws Exception {
+        MvcResult initialResult = mockMvc.perform(get("/api/v1/taxonomies"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("默认通用 UX 标签"))
+                .andExpect(jsonPath("$[0].productCategory").value("general-product"))
+                .andReturn();
+
+        int defaultTaxonomyId = JsonPath.read(initialResult.getResponse().getContentAsString(), "$[0].taxonomyId");
+        for (int i = 0; i < 2; i++) {
+            MvcResult updatedResult = mockMvc.perform(put("/api/v1/taxonomies/{id}", defaultTaxonomyId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "name": "默认通用 UX 标签",
+                                      "productCategory": "general-product",
+                                      "primaryLabels": [
+                                        {
+                                          "labelName": "产品体验",
+                                          "secondaryLabels": [
+                                            {
+                                              "labelName": "质量与性能",
+                                              "enabled": true
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                    """))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            defaultTaxonomyId = JsonPath.read(updatedResult.getResponse().getContentAsString(), "$.taxonomyId");
+        }
+
+        mockMvc.perform(get("/api/v1/taxonomies"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == '默认通用 UX 标签')]").value(org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$[0].taxonomyId").value(defaultTaxonomyId));
+        assertEquals(1L, countActiveDefaultTaxonomies());
     }
 
     @Test
@@ -247,6 +289,26 @@ class PersistenceIntegrationTest {
                 """, productCode) >= 1L);
         assertEquals("OPPO Enco Free4", productNameForProduct(productCode));
         assertEquals(0L, countForProductContent(productCode, "此用户未及时填写评价内容"));
+    }
+
+    @Test
+    void importedProductHistoryShouldListDatabaseImportedProducts() throws Exception {
+        String firstProductCode = "jd-history-a-" + UUID.randomUUID().toString().substring(0, 8);
+        String secondProductCode = "jd-history-b-" + UUID.randomUUID().toString().substring(0, 8);
+        importManualJsonlProduct(firstProductCode, "小米 Xiaomi Buds 5", "蓝牙连接稳定，佩戴舒服。");
+        importManualJsonlProduct(secondProductCode, "OPPO Enco Free4", "风噪处理一般，通勤还能接受。");
+
+        MvcResult result = mockMvc.perform(get("/api/v1/reviews/imported-products").queryParam("limit", "20"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(body.contains(firstProductCode));
+        assertTrue(body.contains("小米 Xiaomi Buds 5"));
+        assertTrue(body.contains(secondProductCode));
+        assertTrue(body.contains("OPPO Enco Free4"));
+        assertTrue(body.contains("\"importedReviewCount\":1"));
+        assertTrue(body.contains("\"taxonomyBound\":false"));
     }
 
     @Test
@@ -675,6 +737,49 @@ class PersistenceIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, productCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                return rs.getLong(1);
+            }
+        }
+    }
+
+    private void importManualJsonlProduct(String productCode, String productName, String content) throws Exception {
+        Path rawJsonl = Files.createTempFile("manual-history-raw-reviews-" + productCode, ".jsonl");
+        Files.writeString(
+                rawJsonl,
+                """
+                {"source":"jd","sourceReviewId":"%s-1","productCode":"%s","productName":"%s","rating":5,"content":"%s","reviewTime":"2026-06-01 10:20:00"}
+                """.formatted(productCode, productCode, productName, content),
+                StandardCharsets.UTF_8
+        );
+        String inputPath = rawJsonl.toString().replace("\\", "\\\\");
+
+        mockMvc.perform(post("/api/v1/reviews/import-jsonl")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productCode": "%s",
+                                  "productName": "%s",
+                                  "platform": "jd",
+                                  "inputPath": "%s"
+                                }
+                                """.formatted(productCode, productName, inputPath)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.productCode").value(productCode))
+                .andExpect(jsonPath("$.productName").value(productName))
+                .andExpect(jsonPath("$.totalReviewCount").value(1));
+    }
+
+    private long countActiveDefaultTaxonomies() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement("""
+                     SELECT COUNT(*)
+                     FROM ux_taxonomies
+                     WHERE active = TRUE
+                       AND name = '默认通用 UX 标签'
+                       AND product_category IN ('general-product', 'general')
+                     """)) {
             try (ResultSet rs = ps.executeQuery()) {
                 assertTrue(rs.next());
                 return rs.getLong(1);

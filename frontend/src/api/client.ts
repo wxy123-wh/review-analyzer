@@ -19,6 +19,7 @@ import type {
   JsonlFileImportPayload,
   PositiveInsightItem,
   PositiveInsightResponse,
+  ProductHistoryItem,
   ReviewIntakeStatusResponse,
   ProductTaxonomyPayload,
   ProductTaxonomyResponse,
@@ -326,12 +327,12 @@ function normalizeUxLabelOption(rawLabel: unknown, index: number): UxLabelOption
 
 export function normalizeUxLabelOptions(rawLabels: unknown): UxLabelOption[] {
   if (!Array.isArray(rawLabels)) {
-    return DEFAULT_UX_LABELS
+    return []
   }
   const labels = rawLabels
     .map((label, index) => normalizeUxLabelOption(label, index))
     .filter((label): label is UxLabelOption => label !== null)
-  return labels.length > 0 ? labels : DEFAULT_UX_LABELS
+  return labels
 }
 
 function normalizeCollectionState(
@@ -566,9 +567,9 @@ function normalizeTaxonomyRecord(rawTaxonomy: unknown, fallbackProductCode: stri
     name: normalizeNotice(taxonomy.name),
     productCode: fallbackProductCode,
     category: normalizeText(taxonomy.productCategory) || fallbackCategory,
-    labels: labels.length > 0 ? labels : DEFAULT_UX_LABELS,
+    labels,
     state: labels.length > 0 ? 'success' : 'degraded',
-    notice: labels.length > 0 ? undefined : '当前 taxonomy 暂无有效标签，已回退到通用 UX 标签草稿。',
+    notice: labels.length > 0 ? undefined : '当前 taxonomy 暂无有效 UX 标签，请先在 taxonomy 模块补齐后再绑定。',
   }
 }
 
@@ -669,6 +670,35 @@ function normalizeJsonlFileCandidates(rawItems: unknown): JsonlFileCandidate[] {
       }
     })
     .filter((item): item is JsonlFileCandidate => item !== null)
+}
+
+function normalizeImportedProducts(rawItems: unknown): ProductHistoryItem[] {
+  if (!Array.isArray(rawItems)) {
+    return []
+  }
+  return rawItems
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) {
+        return null
+      }
+      const record = item as Record<string, unknown>
+      const productCode = normalizeText(record.productCode)
+      if (!productCode) {
+        return null
+      }
+      return {
+        productCode,
+        productName: normalizeNotice(record.productName),
+        importedReviewCount: normalizeNumber(record.importedReviewCount) ?? 0,
+        analyzedReviewCount: normalizeNumber(record.analyzedReviewCount) ?? 0,
+        downstreamReady: record.downstreamReady === true,
+        taxonomyBound: record.taxonomyBound === true,
+        latestAnalysisStatus: normalizeNotice(record.latestAnalysisStatus),
+        latestImportedAt: normalizeNotice(record.latestImportedAt),
+        createdAt: normalizeNotice(record.createdAt),
+      }
+    })
+    .filter((item): item is ProductHistoryItem => item !== null)
 }
 
 function normalizeCrawlJob(payload: unknown, fallbackProductCode: string): CrawlJobResponse {
@@ -799,6 +829,15 @@ export async function fetchProductTaxonomy(
     try {
       const response = await apiClient.get('/api/v1/taxonomies')
       const taxonomies = Array.isArray(response.data) ? response.data : []
+      if (taxonomies.length === 0) {
+        return {
+          productCode,
+          category,
+          labels: [],
+          state: 'empty',
+          notice: '暂无可选 taxonomy，请先在 taxonomy 模块创建。',
+        }
+      }
       const matched = taxonomies.find((item) => {
         if (typeof item !== 'object' || item === null) {
           return false
@@ -811,9 +850,9 @@ export async function fetchProductTaxonomy(
       return {
         productCode,
         category,
-        labels: DEFAULT_UX_LABELS,
-        state: 'degraded',
-        notice: '标签配置接口暂不可用，当前使用前端通用 UX 标签草稿。',
+        labels: [],
+        state: 'error',
+        notice: '标签配置接口暂不可用，请检查后端服务后重新读取 taxonomy。',
       }
     }
   }
@@ -869,15 +908,7 @@ export async function fetchTaxonomies(productCode = DEFAULT_PRODUCT_CODE): Promi
       })
       .filter((item) => item.taxonomyId !== undefined)
   } catch {
-    return [
-      {
-        productCode,
-        category: 'general-product',
-        labels: DEFAULT_UX_LABELS,
-        state: 'degraded',
-        notice: '标签配置接口暂不可用，当前使用前端通用 UX 标签草稿。',
-      },
-    ]
+    return []
   }
 }
 
@@ -1086,6 +1117,38 @@ export async function fetchJsonlFiles(): Promise<JsonlFileCandidate[]> {
 
   const response = await apiClient.get('/api/v1/reviews/jsonl-files')
   return normalizeJsonlFileCandidates(response.data)
+}
+
+export async function fetchImportedProducts(limit = 50): Promise<ProductHistoryItem[]> {
+  if (isTestMode) {
+    return [
+      {
+        productCode: DEFAULT_PRODUCT_CODE,
+        productName: '小米 Xiaomi Buds 5',
+        importedReviewCount: 746,
+        analyzedReviewCount: 746,
+        downstreamReady: true,
+        taxonomyBound: true,
+        latestAnalysisStatus: 'SUCCEEDED',
+        latestImportedAt: '2026-06-04T01:00:00Z',
+      },
+      {
+        productCode: 'jd-new-product',
+        productName: '小米 Buds 5 Pro',
+        importedReviewCount: 126,
+        analyzedReviewCount: 80,
+        downstreamReady: false,
+        taxonomyBound: true,
+        latestAnalysisStatus: 'RUNNING',
+        latestImportedAt: '2026-06-03T00:06:00Z',
+      },
+    ].slice(0, Math.max(1, limit))
+  }
+
+  const response = await apiClient.get('/api/v1/reviews/imported-products', {
+    params: { limit },
+  })
+  return normalizeImportedProducts(response.data)
 }
 
 export async function fetchReviewIntakeStatus(

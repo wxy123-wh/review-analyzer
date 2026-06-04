@@ -5,6 +5,7 @@ const clientMocks = vi.hoisted(() => ({
   bindProductTaxonomy: vi.fn(),
   cleanJsonlFile: vi.fn(),
   fetchAnalysisJob: vi.fn(),
+  fetchImportedProducts: vi.fn(),
   fetchJsonlFiles: vi.fn(),
   fetchProductTaxonomy: vi.fn(),
   fetchReviewIntakeStatus: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('../api/client', () => ({
   bindProductTaxonomy: clientMocks.bindProductTaxonomy,
   cleanJsonlFile: clientMocks.cleanJsonlFile,
   fetchAnalysisJob: clientMocks.fetchAnalysisJob,
+  fetchImportedProducts: clientMocks.fetchImportedProducts,
   fetchJsonlFiles: clientMocks.fetchJsonlFiles,
   fetchProductTaxonomy: clientMocks.fetchProductTaxonomy,
   fetchReviewIntakeStatus: clientMocks.fetchReviewIntakeStatus,
@@ -123,6 +125,26 @@ async function mountSetupPanel() {
 describe('ProductSetupPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    clientMocks.fetchImportedProducts.mockResolvedValue([
+      {
+        productCode: 'jd-100127936932',
+        productName: '小米 Xiaomi Buds 5',
+        importedReviewCount: 746,
+        analyzedReviewCount: 746,
+        downstreamReady: true,
+        taxonomyBound: true,
+        latestAnalysisStatus: 'SUCCEEDED',
+      },
+      {
+        productCode: 'jd-new-product',
+        productName: '小米 Buds 5 Pro',
+        importedReviewCount: 126,
+        analyzedReviewCount: 80,
+        downstreamReady: false,
+        taxonomyBound: true,
+        latestAnalysisStatus: 'RUNNING',
+      },
+    ])
     clientMocks.fetchJsonlFiles.mockResolvedValue([
       {
         path: 'crawler/output/raw_reviews_jd-100127936932.jsonl',
@@ -334,6 +356,24 @@ describe('ProductSetupPanel', () => {
     expect(wrapper.get('[data-testid="setup-analysis-progress"]').text()).toContain('62%')
     expect(wrapper.findAll('[data-testid="setup-recent-reviews"] li')).toHaveLength(10)
     expect(wrapper.text()).toContain('10 / 10 条')
+  })
+
+  it('selects an imported product history item for dashboard display', async () => {
+    const wrapper = await mountSetupPanel()
+
+    await wrapper.get('[data-testid="setup-product-history"]').setValue('jd-100127936932')
+    await wrapper.get('[data-testid="setup-show-product"]').trigger('click')
+    await flushPromises()
+
+    expect(clientMocks.fetchReviewIntakeStatus).toHaveBeenLastCalledWith(
+      'jd-100127936932',
+      'crawler/output/raw_reviews_jd-100127936932.jsonl',
+    )
+    expect(wrapper.emitted('product-selected')?.[0]?.[0]).toMatchObject({
+      productCode: 'jd-100127936932',
+      productName: '小米 Xiaomi Buds 5',
+    })
+    expect(wrapper.text()).toContain('已切换当前展示商品')
   })
 
   it('switches between setup steps inside the panel', async () => {

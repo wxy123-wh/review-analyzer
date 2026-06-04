@@ -12,58 +12,72 @@
       <AppShellSidebar :items="modules" :active-module="activeModule" @select="activateModule($event as ModuleId)" />
     </template>
 
-    <section class="module-card" data-motion-reveal style="--motion-delay: 120ms">
-      <ProductSetupPanel v-if="activeModule === 'product-setup'" @analysis-ready="handleProductAnalysisReady" />
-      <TaxonomyManagerPanel v-else-if="activeModule === 'taxonomy'" />
-      <IssueTable v-else-if="activeModule === 'issues'" :items="issues" :state="issueState" :message="issueMessage" />
-      <PositiveInsightPanel
-        v-else-if="activeModule === 'positive-insights'"
-        :items="positiveInsights"
-        :state="positiveInsightState"
-        :message="positiveInsightMessage"
-      />
-      <CompareTable
-        v-else-if="activeModule === 'compare'"
-        :items="compareItems"
-        :state="compareState"
-        :message="compareMessage"
-        :product-code="compareProductCode"
-        :product-name="compareProductName"
-        :comparison-product-code="compareComparisonProductCode"
-        :comparison-product-name="compareComparisonProductName"
-        @compare="runCompare"
-      />
-      <TrendList
-        v-else-if="activeModule === 'trends'"
-        :series="trendSeries"
-        :state="trendState"
-        :message="trendMessage"
-        @retry="reloadTrendData"
-      />
-      <WordCloudPanel
-        v-else-if="activeModule === 'wordcloud'"
-        :aspect="wordCloudAspect"
-        :ux-secondary-label="wordCloudUxSecondaryLabel"
-        :items="wordCloudItems"
-        :state="wordCloudState"
-        :message="wordCloudMessage"
-        :notice="wordCloudNotice"
-        @retry="reloadWordCloudData"
-      />
-      <UxChangeComparisonPanel
-        v-else-if="activeModule === 'ux-change-comparisons'"
-        :product-code="uxChangeProductCode"
-        :product-name="uxChangeProductName"
-        :history-items="uxChangeHistory"
-        :active-record="uxChangeActiveRecord"
-        :state="uxChangeState"
-        :message="uxChangeMessage"
-        :submitting="uxChangeSubmitting"
-        @create="createUxChangeRecord"
-        @refresh="loadUxChangeHistory"
-        @select="loadUxChangeDetail"
-      />
-    </section>
+    <div class="content-stack">
+      <section class="current-product-bar" data-testid="current-product-bar" data-motion-reveal style="--motion-delay: 80ms">
+        <div>
+          <span>当前展示商品</span>
+          <strong>{{ currentProductDisplayName }}</strong>
+        </div>
+        <small>{{ currentProductMeta }}</small>
+      </section>
+
+      <section class="module-card" data-motion-reveal style="--motion-delay: 120ms">
+        <ProductSetupPanel
+          v-if="activeModule === 'product-setup'"
+          @analysis-ready="handleProductAnalysisReady"
+          @product-selected="handleProductSelected"
+        />
+        <TaxonomyManagerPanel v-else-if="activeModule === 'taxonomy'" />
+        <IssueTable v-else-if="activeModule === 'issues'" :items="issues" :state="issueState" :message="issueMessage" />
+        <PositiveInsightPanel
+          v-else-if="activeModule === 'positive-insights'"
+          :items="positiveInsights"
+          :state="positiveInsightState"
+          :message="positiveInsightMessage"
+        />
+        <CompareTable
+          v-else-if="activeModule === 'compare'"
+          :items="compareItems"
+          :state="compareState"
+          :message="compareMessage"
+          :product-code="compareProductCode"
+          :product-name="compareProductName"
+          :comparison-product-code="compareComparisonProductCode"
+          :comparison-product-name="compareComparisonProductName"
+          @compare="runCompare"
+        />
+        <TrendList
+          v-else-if="activeModule === 'trends'"
+          :series="trendSeries"
+          :state="trendState"
+          :message="trendMessage"
+          @retry="reloadTrendData"
+        />
+        <WordCloudPanel
+          v-else-if="activeModule === 'wordcloud'"
+          :aspect="wordCloudAspect"
+          :ux-secondary-label="wordCloudUxSecondaryLabel"
+          :items="wordCloudItems"
+          :state="wordCloudState"
+          :message="wordCloudMessage"
+          :notice="wordCloudNotice"
+          @retry="reloadWordCloudData"
+        />
+        <UxChangeComparisonPanel
+          v-else-if="activeModule === 'ux-change-comparisons'"
+          :product-code="uxChangeProductCode"
+          :product-name="uxChangeProductName"
+          :history-items="uxChangeHistory"
+          :active-record="uxChangeActiveRecord"
+          :state="uxChangeState"
+          :message="uxChangeMessage"
+          :submitting="uxChangeSubmitting"
+          @create="createUxChangeRecord"
+          @refresh="loadUxChangeHistory"
+          @select="loadUxChangeDetail"
+        />
+      </section>
+    </div>
   </AppShellFrame>
 </template>
 
@@ -103,6 +117,7 @@ import type {
   IssueItem,
   IssueResponse,
   ProductAnalysisReadyPayload,
+  ProductHistoryItem,
   ProductTaxonomyResponse,
   PositiveInsightItem,
   PositiveInsightResponse,
@@ -160,6 +175,14 @@ const fallbackTrendLabels: UxLabelOption[] = [
 ]
 
 const modules = computed(() => moduleContracts)
+const currentProductDisplayName = computed(() => activeProductName.value.trim() || activeProductCode.value)
+const currentProductMeta = computed(() => {
+  const name = activeProductName.value.trim()
+  if (name && name !== activeProductCode.value) {
+    return `商品编号 ${activeProductCode.value}`
+  }
+  return '商品名称未识别，可在数据接入页补充后重新导入'
+})
 
 const isAuthenticated = ref(false)
 const activeModule = ref<ModuleId>('product-setup')
@@ -494,19 +517,32 @@ async function loadDashboard(productCode = activeProductCode.value, options: Das
 async function handleProductAnalysisReady(payload: ProductAnalysisReadyPayload): Promise<void> {
   const productCode = normalizeProductCode(payload.productCode || payload.analysisJob.productCode || payload.importResult.productCode)
   const productName = payload.productName?.trim() || payload.importResult.productName?.trim() || ''
-  compareProductCode.value = productCode
+  await switchActiveProduct(productCode, productName)
+}
+
+async function handleProductSelected(payload: ProductHistoryItem): Promise<void> {
+  await switchActiveProduct(payload.productCode, payload.productName?.trim() || '')
+}
+
+async function switchActiveProduct(productCode: string, productName: string): Promise<void> {
+  const normalizedProductCode = normalizeProductCode(productCode)
+  activeProductCode.value = normalizedProductCode
+  compareProductCode.value = normalizedProductCode
   compareProductName.value = productName
-  uxChangeProductCode.value = productCode
+  uxChangeProductCode.value = normalizedProductCode
   uxChangeProductName.value = productName
   activeProductName.value = productName
+  compareItems.value = []
+  compareState.value = 'idle'
+  compareMessage.value = ''
   uxChangeHistory.value = []
   uxChangeActiveRecord.value = null
   uxChangeState.value = 'idle'
   uxChangeMessage.value = ''
 
-  await loadDashboard(productCode, { includeWordCloud: true })
+  await loadDashboard(normalizedProductCode, { includeWordCloud: true })
   if (activeModule.value === 'ux-change-comparisons') {
-    await loadUxChangeHistory(productCode)
+    await loadUxChangeHistory(normalizedProductCode)
   }
 }
 
@@ -597,6 +633,57 @@ async function loadUxChangeDetail(id: string): Promise<void> {
 </script>
 
 <style scoped>
+.content-stack {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.current-product-bar {
+  position: relative;
+  z-index: var(--z-raised);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-panel);
+}
+
+.current-product-bar div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.current-product-bar span,
+.current-product-bar small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+}
+
+.current-product-bar strong {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-product-bar small {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+}
+
 .module-card {
   position: relative;
   overflow: hidden;
@@ -630,6 +717,19 @@ async function loadUxChangeDetail(id: string): Promise<void> {
 }
 
 @media (max-width: 720px) {
+  .content-stack {
+    height: auto;
+  }
+
+  .current-product-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .current-product-bar small {
+    text-align: left;
+  }
+
   .module-card {
     padding: var(--space-3);
     overflow: visible;

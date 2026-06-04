@@ -202,7 +202,7 @@ async function saveTaxonomy(): Promise<void> {
       ...taxonomies.value.filter((item) => taxonomyOptionKey(item) !== taxonomyOptionKey(saved)),
     ]
     selectTaxonomy(saved)
-    showMessage('taxonomy 已保存。回到数据接入页后，商品品类下拉框可以选择它。')
+    showMessage('taxonomy 已保存。回到数据接入页后，可以在 taxonomy 下拉框选择它。')
   } catch {
     showMessage('保存 taxonomy 失败，请检查后端接口。', 'error')
   } finally {

@@ -1,5 +1,6 @@
 package review.backend.api;
 
+import review.backend.api.dto.ImportedProductHistoryItem;
 import review.backend.api.dto.ReviewImportRequest;
 import review.backend.api.dto.ReviewImportResponse;
 import review.backend.api.dto.ReviewIntakeStatusResponse;
@@ -44,6 +45,13 @@ public class ReviewImportController {
     @GetMapping("/jsonl-files")
     public ResponseEntity<List<ReviewJsonlFileCandidate>> listJsonlFiles() {
         return ResponseEntity.ok(reviewImportService.discoverJsonlFiles());
+    }
+
+    @GetMapping("/imported-products")
+    public ResponseEntity<List<ImportedProductHistoryItem>> listImportedProducts(
+            @RequestParam(value = "limit", required = false, defaultValue = "50") int limit
+    ) {
+        return ResponseEntity.ok(reviewIntakeStatusService.importedProducts(limit));
     }
 
     @GetMapping("/intake-status")

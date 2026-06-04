@@ -2,6 +2,7 @@ package review.backend.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import review.backend.api.dto.ImportedProductHistoryItem;
 import review.backend.api.dto.AnalysisJobResponse;
 import review.backend.api.dto.CrawlReviewSample;
 import review.backend.api.dto.ReviewIntakeStatusResponse;
@@ -99,6 +100,10 @@ public class ReviewIntakeStatusService {
                 stage(cleanedExists, taxonomy.isPresent(), importedReviewCount, analyzedReviewCount, downstreamReady, latestJob),
                 notice(cleanedExists, taxonomy.isPresent(), importedReviewCount, analyzedReviewCount, downstreamReady, latestJob)
         );
+    }
+
+    public List<ImportedProductHistoryItem> importedProducts(int limit) {
+        return productRepository.findImportedProductHistory(limit);
     }
 
     private Path resolveInputPath(String productCode, String inputPath) {

@@ -22,6 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class TaxonomyRepository {
 
+    private static final String DEFAULT_TAXONOMY_NAME = "默认通用 UX 标签";
+    private static final String DEFAULT_PRODUCT_CATEGORY = "general-product";
+    private static final String LEGACY_DEFAULT_PRODUCT_CATEGORY = "general";
+
     private final JdbcTemplate jdbcTemplate;
     private final SimpleJdbcInsert insertTaxonomy;
     private final SimpleJdbcInsert insertPrimaryLabel;
@@ -55,10 +59,36 @@ public class TaxonomyRepository {
         return jdbcTemplate.query(
                 """
                 SELECT id
-                FROM ux_taxonomies
-                ORDER BY active DESC, product_category ASC, name ASC, version DESC, id ASC
+                FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY CASE
+                                   WHEN name = ? AND product_category IN (?, ?) THEN ?
+                                   ELSE product_category || ':' || name
+                               END
+                               ORDER BY CASE
+                                   WHEN name = ? AND product_category = ? THEN 0
+                                   WHEN name = ? AND product_category = ? THEN 1
+                                   ELSE 2
+                               END ASC,
+                               version DESC,
+                               id DESC
+                           ) AS taxonomy_rank
+                    FROM ux_taxonomies
+                    WHERE active = TRUE
+                ) ranked_taxonomies
+                WHERE taxonomy_rank = 1
+                ORDER BY id ASC
                 """,
-                (rs, rowNum) -> rs.getLong("id")
+                (rs, rowNum) -> rs.getLong("id"),
+                DEFAULT_TAXONOMY_NAME,
+                DEFAULT_PRODUCT_CATEGORY,
+                LEGACY_DEFAULT_PRODUCT_CATEGORY,
+                DEFAULT_TAXONOMY_NAME,
+                DEFAULT_TAXONOMY_NAME,
+                DEFAULT_PRODUCT_CATEGORY,
+                DEFAULT_TAXONOMY_NAME,
+                LEGACY_DEFAULT_PRODUCT_CATEGORY
         ).stream()
                 .map(this::findById)
                 .flatMap(Optional::stream)
@@ -116,11 +146,19 @@ public class TaxonomyRepository {
                 """
                 SELECT id
                 FROM ux_taxonomies
-                WHERE product_category = 'general'
-                ORDER BY version DESC, id ASC
+                WHERE active = TRUE
+                  AND name = ?
+                  AND product_category IN (?, ?)
+                ORDER BY CASE WHEN product_category = ? THEN 0 ELSE 1 END ASC,
+                         version DESC,
+                         id DESC
                 LIMIT 1
                 """,
-                (rs, rowNum) -> rs.getLong("id")
+                (rs, rowNum) -> rs.getLong("id"),
+                DEFAULT_TAXONOMY_NAME,
+                DEFAULT_PRODUCT_CATEGORY,
+                LEGACY_DEFAULT_PRODUCT_CATEGORY,
+                DEFAULT_PRODUCT_CATEGORY
         );
         if (ids.isEmpty()) {
             return Optional.empty();
@@ -135,6 +173,7 @@ public class TaxonomyRepository {
             int version,
             List<PrimaryLabelDraft> primaryLabels
     ) {
+        deactivateCurrentVersion(name, productCategory);
         Number taxonomyKey = insertTaxonomy.executeAndReturnKey(Map.of(
                 "name", name,
                 "product_category", productCategory,
@@ -165,6 +204,37 @@ public class TaxonomyRepository {
         }
         return findById(taxonomyId)
                 .orElseThrow(() -> new IllegalStateException("taxonomy insert succeeded but row was not found"));
+    }
+
+    public void deactivateDuplicateDefaults(long activeTaxonomyId) {
+        jdbcTemplate.update(
+                """
+                UPDATE ux_taxonomies
+                SET active = FALSE
+                WHERE active = TRUE
+                  AND name = ?
+                  AND product_category IN (?, ?)
+                  AND id <> ?
+                """,
+                DEFAULT_TAXONOMY_NAME,
+                DEFAULT_PRODUCT_CATEGORY,
+                LEGACY_DEFAULT_PRODUCT_CATEGORY,
+                activeTaxonomyId
+        );
+    }
+
+    private void deactivateCurrentVersion(String name, String productCategory) {
+        jdbcTemplate.update(
+                """
+                UPDATE ux_taxonomies
+                SET active = FALSE
+                WHERE active = TRUE
+                  AND name = ?
+                  AND product_category = ?
+                """,
+                name,
+                productCategory
+        );
     }
 
     @Transactional
