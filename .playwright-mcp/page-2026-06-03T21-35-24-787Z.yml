@@ -1,0 +1,48 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 内部访问
+      - heading "进入评论 VOC 分析工作台。" [level=1] [ref=e7]
+      - paragraph [ref=e8]: 使用访问凭据进入工作台，查看评论接入、问题聚合、趋势词云和产品改进验证结果。
+    - generic [ref=e10]:
+      - generic [ref=e11]: 访问反馈
+      - generic [ref=e12]: 输入状态会同步到角色动画
+    - generic [ref=e37]:
+      - article [ref=e38]:
+        - generic [ref=e39]: 访问说明
+        - paragraph [ref=e40]: 输入账号和密码后进入工作台，后续页面只展示业务分析内容。
+      - article [ref=e41]:
+        - generic [ref=e42]: 输入反馈
+        - paragraph [ref=e43]: 账号输入、密码可见性、错误提示和登录状态保持清晰可见。
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e47]: 内部访问
+      - generic [ref=e48]: 环境门禁已启用
+    - generic [ref=e49]:
+      - heading "使用访问凭据进入工作台" [level=2] [ref=e50]
+      - paragraph [ref=e51]: 登录成功后进入评论 VOC 分析工作台。
+    - generic [ref=e52]:
+      - generic [ref=e53]: 访问凭据
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: 账号
+          - strong [ref=e57]: wxy
+        - generic [ref=e58]:
+          - generic [ref=e59]: 密码
+          - strong [ref=e60]: "123456"
+      - paragraph [ref=e61]: 仅供授权用户访问。
+    - generic [ref=e62]:
+      - generic [ref=e63]: 账号
+      - generic [ref=e64]:
+        - img [ref=e66]
+        - textbox "账号" [ref=e69]:
+          - /placeholder: 输入您的账号
+      - generic [ref=e70]: 密码
+      - generic [ref=e71]:
+        - img [ref=e73]
+        - textbox "密码" [ref=e76]:
+          - /placeholder: 输入您的密码
+        - button "切换密码可见性" [ref=e77] [cursor=pointer]:
+          - img [ref=e78]
+      - paragraph [ref=e82]: 请输入访问凭据，登录后进入评论 VOC 分析工作台。
+      - button "登录" [ref=e83] [cursor=pointer]

@@ -36,4 +36,17 @@ public class CrawlController {
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("message", "crawl job not found", "jobId", id)));
     }
+
+    @PostMapping("/jobs/{id}/import")
+    public ResponseEntity<?> importJsonl(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(crawlJobService.cleanAndImport(id));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage(), "jobId", id));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", ex.getMessage(), "jobId", id));
+        }
+    }
 }

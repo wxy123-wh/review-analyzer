@@ -6,6 +6,11 @@ public record CompareItem(
         String uxSecondaryLabel,
         double ourScore,
         double competitorScore,
-        double gap
+        double gap,
+        int ourMentionCount,
+        int competitorMentionCount,
+        double ourNegativeRate,
+        double competitorNegativeRate,
+        double negativeRateGap
 ) {
 }

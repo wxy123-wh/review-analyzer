@@ -74,6 +74,30 @@ Copy-Item .env.example .env
 
 ## 3. 启动
 
+### 3.0 Windows 一键启动
+
+如果你在 Windows 上演示或验收，推荐直接双击根目录：
+
+```text
+start-review-analyzer.bat
+```
+
+这个脚本会自动完成：
+
+- 如果没有 `.env`，从 `.env.example` 复制一份。
+- 用 `docker compose up --build -d` 启动 PostgreSQL、Redis、NLP、后端和前端。
+- 如果检测到 `5175` 已经有前端在运行，会只启动后端、NLP、PostgreSQL 和 Redis，避免端口冲突。
+- 等待后端、NLP 和前端健康检查，并自动打开前端地址。
+- 不会启动 crawler；采集服务由用户需要时单独启动。
+
+默认访问地址和账号：
+
+- 前端看板：`http://localhost:5175`
+- 后端健康：`http://localhost:8080/api/v1/health`
+- NLP 健康：`http://localhost:8000/health`
+- 默认账号：`wxy`
+- 默认密码：`123456`
+
 ### 3.1 开发栈启动
 
 ```bash
@@ -111,7 +135,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 4. 调用 `crawler/import_reviews.py` 或 `POST /api/v1/reviews/import` 把真实评论写入同一个 `productCode`。
 5. 调用 `POST /api/v1/analysis/start` 触发同步分析与结果物化。
 6. 打开前端，通过内部访问门禁进入看板。
-7. 在问题、卖点、对比、趋势图、词云、动作、验证与 showcase 模块查看结果。
+7. 在采集配置、问题、卖点、竞品分析/对比、趋势图、词云和前后对比模块查看结果。
 
 外部来源接入仍是第二轨，主要提供同步透明度、原始评论入库与后续 handoff 准备，不是当前首发必经路径。
 
@@ -274,30 +298,23 @@ curl -X POST http://localhost:8080/api/v1/sync/start \
 - 外部来源链路当前重点是原始评论持久化、状态透明和分析 handoff 准备，不代表已经具备首发级自动化闭环。
 
 ### 4.5 看板已实现模块
-- 总览
+- 采集配置
 - 问题
 - 卖点
-- 对比
+- 竞品分析/对比
 - 趋势图
 - 词云
-- 动作
-- 验证
-- 流水线
-- 智能体
-- 可解释性
-- 报告中心
-- 韧性演练（默认隐藏，需显式开启）
+- 前后对比
 
 ### 4.6 当前范围说明
-- 真实导入数据首发仍是主路径，问题、对比、趋势图、词云、验证与大部分 showcase 语义都围绕真实导入数据分析结果展开。
+- 真实导入数据首发仍是主路径，问题、卖点、竞品分析/对比、趋势图、词云和前后对比都围绕真实导入数据分析结果展开。
 - 数据清洗是保真清洗，只解释数据质量和技术噪声处理，不改变情感分布和评论样本结构。
 - analysis job 现在会在 `POST /api/v1/analysis/start` 内同步经历 `QUEUED -> RUNNING -> SUCCEEDED/FAILED`，并在成功时物化查询结果；若 NLP 不可用或返回无效载荷，会以降级成功方式回退到真实评论本地规则回退。
 - 正面卖点来自 `sentiment=POSITIVE` 且有有效 `uxSecondaryLabel` 的评论聚合，默认好评等评论仍保留在原始数据和情感统计中；如果没有识别到有效 UX 标签，只是不进入卖点候选。
 - 相同 `productCode` 可以重复导入新评论；同一 `source + sourceReviewId` 会更新已有评论。为了避免 UX 标签配置或新评论无法映射到旧结果，分析任务会重新执行并按当前商品绑定的 taxonomy 重新物化。
-- `compare` 现在读取物化后的真实对比数据，不再是静态返回。
-- `showcase/*` 接口已经实现，返回 `implemented=true`，并基于 v1 运行态、物化结果和查询结果给出状态与说明。
-- 可解释性当前是 `LIVE`，解释的是固定权重问题得分拆解，不是模型归因。
-- 韧性演练模块反映最近同步、分析、物化运行态信号，可能因 `VITE_SHOW_CHAOS_MODULE` 被隐藏，也可能在后端无可用信号时显示运行态不可用。
+- `compare` 现在读取两个已分析 `productCode` 的物化结果，不再需要在竞品对比页配置竞品关系；如果两边绑定的 taxonomy 不一致，后端会返回 `taxonomy-mismatch`。
+- `ux-change-comparisons` 会记录一个时间点，并默认取前后一个月窗口，按每个 UX 二级标签计算前后提及量、负面率和改善率；前端也支持两周、三个月和自定义天数窗口。
+- `actions`、`validation` 和 `showcase/*` 后端接口仍保留用于兼容旧测试和旧链路，但当前前端主看板不再展示这些组件。
 - 外部来源 / OneBound 仍是第二轨骨架，强调同步透明度、原始评论落库与 handoff 准备，不承诺自动接入首发主链路。
 
 ## 5. 排障
@@ -385,9 +402,8 @@ mvn -f backend/pom.xml test
 - compare 物化读取与状态语义
 - trends
 - wordcloud
-- actions
-- validation
-- showcase 真实 v1 状态接口
+- ux-change-comparisons 时间点前后 UX 标签变化
+- actions / validation / showcase 后端兼容接口
 
 ### 8.2 frontend
 

@@ -153,7 +153,10 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     analysis_handoff_note TEXT,
     source_url TEXT,
     external_job_id VARCHAR(128),
-    taxonomy_id BIGINT
+    taxonomy_id BIGINT,
+    output_path TEXT,
+    progress_path TEXT,
+    captured_packet_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS analysis_jobs (
@@ -164,7 +167,15 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
     finished_at TIMESTAMPTZ,
     error_message TEXT,
     taxonomy_id BIGINT,
-    taxonomy_version INTEGER
+    taxonomy_version INTEGER,
+    total_review_count INTEGER NOT NULL DEFAULT 0,
+    processed_review_count INTEGER NOT NULL DEFAULT 0,
+    progress_percent INTEGER NOT NULL DEFAULT 0,
+    current_stage VARCHAR(128) NOT NULL DEFAULT '等待开始',
+    materialized_review_count INTEGER NOT NULL DEFAULT 0,
+    semantic_label_count INTEGER NOT NULL DEFAULT 0,
+    issue_cluster_count INTEGER NOT NULL DEFAULT 0,
+    downstream_ready BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS data_quality_runs (
@@ -177,6 +188,19 @@ CREATE TABLE IF NOT EXISTS data_quality_runs (
     exact_duplicate_count INTEGER NOT NULL DEFAULT 0,
     empty_content_count INTEGER NOT NULL DEFAULT 0,
     invalid_json_count INTEGER NOT NULL DEFAULT 0,
+    placeholder_content_count INTEGER NOT NULL DEFAULT 0,
     summary_json TEXT NOT NULL,
     imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ux_change_checkpoints (
+    id BIGSERIAL PRIMARY KEY,
+    product_code VARCHAR(64) NOT NULL,
+    change_date DATE NOT NULL,
+    window_preset VARCHAR(16) NOT NULL DEFAULT 'ONE_MONTH',
+    before_start DATE NOT NULL,
+    before_end DATE NOT NULL,
+    after_start DATE NOT NULL,
+    after_end DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

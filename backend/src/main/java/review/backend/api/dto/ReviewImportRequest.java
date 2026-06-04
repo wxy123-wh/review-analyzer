@@ -11,6 +11,7 @@ public record ReviewImportRequest(
         String platform,
         @NotBlank(message = "productCode must not be blank")
         String productCode,
+        String productName,
         @Valid
         @NotEmpty(message = "reviews must not be empty")
         List<ReviewImportItem> reviews,

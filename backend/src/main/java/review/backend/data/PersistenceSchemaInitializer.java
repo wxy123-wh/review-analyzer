@@ -51,7 +51,10 @@ public class PersistenceSchemaInitializer {
                     analysis_handoff_note TEXT,
                     source_url TEXT,
                     external_job_id VARCHAR(128),
-                    taxonomy_id BIGINT
+                    taxonomy_id BIGINT,
+                    output_path TEXT,
+                    progress_path TEXT,
+                    captured_packet_count INTEGER NOT NULL DEFAULT 0
                 )
                 """,
                 """
@@ -203,7 +206,15 @@ public class PersistenceSchemaInitializer {
                     finished_at TIMESTAMP WITH TIME ZONE,
                     error_message TEXT,
                     taxonomy_id BIGINT,
-                    taxonomy_version INTEGER
+                    taxonomy_version INTEGER,
+                    total_review_count INTEGER NOT NULL DEFAULT 0,
+                    processed_review_count INTEGER NOT NULL DEFAULT 0,
+                    progress_percent INTEGER NOT NULL DEFAULT 0,
+                    current_stage VARCHAR(128) NOT NULL DEFAULT '等待开始',
+                    materialized_review_count INTEGER NOT NULL DEFAULT 0,
+                    semantic_label_count INTEGER NOT NULL DEFAULT 0,
+                    issue_cluster_count INTEGER NOT NULL DEFAULT 0,
+                    downstream_ready BOOLEAN NOT NULL DEFAULT FALSE
                 )
                 """,
                 """
@@ -217,8 +228,22 @@ public class PersistenceSchemaInitializer {
                     exact_duplicate_count INTEGER NOT NULL DEFAULT 0,
                     empty_content_count INTEGER NOT NULL DEFAULT 0,
                     invalid_json_count INTEGER NOT NULL DEFAULT 0,
+                    placeholder_content_count INTEGER NOT NULL DEFAULT 0,
                     summary_json TEXT NOT NULL,
                     imported_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS ux_change_checkpoints (
+                    id BIGSERIAL PRIMARY KEY,
+                    product_code VARCHAR(64) NOT NULL,
+                    change_date DATE NOT NULL,
+                    window_preset VARCHAR(16) NOT NULL DEFAULT 'ONE_MONTH',
+                    before_start DATE NOT NULL,
+                    before_end DATE NOT NULL,
+                    after_start DATE NOT NULL,
+                    after_end DATE NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """,
                 "ALTER TABLE improvement_actions ADD COLUMN IF NOT EXISTS issue_ref VARCHAR(128)",
@@ -229,6 +254,9 @@ public class PersistenceSchemaInitializer {
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS source_url TEXT",
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS external_job_id VARCHAR(128)",
                 "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS taxonomy_id BIGINT",
+                "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS output_path TEXT",
+                "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS progress_path TEXT",
+                "ALTER TABLE sync_jobs ADD COLUMN IF NOT EXISTS captured_packet_count INTEGER NOT NULL DEFAULT 0",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS provider VARCHAR(64)",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS platform VARCHAR(64)",
                 "ALTER TABLE reviews_raw ADD COLUMN IF NOT EXISTS external_product_code VARCHAR(128)",
@@ -247,7 +275,21 @@ public class PersistenceSchemaInitializer {
                 "ALTER TABLE issue_clusters ADD COLUMN IF NOT EXISTS ux_primary_label VARCHAR(64)",
                 "ALTER TABLE issue_clusters ADD COLUMN IF NOT EXISTS ux_secondary_label VARCHAR(64)",
                 "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS taxonomy_id BIGINT",
-                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS taxonomy_version INTEGER"
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS taxonomy_version INTEGER",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS total_review_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS processed_review_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS progress_percent INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS current_stage VARCHAR(128) NOT NULL DEFAULT '等待开始'",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS materialized_review_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS semantic_label_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS issue_cluster_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE analysis_jobs ADD COLUMN IF NOT EXISTS downstream_ready BOOLEAN NOT NULL DEFAULT FALSE",
+                "ALTER TABLE data_quality_runs ADD COLUMN IF NOT EXISTS placeholder_content_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE ux_change_checkpoints ADD COLUMN IF NOT EXISTS window_preset VARCHAR(16) NOT NULL DEFAULT 'ONE_MONTH'",
+                "ALTER TABLE ux_change_checkpoints ADD COLUMN IF NOT EXISTS before_start DATE",
+                "ALTER TABLE ux_change_checkpoints ADD COLUMN IF NOT EXISTS before_end DATE",
+                "ALTER TABLE ux_change_checkpoints ADD COLUMN IF NOT EXISTS after_start DATE",
+                "ALTER TABLE ux_change_checkpoints ADD COLUMN IF NOT EXISTS after_end DATE"
         );
 
         for (String statement : statements) {

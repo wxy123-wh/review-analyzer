@@ -50,7 +50,12 @@ public class NlpReviewAnalysisClient {
             }
             return AnalyzeResult.degraded("degraded:nlp_unavailable:" + compactMessage(ex));
         } catch (RestClientResponseException ex) {
-            return AnalyzeResult.degraded("degraded:nlp_http_" + ex.getStatusCode().value() + ":" + compactMessage(ex));
+            String responseBody = compactResponseBody(ex);
+            String message = "nlp_http_" + ex.getStatusCode().value() + ":" + responseBody;
+            if (isFatalNlpResponse(responseBody)) {
+                return AnalyzeResult.fatal("fatal:" + message);
+            }
+            return AnalyzeResult.degraded("degraded:" + message);
         } catch (RestClientException ex) {
             return AnalyzeResult.degraded("degraded:nlp_error:" + compactMessage(ex));
         }
@@ -109,6 +114,19 @@ public class NlpReviewAnalysisClient {
         return message.replaceAll("\\s+", " ").trim();
     }
 
+    private String compactResponseBody(RestClientResponseException ex) {
+        String body = ex.getResponseBodyAsString();
+        if (body == null || body.isBlank()) {
+            return compactMessage(ex);
+        }
+        return body.replaceAll("\\s+", " ").trim();
+    }
+
+    private boolean isFatalNlpResponse(String responseBody) {
+        String normalized = responseBody == null ? "" : responseBody.toLowerCase(java.util.Locale.ROOT);
+        return normalized.contains("llm_config_missing") || normalized.contains("llm_analysis_failed");
+    }
+
     public record AnalyzeRequest(
             String jobId,
             String productCode,
@@ -117,7 +135,17 @@ public class NlpReviewAnalysisClient {
     ) {
     }
 
-    public record AnalyzeResponse(String jobId, List<AspectSentiment> aspectSentiments, List<IssueCluster> issueClusters) {
+    public record AnalyzeResponse(
+            String jobId,
+            List<AspectSentiment> aspectSentiments,
+            List<IssueCluster> issueClusters,
+            String analysisMode,
+            Boolean llmUsed,
+            String fallbackReason
+    ) {
+        public AnalyzeResponse(String jobId, List<AspectSentiment> aspectSentiments, List<IssueCluster> issueClusters) {
+            this(jobId, aspectSentiments, issueClusters, null, null, null);
+        }
     }
 
     public record AspectSentiment(
@@ -171,18 +199,26 @@ public class NlpReviewAnalysisClient {
         };
     }
 
-    public record AnalyzeResult(AnalyzeResponse response, String degradedMessage) {
+    public record AnalyzeResult(AnalyzeResponse response, String degradedMessage, boolean fatal) {
 
         public static AnalyzeResult success(AnalyzeResponse response) {
-            return new AnalyzeResult(response, null);
+            return new AnalyzeResult(response, null, false);
         }
 
         public static AnalyzeResult degraded(String degradedMessage) {
-            return new AnalyzeResult(null, degradedMessage);
+            return new AnalyzeResult(null, degradedMessage, false);
+        }
+
+        public static AnalyzeResult fatal(String message) {
+            return new AnalyzeResult(null, message, true);
         }
 
         public boolean isSuccess() {
             return response != null;
+        }
+
+        public boolean isFatal() {
+            return fatal;
         }
     }
 }

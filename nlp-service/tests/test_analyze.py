@@ -1,7 +1,17 @@
+import http.client
 from typing import cast
 
 from fastapi.testclient import TestClient
 
+from app import analyzer  # pyright: ignore[reportImplicitRelativeImport]
+from app.analyzer import (  # pyright: ignore[reportImplicitRelativeImport]
+    build_system_prompt,
+    extract_json_payload,
+    normalize_taxonomy,
+    parse_llm_results,
+    taxonomy_primary_enum,
+    taxonomy_secondary_enum,
+)
 from app.main import app  # pyright: ignore[reportImplicitRelativeImport]
 
 
@@ -23,6 +33,9 @@ def test_analyze_should_return_aspects_and_clusters() -> None:
     aspect_sentiments = cast(list[dict[str, object]], payload['aspectSentiments'])
     issue_clusters = cast(list[dict[str, object]], payload['issueClusters'])
     assert payload['jobId'] == 'job-1'
+    assert payload['analysisMode'] == 'local-rule'
+    assert payload['llmUsed'] is False
+    assert payload['fallbackReason'] == 'local-rule'
     assert isinstance(aspect_sentiments, list)
     assert isinstance(issue_clusters, list)
     assert aspect_sentiments[0]['aspect'] == 'battery'
@@ -211,6 +224,92 @@ def test_analyze_should_reject_requests_with_empty_reviews() -> None:
     assert payload['jobId'] == 'job-empty'
     assert payload['aspectSentiments'] == []
     assert payload['issueClusters'] == []
+    assert payload['analysisMode'] == 'empty'
+    assert payload['llmUsed'] is False
+
+
+def test_analyze_should_fail_without_llm_config_when_rule_mode_is_not_explicit(monkeypatch) -> None:
+    monkeypatch.setenv('NLP_FORCE_LOCAL', 'false')
+    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+    monkeypatch.delenv('LLM_API_KEY', raising=False)
+    monkeypatch.delenv('OPENAI_MODEL', raising=False)
+    monkeypatch.delenv('LLM_MODEL', raising=False)
+
+    response = client.post(
+        '/analyze',
+        json={
+            'jobId': 'job-no-key',
+            'productCode': 'jd-100127936932',
+            'reviews': ['连接偶尔断开'],
+        },
+    )
+
+    assert response.status_code == 503
+    payload = cast(dict[str, object], response.json())
+    detail = cast(dict[str, object], payload['detail'])
+    assert detail['code'] == 'llm_config_missing'
+
+
+def test_llm_system_prompt_should_escape_json_example_braces() -> None:
+    taxonomy = normalize_taxonomy()
+    prompt = build_system_prompt(taxonomy)
+
+    assert '"sentiment": "NEGATIVE/NEUTRAL/POSITIVE"' in prompt
+    assert f'"uxPrimaryLabel": "{taxonomy_primary_enum(taxonomy)}"' in prompt
+    assert f'"uxSecondaryLabel": "{taxonomy_secondary_enum(taxonomy)}"' in prompt
+    assert '{primary_enum}' not in prompt
+    assert '{secondary_enum}' not in prompt
+
+
+def test_extract_json_payload_should_tolerate_thinking_text_before_json_array() -> None:
+    payload = extract_json_payload(
+        '<think>先分析：{"draft": "not final"}，最终只看下面数组。</think>\n'
+        '[{"sentiment":"NEGATIVE","uxSecondaryLabel":"连接与稳定性"}]'
+    )
+
+    assert payload == [{'sentiment': 'NEGATIVE', 'uxSecondaryLabel': '连接与稳定性'}]
+
+
+def test_parse_llm_results_should_recover_positive_taxonomy_label_from_review_text() -> None:
+    taxonomy = normalize_taxonomy()
+    results = parse_llm_results(
+        '[{"sentiment":"POSITIVE","uxSecondaryLabel":"无明显问题","confidence":0.8}]',
+        1,
+        ['佩戴很舒适，长时间戴也不压耳'],
+        taxonomy,
+    )
+
+    assert results[0]['polarity'] == 'POSITIVE'
+    assert results[0]['uxPrimaryLabel'] == '产品体验'
+    assert results[0]['uxSecondaryLabel'] == '佩戴与人体工学'
+    assert results[0]['aspect'] == 'comfort'
+
+
+def test_analyze_should_return_json_error_when_llm_connection_closes(monkeypatch) -> None:
+    monkeypatch.setenv('NLP_FORCE_LOCAL', 'false')
+    monkeypatch.setenv('NLP_ALLOW_LLM_FALLBACK', 'false')
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-key')
+    monkeypatch.setenv('OPENAI_MODEL', 'test-model')
+
+    def raise_remote_disconnect(*args: object, **kwargs: object) -> str:
+        raise http.client.RemoteDisconnected('Remote end closed connection without response')
+
+    monkeypatch.setattr(analyzer, 'call_openai_compatible', raise_remote_disconnect)
+
+    response = client.post(
+        '/analyze',
+        json={
+            'jobId': 'job-remote-disconnect',
+            'productCode': 'jd-100127936932',
+            'reviews': ['连接偶尔断开'],
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.headers['content-type'].startswith('application/json')
+    payload = cast(dict[str, object], response.json())
+    detail = cast(dict[str, object], payload['detail'])
+    assert detail['code'] == 'llm_analysis_failed'
 
 
 def test_analyze_should_require_job_id_product_code_and_reviews() -> None:

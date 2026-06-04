@@ -19,6 +19,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -30,6 +33,7 @@ public class AnalysisJobService {
     private static final String SENTIMENT_NEUTRAL = "NEUTRAL";
     private static final String SENTIMENT_POSITIVE = "POSITIVE";
     private static final BigDecimal CONFIDENCE_DEFAULT = new BigDecimal("0.9500");
+    private static final int LLM_BATCH_SIZE = 10;
     private static final double W_NEGATIVE_RATE = 0.35D;
     private static final double W_MENTION_VOLUME = 0.25D;
     private static final double W_TREND_GROWTH = 0.20D;
@@ -40,7 +44,9 @@ public class AnalysisJobService {
     private final AnalysisMaterializationRepository analysisMaterializationRepository;
     private final NlpReviewAnalysisClient nlpReviewAnalysisClient;
     private final TaxonomyService taxonomyService;
+    private final Executor analysisExecutor;
 
+    @Autowired
     public AnalysisJobService(
             AnalysisJobRepository analysisJobRepository,
             ReviewAggregationService reviewAggregationService,
@@ -48,11 +54,30 @@ public class AnalysisJobService {
             NlpReviewAnalysisClient nlpReviewAnalysisClient,
             TaxonomyService taxonomyService
     ) {
+        this(
+                analysisJobRepository,
+                reviewAggregationService,
+                analysisMaterializationRepository,
+                nlpReviewAnalysisClient,
+                taxonomyService,
+                ForkJoinPool.commonPool()
+        );
+    }
+
+    AnalysisJobService(
+            AnalysisJobRepository analysisJobRepository,
+            ReviewAggregationService reviewAggregationService,
+            AnalysisMaterializationRepository analysisMaterializationRepository,
+            NlpReviewAnalysisClient nlpReviewAnalysisClient,
+            TaxonomyService taxonomyService,
+            Executor analysisExecutor
+    ) {
         this.analysisJobRepository = analysisJobRepository;
         this.reviewAggregationService = reviewAggregationService;
         this.analysisMaterializationRepository = analysisMaterializationRepository;
         this.nlpReviewAnalysisClient = nlpReviewAnalysisClient;
         this.taxonomyService = taxonomyService;
+        this.analysisExecutor = analysisExecutor;
     }
 
     public AnalysisJobResponse createJob(String productCode) {
@@ -60,19 +85,42 @@ public class AnalysisJobService {
     }
 
     public AnalysisJobResponse createJob(String productCode, Long taxonomyId) {
+        AnalysisJobPlan plan = planJob(productCode, taxonomyId);
+        AnalysisJobResponse queuedJob = createQueuedJob(plan);
+        return executeJob(queuedJob, plan.normalizedProductCode(), plan.taxonomy());
+    }
+
+    public AnalysisJobResponse startAsyncJob(String productCode, Long taxonomyId) {
+        AnalysisJobPlan plan = planJob(productCode, taxonomyId);
+        AnalysisJobResponse queuedJob = createQueuedJob(plan);
+        analysisExecutor.execute(() -> executeJob(queuedJob, plan.normalizedProductCode(), plan.taxonomy()));
+        return queuedJob;
+    }
+
+    private AnalysisJobPlan planJob(String productCode, Long taxonomyId) {
         String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
         if (normalizedProductCode == null || normalizedProductCode.isBlank()) {
             normalizedProductCode = productCode == null ? "" : productCode.trim();
         }
         TaxonomyResponse taxonomy = taxonomyService.taxonomyForProduct(normalizedProductCode, taxonomyId);
+        return new AnalysisJobPlan(normalizedProductCode, taxonomy);
+    }
 
-        AnalysisJobResponse queuedJob = analysisJobRepository.create(
-                normalizedProductCode,
+    private AnalysisJobResponse createQueuedJob(AnalysisJobPlan plan) {
+        return analysisJobRepository.create(
+                plan.normalizedProductCode(),
                 STATUS_QUEUED,
                 Instant.now(),
-                taxonomy.taxonomyId(),
-                taxonomy.version()
+                plan.taxonomy().taxonomyId(),
+                plan.taxonomy().version()
         );
+    }
+
+    private AnalysisJobResponse executeJob(
+            AnalysisJobResponse queuedJob,
+            String normalizedProductCode,
+            TaxonomyResponse taxonomy
+    ) {
         AnalysisJobResponse runningJob = analysisJobRepository.markRunning(queuedJob.jobId());
 
         try {
@@ -81,16 +129,32 @@ public class AnalysisJobService {
             if (reviews.isEmpty()) {
                 throw new IllegalStateException("no reviews found for productCode=" + normalizedProductCode);
             }
-            NlpReviewAnalysisClient.AnalyzeResult nlpResult = nlpReviewAnalysisClient.analyze(
+            analysisJobRepository.markProgress(
+                    runningJob.jobId(),
+                    reviews.size(),
+                    0,
+                    "已读取 " + reviews.size() + " 条评论，准备调用 LLM"
+            );
+            analysisMaterializationRepository.clearOutputs(normalizedProductCode);
+            AnalysisExecution execution = analyzeInBatches(
                     runningJob.jobId(),
                     normalizedProductCode,
-                    reviews.stream().map(ReviewAggregationService.AggregatedReview::content).toList(),
-                    taxonomyService.toNlpTaxonomy(taxonomy)
+                    reviews,
+                    taxonomy
             );
-            AnalysisExecution execution = buildAnalysisExecution(reviews, nlpResult, taxonomy);
-            analysisMaterializationRepository.replaceOutputs(
-                    normalizedProductCode,
-                    buildMaterialization(execution.reviews())
+            Materialization materialization = buildMaterialization(execution.reviews());
+            ensureDownstreamMaterializationReady(normalizedProductCode, materialization);
+            analysisJobRepository.markProgress(
+                    runningJob.jobId(),
+                    reviews.size(),
+                    reviews.size(),
+                    "LLM 分析完成，结果已写入数据库"
+            );
+            analysisJobRepository.markMaterialized(
+                    runningJob.jobId(),
+                    materialization.reviewAspects().size(),
+                    materialization.semanticLabels().size(),
+                    materialization.issueClusters().size()
             );
             return analysisJobRepository.markSucceeded(runningJob.jobId(), Instant.now(), execution.degradedMessage());
         } catch (RuntimeException ex) {
@@ -104,6 +168,11 @@ public class AnalysisJobService {
 
     public Optional<AnalysisJobResponse> findJob(String jobId) {
         return analysisJobRepository.findById(jobId);
+    }
+
+    public Optional<AnalysisJobResponse> findLatestJobForProduct(String productCode) {
+        String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
+        return analysisJobRepository.findLatestForProduct(normalizedProductCode);
     }
 
     private Optional<AnalysisJobResponse> findReusableJob(String productCode) {
@@ -130,11 +199,66 @@ public class AnalysisJobService {
         return Optional.of(job);
     }
 
+    private AnalysisExecution analyzeInBatches(
+            String jobId,
+            String normalizedProductCode,
+            List<ReviewAggregationService.AggregatedReview> sourceReviews,
+            TaxonomyResponse taxonomy
+    ) {
+        List<AnalyzedReview> analyzedReviews = new ArrayList<>(sourceReviews.size());
+        String degradedMessage = null;
+        TaxonomyService.NlpTaxonomy nlpTaxonomy = taxonomyService.toNlpTaxonomy(taxonomy);
+        for (int start = 0; start < sourceReviews.size(); start += LLM_BATCH_SIZE) {
+            int end = Math.min(start + LLM_BATCH_SIZE, sourceReviews.size());
+            List<ReviewAggregationService.AggregatedReview> batchReviews = sourceReviews.subList(start, end);
+            analysisJobRepository.markProgress(
+                    jobId,
+                    sourceReviews.size(),
+                    start,
+                    "LLM 分析中：" + (start + 1) + "-" + end + " / " + sourceReviews.size()
+            );
+            NlpReviewAnalysisClient.AnalyzeResult nlpResult = nlpReviewAnalysisClient.analyze(
+                    jobId,
+                    normalizedProductCode,
+                    batchReviews.stream().map(ReviewAggregationService.AggregatedReview::content).toList(),
+                    nlpTaxonomy
+            );
+            AnalysisExecution batchExecution = buildAnalysisExecution(batchReviews, nlpResult, taxonomy);
+            analyzedReviews.addAll(batchExecution.reviews());
+            analyzedReviews.sort(Comparator.comparing(AnalyzedReview::reviewTime).thenComparing(AnalyzedReview::reviewId));
+            degradedMessage = firstNonBlank(degradedMessage, batchExecution.degradedMessage());
+            Materialization batchMaterialization = buildMaterialization(batchExecution.reviews());
+            Materialization cumulativeMaterialization = buildMaterialization(analyzedReviews);
+            ensureDownstreamMaterializationReady(normalizedProductCode, cumulativeMaterialization);
+            analysisMaterializationRepository.appendOutputs(
+                    normalizedProductCode,
+                    batchMaterialization,
+                    cumulativeMaterialization
+            );
+            analysisJobRepository.markMaterialized(
+                    jobId,
+                    cumulativeMaterialization.reviewAspects().size(),
+                    cumulativeMaterialization.semanticLabels().size(),
+                    cumulativeMaterialization.issueClusters().size()
+            );
+            analysisJobRepository.markProgress(
+                    jobId,
+                    sourceReviews.size(),
+                    end,
+                    "LLM 已完成并写入 " + end + " / " + sourceReviews.size() + " 条"
+            );
+        }
+        return new AnalysisExecution(analyzedReviews, degradedMessage);
+    }
+
     private AnalysisExecution buildAnalysisExecution(
             List<ReviewAggregationService.AggregatedReview> sourceReviews,
             NlpReviewAnalysisClient.AnalyzeResult nlpResult,
             TaxonomyResponse taxonomy
     ) {
+        if (nlpResult.isFatal()) {
+            throw new IllegalStateException(nlpResult.degradedMessage());
+        }
         if (!nlpResult.isSuccess()) {
             return new AnalysisExecution(localFallbackAnalysis(sourceReviews, taxonomy), nlpResult.degradedMessage());
         }
@@ -308,6 +432,14 @@ public class AnalysisJobService {
         }
 
         return new Materialization(reviewAspects, semanticLabels, issueClusters);
+    }
+
+    private void ensureDownstreamMaterializationReady(String productCode, Materialization materialization) {
+        if (materialization.reviewAspects().isEmpty() || materialization.semanticLabels().isEmpty()) {
+            throw new IllegalStateException(
+                    "LLM analysis finished but downstream materialized data is empty for productCode=" + productCode
+            );
+        }
     }
 
     private String sentimentPolarity(ReviewAggregationService.Sentiment sentiment) {
@@ -532,7 +664,17 @@ public class AnalysisJobService {
         return message.replaceAll("\\s+", "-").toLowerCase(java.util.Locale.ROOT);
     }
 
+    private String firstNonBlank(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
+    }
+
     private record AnalysisExecution(List<AnalyzedReview> reviews, String degradedMessage) {
+    }
+
+    private record AnalysisJobPlan(String normalizedProductCode, TaxonomyResponse taxonomy) {
     }
 
     private record AnalyzedReview(

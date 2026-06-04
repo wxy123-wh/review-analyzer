@@ -4,19 +4,7 @@
     <div class="ambient-orb ambient-orb-right" aria-hidden="true"></div>
 
     <div class="auth-stage" data-motion-reveal style="--motion-delay: 40ms">
-      <div class="stage-copy" data-motion-reveal style="--motion-delay: 80ms">
-        <span class="stage-kicker">Internal-use access</span>
-        <h1>用内部体验入口守住首发基线。</h1>
-        <p>
-          这里仍然只做前端内部访问门禁：不接入真实认证，只把当前环境下的凭据、提示和进入行为收敛成可配置的首发入口。
-        </p>
-      </div>
-
       <div class="stage-identity" data-motion-reveal data-motion-spotlight="soft" style="--motion-delay: 120ms">
-        <div class="identity-header">
-          <span class="identity-chip">旗舰视觉识别</span>
-          <span class="identity-caption">四只角色继续承担注意力与交互反馈</span>
-        </div>
         <div class="characters-frame">
           <div class="characters-halo" aria-hidden="true"></div>
           <div class="characters-area">
@@ -28,34 +16,12 @@
           </div>
         </div>
       </div>
-
-      <div class="stage-context" data-motion-reveal style="--motion-delay: 160ms">
-        <article class="context-card" data-motion-hover="lift" data-motion-spotlight="soft">
-          <span class="context-label">访问说明</span>
-          <p>不接入真实单点登录，也不伪装企业集成，只保留当前仓库需要的内部体验门禁。</p>
-        </article>
-        <article class="context-card" data-motion-hover="lift" data-motion-spotlight="soft">
-          <span class="context-label">交互锚点</span>
-          <p>输入时角色联动、鼠标驱动瞳孔追踪、点击跳跃、双击提亮，以及密码可见性反馈全部保留。</p>
-        </article>
-      </div>
     </div>
 
     <div class="auth-panel">
       <div class="panel-shell" data-motion-reveal data-motion-spotlight="soft" style="--motion-delay: 120ms">
-        <div class="panel-topline">
-          <span class="panel-eyebrow">内部访问</span>
-          <span class="panel-status">环境门禁已启用</span>
-        </div>
-
-        <div class="panel-copy">
-          <h2>使用当前环境凭据进入看板</h2>
-          <p>凭据来自当前前端环境配置，登录成功后仍会触发现有的 <code>enter</code> 事件。</p>
-        </div>
-
-        <div class="demo-note" data-motion-hover="lift">
-          <span class="demo-note-label">当前环境凭据</span>
-          <div class="demo-note-grid">
+        <div class="credential-note" data-motion-hover="lift">
+          <div class="credential-note-grid">
             <div>
               <span>账号</span>
               <strong>{{ expectedUsername }}</strong>
@@ -65,7 +31,6 @@
               <strong>{{ expectedPassword }}</strong>
             </div>
           </div>
-          <p v-if="accessHint" class="demo-note-hint">{{ accessHint }}</p>
         </div>
 
         <form class="form" @submit.prevent="submit">
@@ -85,7 +50,7 @@
               autocomplete="username"
               placeholder="输入您的账号"
               :aria-invalid="error ? 'true' : 'false'"
-              aria-describedby="login-helper login-error-message"
+              :aria-describedby="error ? 'login-error-message' : undefined"
               @focus="handleUsernameFocus"
               @blur="handleUsernameBlur"
             />
@@ -107,7 +72,7 @@
               autocomplete="current-password"
               placeholder="输入您的密码"
               :aria-invalid="error ? 'true' : 'false'"
-              aria-describedby="login-helper login-error-message"
+              :aria-describedby="error ? 'login-error-message' : undefined"
               @focus="handlePasswordFocus"
               @blur="handlePasswordBlur"
             />
@@ -147,8 +112,6 @@
             </button>
           </div>
 
-          <p id="login-helper" class="assistive-copy">使用当前环境配置的内部访问凭据进入，键盘 Tab 顺序保持为账号、密码、可见性切换、登录按钮。</p>
-
           <div v-if="error" id="login-error-message" data-testid="login-error" class="error-box" role="alert">{{ error }}</div>
 
           <button data-testid="login-submit" type="submit" class="submit-btn" :disabled="loading" data-motion-hover="lift">
@@ -169,12 +132,10 @@ const props = withDefaults(defineProps<{
   expectedUsername?: string
   expectedPassword?: string
   displayName?: string
-  accessHint?: string
 }>(), {
   expectedUsername: 'wxy',
   expectedPassword: '123456',
-  displayName: '内部体验账号',
-  accessHint: '',
+  displayName: '内部分析员',
 })
 
 const emit = defineEmits<{
@@ -246,9 +207,11 @@ async function submit(): Promise<void> {
   isolation: isolate;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 420px);
-  gap: var(--space-8);
-  padding: var(--space-8);
+  grid-template-columns: minmax(420px, 640px) minmax(320px, 380px);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(var(--space-5), 6vw, var(--space-8));
+  padding: clamp(var(--space-5), 5vw, var(--space-8));
   background-color: var(--color-canvas);
   background-image: var(--gradient-login-canvas);
   background-size: 44px 44px;
@@ -289,85 +252,15 @@ async function submit(): Promise<void> {
 .auth-stage {
   min-width: 0;
   display: grid;
-  align-content: space-between;
-  gap: var(--space-6);
-  padding: var(--space-4) 0;
-}
-
-.stage-copy {
-  display: grid;
-  gap: var(--space-3);
-  max-width: 60ch;
-}
-
-.stage-kicker,
-.identity-chip,
-.context-label,
-.panel-eyebrow,
-.panel-status,
-.demo-note-label {
-  width: fit-content;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-overlay);
-  box-shadow: var(--shadow-inset-soft);
-}
-
-.stage-kicker,
-.identity-chip,
-.context-label,
-.panel-eyebrow,
-.panel-status,
-.demo-note-label {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.stage-kicker,
-.identity-chip,
-.panel-eyebrow,
-.demo-note-label {
-  color: var(--color-accent-primary);
-}
-
-.panel-status,
-.context-label {
-  color: var(--color-text-secondary);
-}
-
-.stage-copy h1,
-.panel-copy h2 {
-  margin: 0;
-  color: var(--color-text-primary);
-  line-height: var(--line-height-tight);
-  letter-spacing: -0.03em;
-}
-
-.stage-copy h1 {
-  max-width: 12ch;
-  font-size: clamp(2.75rem, 5vw, 4.75rem);
-}
-
-.stage-copy p,
-.panel-copy p,
-.context-card p {
-  margin: 0;
-  color: var(--color-text-secondary);
-}
-
-.stage-copy p {
-  max-width: 58ch;
-  font-size: var(--font-size-lg);
-  text-wrap: balance;
+  align-content: center;
 }
 
 .stage-identity {
   position: relative;
   display: grid;
-  gap: var(--space-4);
-  padding: var(--space-5);
+  width: 100%;
+  max-width: 640px;
+  padding: clamp(var(--space-4), 3vw, var(--space-6));
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-xl);
   background: linear-gradient(180deg, rgba(10, 20, 37, 0.78), rgba(6, 12, 22, 0.9));
@@ -375,22 +268,10 @@ async function submit(): Promise<void> {
   backdrop-filter: blur(18px);
 }
 
-.identity-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.identity-caption {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
 .characters-frame {
   position: relative;
   overflow: hidden;
-  min-height: 440px;
+  min-height: clamp(420px, 66vh, 600px);
   border-radius: calc(var(--radius-xl) + var(--space-1));
   border: 1px solid rgba(255, 255, 255, 0.05);
   background:
@@ -413,38 +294,23 @@ async function submit(): Promise<void> {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  min-height: 440px;
-  padding: var(--space-4);
-}
-
-.stage-context {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.context-card {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-subtle);
-  background: linear-gradient(180deg, rgba(11, 21, 38, 0.94), rgba(8, 16, 29, 0.9));
-  box-shadow: var(--shadow-raised);
+  min-height: clamp(420px, 66vh, 600px);
+  padding: clamp(var(--space-3), 3vw, var(--space-5));
 }
 
 .auth-panel {
   display: flex;
   align-items: center;
-  justify-content: center;
+  min-width: 0;
+  justify-content: flex-start;
 }
 
 .panel-shell {
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
   display: grid;
   gap: var(--space-5);
-  padding: var(--space-6);
+  padding: clamp(var(--space-5), 3vw, var(--space-6));
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border-default);
   background: linear-gradient(180deg, rgba(14, 26, 46, 0.96), rgba(7, 14, 25, 0.98));
@@ -452,61 +318,40 @@ async function submit(): Promise<void> {
   backdrop-filter: blur(18px);
 }
 
-.panel-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.panel-copy {
+.credential-note {
   display: grid;
-  gap: var(--space-3);
-}
-
-.panel-copy h2 {
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
-}
-
-.panel-copy code {
-  color: var(--color-accent-secondary);
-  font-family: inherit;
-}
-
-.demo-note {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-2);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-surface-overlay);
 }
 
-.demo-note-grid {
+.credential-note-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.demo-note-hint {
-  margin: var(--space-3) 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.demo-note-grid div {
+.credential-note-grid div {
   display: grid;
   gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.demo-note-grid span {
+.credential-note-grid span {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
-.demo-note-grid strong {
-  font-size: var(--font-size-lg);
+.credential-note-grid strong {
+  overflow: hidden;
+  font-size: var(--font-size-md);
   color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .form {
@@ -521,7 +366,7 @@ async function submit(): Promise<void> {
 }
 
 .input-affix-wrapper {
-  height: 48px;
+  height: 52px;
   background: var(--color-surface-input);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
@@ -594,13 +439,6 @@ async function submit(): Promise<void> {
   box-shadow: var(--shadow-focus);
 }
 
-.assistive-copy {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-normal);
-}
-
 .error-box {
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
@@ -611,7 +449,7 @@ async function submit(): Promise<void> {
 }
 
 .submit-btn {
-  height: 48px;
+  height: 52px;
   border: 0;
   border-radius: var(--radius-md);
   background: var(--gradient-accent);
@@ -656,17 +494,9 @@ async function submit(): Promise<void> {
     padding: 0;
   }
 
-  .stage-copy h1 {
-    max-width: none;
-  }
-
-  .stage-context {
-    grid-template-columns: 1fr;
-  }
-
   .characters-frame,
   .characters-area {
-    min-height: 360px;
+    min-height: 380px;
   }
 
   .auth-panel {
@@ -678,11 +508,6 @@ async function submit(): Promise<void> {
     padding: var(--space-5);
   }
 
-  .panel-topline,
-  .identity-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 
 @media (max-width: 640px) {
@@ -699,7 +524,6 @@ async function submit(): Promise<void> {
     padding: var(--space-4);
   }
 
-  .stage-copy p,
   .assistive-copy {
     font-size: var(--font-size-md);
   }
@@ -709,7 +533,7 @@ async function submit(): Promise<void> {
     min-height: 320px;
   }
 
-  .demo-note-grid {
+  .credential-note-grid {
     grid-template-columns: 1fr;
   }
 }

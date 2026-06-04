@@ -3,6 +3,7 @@ import os
 import re
 import urllib.error
 import urllib.request
+import http.client
 from collections import Counter
 from typing import Any, TypedDict
 
@@ -203,7 +204,7 @@ SYSTEM_PROMPT_TEMPLATE = '''你是电商产品评论 VOC 分析员。
 任务：只根据真实评论正文，逐条输出结构化 JSON，不要输出 Markdown 或解释文字。
 
 必须按输入顺序返回同样长度的 JSON 数组，每个对象包含：
-{
+{{
   "sentiment": "NEGATIVE/NEUTRAL/POSITIVE",
   "aspect": "battery/bluetooth/noise-canceling/comfort/microphone/unknown",
   "negativeIntensityScore": 1-5,
@@ -212,7 +213,7 @@ SYSTEM_PROMPT_TEMPLATE = '''你是电商产品评论 VOC 分析员。
   "standardizedReason": "20个中文字符以内",
   "confidence": 0到1的小数,
   "evidence": "评论中的短证据"
-}
+}}
 
 uxPrimaryLabel 只能使用枚举：{primary_enum}。
 uxSecondaryLabel 只能使用枚举：{secondary_enum}。
@@ -235,8 +236,28 @@ def env_value(*names: str, default: str = '') -> str:
     return default
 
 
+class LlmConfigurationError(RuntimeError):
+    def __init__(self, message: str = 'llm_config_missing') -> None:
+        super().__init__(message)
+        self.code = 'llm_config_missing'
+
+
+class LlmAnalysisError(RuntimeError):
+    def __init__(self, message: str = 'llm_analysis_failed') -> None:
+        super().__init__(message)
+        self.code = 'llm_analysis_failed'
+
+
+def local_rule_enabled() -> bool:
+    return env_value('NLP_FORCE_LOCAL').lower() in {'1', 'true', 'yes'}
+
+
+def llm_error_fallback_enabled() -> bool:
+    return env_value('NLP_ALLOW_LLM_FALLBACK').lower() in {'1', 'true', 'yes'}
+
+
 def llm_config() -> LlmConfig | None:
-    if os.environ.get('PYTEST_CURRENT_TEST') or env_value('NLP_FORCE_LOCAL').lower() in {'1', 'true', 'yes'}:
+    if local_rule_enabled():
         return None
     api_key = env_value('OPENAI_API_KEY', 'LLM_API_KEY')
     model = env_value('OPENAI_MODEL', 'LLM_MODEL')
@@ -361,12 +382,18 @@ def extract_json_payload(text: str) -> Any:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        starts = [index for index in (text.find('['), text.find('{')) if index >= 0]
-        start = min(starts) if starts else -1
-        end = max(text.rfind(']'), text.rfind('}'))
-        if start < 0 or end < start:
+        decoder = json.JSONDecoder()
+        candidates: list[Any] = []
+        for match in re.finditer(r'[\[{]', text):
+            try:
+                candidate, _ = decoder.raw_decode(text[match.start() :])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(candidate, list) or (isinstance(candidate, dict) and isinstance(candidate.get('results'), list)):
+                candidates.append(candidate)
+        if not candidates:
             raise
-        return json.loads(text[start : end + 1])
+        return candidates[-1]
 
 
 def parse_openai_text(data: dict[str, Any]) -> str:
@@ -631,6 +658,10 @@ def parse_llm_results(
         if not isinstance(item, dict):
             raise ValueError('llm response item must be object')
         ux_secondary_label = normalize_ux_secondary_label(taxonomy, item.get('uxSecondaryLabel'))
+        if ux_secondary_label == taxonomy['fallbackSecondaryLabel']:
+            detected_secondary = detect_taxonomy_secondary(reviews[idx], taxonomy)
+            if detected_secondary['label'] != taxonomy['fallbackSecondaryLabel']:
+                ux_secondary_label = detected_secondary['label']
         aspect = legacy_aspect_for_secondary(ux_secondary_label)
         polarity = normalize_polarity(item.get('sentiment') or item.get('label'))
         fallback_confidence = confidence_from_text(reviews[idx])
@@ -656,13 +687,24 @@ def analyze_reviews(
     config = llm_config()
     if not reviews:
         return [], [], 'empty'
-    if config is None:
+    if local_rule_enabled():
         aspect_sentiments = fallback_analysis(reviews, taxonomy)
-        return aspect_sentiments, build_clusters(aspect_sentiments), 'local-fallback'
+        return aspect_sentiments, build_clusters(aspect_sentiments), 'local-rule'
+    if config is None:
+        raise LlmConfigurationError()
     try:
         response_text = call_openai_compatible(product_code, reviews, config, taxonomy)
         aspect_sentiments = parse_llm_results(response_text, len(reviews), reviews, taxonomy)
         return aspect_sentiments, build_clusters(aspect_sentiments), 'llm'
-    except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
+    except (
+        urllib.error.URLError,
+        http.client.HTTPException,
+        ConnectionError,
+        TimeoutError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as ex:
+        if not llm_error_fallback_enabled():
+            raise LlmAnalysisError(str(ex) or 'llm_analysis_failed') from ex
         aspect_sentiments = fallback_analysis(reviews, taxonomy)
-        return aspect_sentiments, build_clusters(aspect_sentiments), 'local-fallback-after-llm-error'
+        return aspect_sentiments, build_clusters(aspect_sentiments), 'local-rule-after-llm-error'

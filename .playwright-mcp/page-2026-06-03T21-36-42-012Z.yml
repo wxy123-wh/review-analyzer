@@ -1,0 +1,78 @@
+- generic [ref=e84]:
+  - complementary [ref=e86]:
+    - generic [ref=e88]:
+      - generic [ref=e89]: VOC
+      - generic [ref=e90]:
+        - strong [ref=e91]: Review VOC
+        - generic [ref=e92]: 分析工作台
+    - navigation [ref=e93]:
+      - generic [ref=e94]:
+        - paragraph [ref=e95]: 业务模块
+        - generic [ref=e96]:
+          - button "接 数据接入" [ref=e97] [cursor=pointer]:
+            - generic [ref=e99]: 接
+            - generic [ref=e102]: 数据接入
+          - button "题 问题" [ref=e103] [cursor=pointer]:
+            - generic [ref=e105]: 题
+            - generic [ref=e108]: 问题
+          - button "卖 卖点" [ref=e109] [cursor=pointer]:
+            - generic [ref=e111]: 卖
+            - generic [ref=e114]: 卖点
+          - button "比 竞品对比" [ref=e115] [cursor=pointer]:
+            - generic [ref=e117]: 比
+            - generic [ref=e120]: 竞品对比
+          - button "势 趋势图" [active] [ref=e121] [cursor=pointer]:
+            - generic [ref=e123]: 势
+            - generic [ref=e126]: 趋势图
+          - button "云 词云" [ref=e127] [cursor=pointer]:
+            - generic [ref=e129]: 云
+            - generic [ref=e132]: 词云
+          - button "改 前后对比" [ref=e133] [cursor=pointer]:
+            - generic [ref=e135]: 改
+            - generic [ref=e138]: 前后对比
+  - main [ref=e139]:
+    - generic [ref=e140]:
+      - generic [ref=e143]:
+        - generic [ref=e144]:
+          - heading "评论 VOC 分析工作台" [level=1] [ref=e145]
+          - paragraph [ref=e146]: 评论接入、问题聚合、卖点提炼、趋势和词云分析
+        - generic [ref=e147]: 当前用户：内部分析员
+      - generic [ref=e330]:
+        - generic [ref=e332]:
+          - heading "趋势图" [level=3] [ref=e333]
+          - paragraph [ref=e334]: battery · 2 个周期
+        - generic [ref=e335]:
+          - generic "负面率趋势图" [ref=e336]:
+            - img "battery负面率趋势" [ref=e337]:
+              - generic [ref=e338]:
+                - generic [ref=e339]: 0%
+                - generic [ref=e340]: 25%
+                - generic [ref=e341]: 50%
+                - generic [ref=e342]: 75%
+                - generic [ref=e343]: 100%
+              - generic [ref=e347]: 2026-W06
+              - generic [ref=e351]: 2026-W09
+          - article [ref=e354]:
+            - generic [ref=e355]: 当前周期
+            - heading "2026-W09" [level=4] [ref=e356]
+            - generic [ref=e357]:
+              - paragraph [ref=e358]:
+                - generic [ref=e359]: 负面率
+                - strong [ref=e360]: 40.0%
+              - paragraph [ref=e361]:
+                - generic [ref=e362]: 提及量
+                - strong [ref=e363]: "105"
+              - paragraph [ref=e364]:
+                - generic [ref=e365]: 较上一期
+                - strong [ref=e366]: +9.0%
+        - list "趋势数据明细" [ref=e367]:
+          - listitem [ref=e368]:
+            - button "2026-W06 31.0% 75 条" [ref=e369] [cursor=pointer]:
+              - strong [ref=e370]: 2026-W06
+              - generic [ref=e371]: 31.0%
+              - generic [ref=e372]: 75 条
+          - listitem [ref=e373]:
+            - button "2026-W09 40.0% 105 条" [ref=e374] [cursor=pointer]:
+              - strong [ref=e375]: 2026-W09
+              - generic [ref=e376]: 40.0%
+              - generic [ref=e377]: 105 条

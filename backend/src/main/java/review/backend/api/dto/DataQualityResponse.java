@@ -13,6 +13,7 @@ public record DataQualityResponse(
         int exactDuplicateCount,
         int emptyContentCount,
         int invalidJsonCount,
+        int placeholderContentCount,
         Instant importedAt
 ) {
 }

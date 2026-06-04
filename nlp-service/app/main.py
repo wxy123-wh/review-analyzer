@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from .analyzer import (
+    LlmAnalysisError,
+    LlmConfigurationError,
     analyze_reviews,
 )
 from .schemas import AnalyzeRequest, AnalyzeResponse
@@ -20,10 +22,30 @@ def health() -> dict:
 
 @app.post('/analyze', response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> dict:
-    aspect_sentiments, issue_clusters, _mode = analyze_reviews(payload.productCode, payload.reviews, payload.taxonomy)
+    try:
+        aspect_sentiments, issue_clusters, mode = analyze_reviews(payload.productCode, payload.reviews, payload.taxonomy)
+    except LlmConfigurationError as ex:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                'code': ex.code,
+                'message': 'LLM API key/model is not configured. Set OPENAI_API_KEY and OPENAI_MODEL, or explicitly set NLP_FORCE_LOCAL=true for rule-based demo mode.',
+            },
+        ) from ex
+    except LlmAnalysisError as ex:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                'code': ex.code,
+                'message': 'LLM analysis failed and local fallback is disabled.',
+            },
+        ) from ex
 
     return {
         'jobId': payload.jobId,
         'aspectSentiments': aspect_sentiments,
         'issueClusters': issue_clusters,
+        'analysisMode': mode,
+        'llmUsed': mode == 'llm',
+        'fallbackReason': None if mode in {'llm', 'empty'} else mode,
     }

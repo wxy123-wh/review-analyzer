@@ -10,6 +10,7 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,8 +24,10 @@ import review.backend.data.AnalysisMaterializationRepository;
 import review.backend.data.AnalysisMaterializationRepository.Materialization;
 import review.backend.data.AnalysisMaterializationRepository.ReviewAspectRecord;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -83,6 +86,57 @@ class AnalysisJobServiceTest {
                 nlpReviewAnalysisClient,
                 taxonomyService
         );
+    }
+
+    @Test
+    void shouldReturnQueuedJobAndRunAsyncAnalysisWhenWorkerExecutes() {
+        Instant startedAt = Instant.parse("2026-04-06T08:00:00Z");
+        Instant finishedAt = Instant.parse("2026-04-06T08:01:00Z");
+        AnalysisJobResponse queued = response("21", "jd-100127936932", "QUEUED", startedAt, null, null);
+        AnalysisJobResponse running = response("21", "jd-100127936932", "RUNNING", startedAt, null, null);
+        AnalysisJobResponse succeeded = response("21", "jd-100127936932", "SUCCEEDED", startedAt, finishedAt, null);
+        Queue<Runnable> queuedTasks = new ArrayDeque<>();
+        AnalysisJobService asyncService = new AnalysisJobService(
+                analysisJobRepository,
+                reviewAggregationService,
+                analysisMaterializationRepository,
+                nlpReviewAnalysisClient,
+                taxonomyService,
+                queuedTasks::add
+        );
+
+        when(analysisJobRepository.create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class), eq(1L), eq(1)))
+                .thenReturn(queued);
+        when(analysisJobRepository.markRunning("21"))
+                .thenReturn(running);
+        when(reviewAggregationService.loadReviews("jd-100127936932"))
+                .thenReturn(List.of(review(1L, "jd-100127936932", "bluetooth", "蓝牙偶尔断开", ReviewAggregationService.Sentiment.NEGATIVE)));
+        when(nlpReviewAnalysisClient.analyze(
+                eq("21"),
+                eq("jd-100127936932"),
+                eq(List.of("蓝牙偶尔断开")),
+                eq(nlpTaxonomy())
+        )).thenReturn(NlpReviewAnalysisClient.AnalyzeResult.success(new NlpReviewAnalysisClient.AnalyzeResponse(
+                "21",
+                List.of(new NlpReviewAnalysisClient.AspectSentiment(0, "bluetooth", "NEGATIVE", -0.78D, 0.88D)),
+                List.of(new NlpReviewAnalysisClient.IssueCluster("bluetooth", "蓝牙连接稳定性不足", 1))
+        )));
+        when(analysisJobRepository.markSucceeded(eq("21"), any(Instant.class), isNull()))
+                .thenReturn(succeeded);
+
+        AnalysisJobResponse response = asyncService.startAsyncJob("jd-100127936932", null);
+
+        assertEquals("QUEUED", response.status());
+        assertEquals(1, queuedTasks.size());
+        verify(analysisJobRepository, never()).markRunning("21");
+
+        queuedTasks.remove().run();
+
+        verify(analysisJobRepository).markRunning("21");
+        verify(analysisMaterializationRepository).clearOutputs("jd-100127936932");
+        verify(analysisMaterializationRepository).appendOutputs(eq("jd-100127936932"), any(), any());
+        verify(analysisJobRepository, times(2)).markMaterialized("21", 1, 1, 1);
+        verify(analysisJobRepository).markSucceeded(eq("21"), any(Instant.class), isNull());
     }
 
     @Test
@@ -146,7 +200,13 @@ class AnalysisJobServiceTest {
                 eq(List.of("续航很好", "蓝牙偶尔断开", "通话收音发闷")),
                 eq(nlpTaxonomy())
         );
-        inOrder.verify(analysisMaterializationRepository).replaceOutputs(eq("jd-100127936932"), argThat(this::usesNlpAspectOutputs));
+        inOrder.verify(analysisMaterializationRepository).appendOutputs(
+                eq("jd-100127936932"),
+                argThat(this::usesNlpAspectOutputs),
+                argThat(this::usesNlpAspectOutputs)
+        );
+        inOrder.verify(analysisJobRepository).markMaterialized("11", 3, 3, 2);
+        inOrder.verify(analysisJobRepository).markMaterialized("11", 3, 3, 2);
         inOrder.verify(analysisJobRepository).markSucceeded(eq("11"), any(Instant.class), isNull());
     }
 
@@ -191,10 +251,53 @@ class AnalysisJobServiceTest {
 
         assertEquals("SUCCEEDED", response.status());
         assertEquals("degraded:nlp_unavailable:http-503", response.errorMessage());
-        verify(analysisMaterializationRepository).replaceOutputs(eq("jd-100127936932"), argThat(materialization ->
+        verify(analysisMaterializationRepository).clearOutputs("jd-100127936932");
+        verify(analysisMaterializationRepository).appendOutputs(eq("jd-100127936932"), argThat(materialization ->
                 materialization.reviewAspects().stream().map(ReviewAspectRecord::aspect).toList().equals(List.of("battery", "bluetooth"))
-        ));
+        ), any());
+        verify(analysisJobRepository, times(2)).markMaterialized("14", 2, 2, 2);
         verify(analysisJobRepository).markSucceeded(eq("14"), any(Instant.class), eq("degraded:nlp_unavailable:http-503"));
+    }
+
+    @Test
+    void shouldFailWithoutMaterializingWhenNlpReportsMissingLlmConfig() {
+        Instant startedAt = Instant.parse("2026-04-06T08:00:00Z");
+        Instant finishedAt = Instant.parse("2026-04-06T08:01:00Z");
+        AnalysisJobResponse queued = response("17", "jd-100127936932", "QUEUED", startedAt, null, null);
+        AnalysisJobResponse running = response("17", "jd-100127936932", "RUNNING", startedAt, null, null);
+        AnalysisJobResponse failed = response(
+                "17",
+                "jd-100127936932",
+                "FAILED",
+                startedAt,
+                finishedAt,
+                "fatal:nlp_http_503:llm_config_missing"
+        );
+
+        when(analysisJobRepository.create(eq("jd-100127936932"), eq("QUEUED"), any(Instant.class), eq(1L), eq(1)))
+                .thenReturn(queued);
+        when(analysisJobRepository.markRunning("17"))
+                .thenReturn(running);
+        when(reviewAggregationService.loadReviews("jd-100127936932"))
+                .thenReturn(List.of(
+                        review(1L, "jd-100127936932", "battery", "续航衰减明显", ReviewAggregationService.Sentiment.NEGATIVE)
+                ));
+        when(nlpReviewAnalysisClient.analyze(
+                eq("17"),
+                eq("jd-100127936932"),
+                eq(List.of("续航衰减明显")),
+                eq(nlpTaxonomy())
+        )).thenReturn(NlpReviewAnalysisClient.AnalyzeResult.fatal("fatal:nlp_http_503:llm_config_missing"));
+        when(analysisJobRepository.markFailed(eq("17"), any(Instant.class), eq("fatal:nlp_http_503:llm_config_missing")))
+                .thenReturn(failed);
+
+        AnalysisJobResponse response = analysisJobService.createJob("jd-100127936932");
+
+        assertEquals("FAILED", response.status());
+        assertEquals("fatal:nlp_http_503:llm_config_missing", response.errorMessage());
+        verify(analysisMaterializationRepository, never()).replaceOutputs(eq("jd-100127936932"), any());
+        verify(analysisMaterializationRepository, never()).appendOutputs(eq("jd-100127936932"), any(), any());
+        verify(analysisJobRepository).markFailed(eq("17"), any(Instant.class), eq("fatal:nlp_http_503:llm_config_missing"));
     }
 
     @Test
@@ -245,12 +348,13 @@ class AnalysisJobServiceTest {
 
         assertEquals("SUCCEEDED", response.status());
         assertEquals(null, response.errorMessage());
-        verify(analysisMaterializationRepository).replaceOutputs(eq("jd-100127936932"), argThat(materialization ->
+        verify(analysisMaterializationRepository).appendOutputs(eq("jd-100127936932"), argThat(materialization ->
                 materialization.reviewAspects().stream().map(ReviewAspectRecord::uxSecondaryLabel).toList()
                         .equals(List.of("无明显问题", "连接与稳定性"))
                         && materialization.reviewAspects().stream().map(ReviewAspectRecord::sentimentPolarity).toList()
                                 .equals(List.of("POSITIVE", "NEGATIVE"))
-        ));
+        ), any());
+        verify(analysisJobRepository, times(2)).markMaterialized("15", 2, 2, 1);
         verify(analysisJobRepository).markSucceeded(eq("15"), any(Instant.class), isNull());
     }
 
@@ -287,6 +391,8 @@ class AnalysisJobServiceTest {
         assertEquals("FAILED", response.status());
         assertTrue(response.errorMessage().contains("no reviews found"));
         verify(analysisMaterializationRepository, never()).replaceOutputs(eq("missing-product"), any());
+        verify(analysisMaterializationRepository, never()).clearOutputs("missing-product");
+        verify(analysisMaterializationRepository, never()).appendOutputs(eq("missing-product"), any(), any());
         verifyNoInteractions(nlpReviewAnalysisClient);
     }
 

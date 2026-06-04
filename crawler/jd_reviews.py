@@ -30,12 +30,17 @@ except ImportError:
 
 
 RISK_TEXTS = ["访问过于频繁", "操作过于频繁", "安全验证", "请完成验证", "验证码", "系统繁忙"]
+DEFAULT_CATEGORY = "bluetooth-earphone"
+DEFAULT_OUTPUT = "crawler/output/raw_reviews.jsonl"
+DEFAULT_PROGRESS = "crawler/output/jd_progress.json"
+COMPLIANCE_NOTICE = "合规提示：脚本只监听你正常浏览产生的评论数据；不会绕过登录、验证码或平台风控。出现验证时请人工处理。"
 
 
 @dataclass
 class CrawlResult:
     productUrl: str
     productCode: str
+    productName: str
     category: str
     outputPath: str
     progressPath: str
@@ -90,16 +95,16 @@ def find_comment_objects(payload: Any) -> list[dict[str, Any]]:
     return candidates
 
 
-def extract_reviews_from_payload(payload: Any, product_code: str, category: str) -> list[dict[str, Any]]:
+def extract_reviews_from_payload(payload: Any, product_code: str, category: str, product_name: str = "") -> list[dict[str, Any]]:
     comments = find_comment_objects(payload)
     return [
-        to_review(item, product_code, category)
+        to_review(item, product_code, category, product_name)
         for item in comments
         if normalize_text(first_non_empty(item.get("content"), item.get("commentData"), item.get("commentContent")))
     ]
 
 
-def to_review(raw: dict[str, Any], product_code: str, category: str) -> dict[str, Any]:
+def to_review(raw: dict[str, Any], product_code: str, category: str, product_name: str = "") -> dict[str, Any]:
     rating = first_non_empty(raw.get("score"), raw.get("commentScore"), raw.get("star"))
     try:
         rating_value = float(rating) if rating is not None else None
@@ -115,6 +120,7 @@ def to_review(raw: dict[str, Any], product_code: str, category: str) -> dict[str
         "source": "jd",
         "sourceReviewId": source_review_id,
         "productCode": product_code,
+        "productName": normalize_text(product_name),
         "category": category,
         "rating": rating_value,
         "content": normalize_text(first_non_empty(raw.get("content"), raw.get("commentData"), raw.get("commentContent"))),
@@ -155,6 +161,19 @@ def detect_risk_state(page: Any) -> str:
     return ""
 
 
+def wait_for_manual_verification(page: Any, reason: str, wait_seconds: int) -> bool:
+    if wait_seconds <= 0:
+        return False
+    deadline = time.time() + wait_seconds
+    print(f"检测到平台验证/风控提示：{reason}。请在当前浏览器窗口中人工完成验证，最多等待 {wait_seconds} 秒。")
+    while time.time() < deadline:
+        time.sleep(3)
+        if not detect_risk_state(page):
+            print("人工验证已处理，继续监听评论数据。")
+            return True
+    return False
+
+
 def sleep_safely(min_seconds: float, max_seconds: float) -> None:
     seconds = random.uniform(min_seconds, max_seconds)
     print(f"等待 {seconds:.1f} 秒，降低访问频率...")
@@ -179,6 +198,10 @@ def jd_product_url(product_url: str | None = None, product_id: str | None = None
     return f"https://item.jd.com/{product_id}.html"
 
 
+def safe_filename(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_.-]+", "-", value).strip("-") or "product"
+
+
 def collect_jd_reviews(
     *,
     product_url: str | None = None,
@@ -187,8 +210,10 @@ def collect_jd_reviews(
     category: str,
     output: Path,
     progress_path: Path,
+    product_name: str = "",
     max_packets: int = 20,
     wait_seconds: int = 120,
+    verification_wait_seconds: int = 180,
     dry_run_payloads: Iterable[Any] | None = None,
     sleep_fn: Callable[[float, float], None] = sleep_safely,
 ) -> CrawlResult:
@@ -206,7 +231,7 @@ def collect_jd_reviews(
         captured_packets = 0
         new_review_count = 0
         for payload in dry_run_payloads:
-            reviews = extract_reviews_from_payload(payload, product_code, category)
+            reviews = extract_reviews_from_payload(payload, product_code, category, product_name)
             if not reviews:
                 continue
             new_review_count += writer.write_many(reviews)
@@ -217,6 +242,7 @@ def collect_jd_reviews(
         return CrawlResult(
             productUrl=resolved_url,
             productCode=product_code,
+            productName=normalize_text(product_name),
             category=category,
             outputPath=str(output),
             progressPath=str(progress_path),
@@ -243,13 +269,17 @@ def collect_jd_reviews(
     while time.time() < deadline and captured_packets < max_packets:
         reason = detect_risk_state(page)
         if reason:
-            message = f"检测到平台验证/风控提示：{reason}。请人工处理后重新运行脚本。"
-            print(message)
             progress["lastRiskReason"] = reason
             save_progress(progress_path, progress)
+            if wait_for_manual_verification(page, reason, verification_wait_seconds):
+                deadline = time.time() + wait_seconds
+                continue
+            message = f"检测到平台验证/风控提示：{reason}。人工处理等待超时，请处理后重新运行脚本。"
+            print(message)
             return CrawlResult(
                 productUrl=resolved_url,
                 productCode=product_code,
+                productName=normalize_text(product_name),
                 category=category,
                 outputPath=str(output),
                 progressPath=str(progress_path),
@@ -263,7 +293,7 @@ def collect_jd_reviews(
         if not packet:
             continue
         payload = parse_packet_body(packet)
-        reviews = extract_reviews_from_payload(payload, product_code, category)
+        reviews = extract_reviews_from_payload(payload, product_code, category, product_name)
         if not reviews:
             continue
 
@@ -281,6 +311,7 @@ def collect_jd_reviews(
     return CrawlResult(
         productUrl=resolved_url,
         productCode=product_code,
+        productName=normalize_text(product_name),
         category=category,
         outputPath=str(output),
         progressPath=str(progress_path),
@@ -293,20 +324,215 @@ def collect_jd_reviews(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Collect JD reviews into crawler/output/raw_reviews.jsonl")
+    parser.add_argument("--interactive", action="store_true", help="Use Chinese step-by-step CLI prompts")
     parser.add_argument("--product-url", default="", help="JD product URL, for example https://item.jd.com/100127936932.html")
     parser.add_argument("--product-id", default="", help="JD numeric product id, for example 100127936932")
-    parser.add_argument("--product-code", required=True, help="Internal productCode used by backend")
-    parser.add_argument("--category", default="bluetooth-earphone", help="Product category for later LLM prompts")
-    parser.add_argument("--output", default="crawler/output/raw_reviews.jsonl")
-    parser.add_argument("--progress", default="crawler/output/jd_progress.json")
+    parser.add_argument("--product-code", default="", help="Internal productCode used by backend")
+    parser.add_argument("--product-name", default="", help="Human-readable productName written into every JSONL review")
+    parser.add_argument("--category", default=DEFAULT_CATEGORY, help="Product category for later LLM prompts")
+    parser.add_argument("--output", default=DEFAULT_OUTPUT)
+    parser.add_argument("--progress", default=DEFAULT_PROGRESS)
     parser.add_argument("--max-packets", type=int, default=20)
     parser.add_argument("--wait-seconds", type=int, default=120)
+    parser.add_argument("--verification-wait-seconds", type=int, default=180, help="Seconds to wait for manual captcha/risk verification")
     parser.add_argument("--dry-run-packet", default="", help="Optional JSON file with one captured packet payload for parser testing")
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def prompt_text(
+    label: str,
+    *,
+    default: str = "",
+    required: bool = False,
+    input_fn: Callable[[str], str] = input,
+    print_fn: Callable[[str], None] = print,
+) -> str:
+    while True:
+        default_hint = f"（默认：{default}）" if default else ""
+        value = input_fn(f"{label}{default_hint}: ").strip()
+        if value:
+            return value
+        if default:
+            return default
+        if not required:
+            return ""
+        print_fn(f"{label}不能为空，请重新输入。")
+
+
+def prompt_int(
+    label: str,
+    *,
+    default: int,
+    min_value: int = 1,
+    input_fn: Callable[[str], str] = input,
+    print_fn: Callable[[str], None] = print,
+) -> int:
+    while True:
+        value = input_fn(f"{label}（默认：{default}）: ").strip()
+        if not value:
+            return default
+        try:
+            parsed = int(value)
+        except ValueError:
+            print_fn(f"{label}必须是整数，请重新输入。")
+            continue
+        if parsed < min_value:
+            print_fn(f"{label}不能小于 {min_value}，请重新输入。")
+            continue
+        return parsed
+
+
+def split_product_locator(locator: str) -> tuple[str | None, str | None]:
+    text = normalize_text(locator)
+    if re.fullmatch(r"\d{6,}", text):
+        return None, text
+    return text, None
+
+
+def interactive_output_default(product_code: str) -> str:
+    return f"crawler/output/raw_reviews_{safe_filename(product_code)}.jsonl"
+
+
+def interactive_progress_default(product_code: str) -> str:
+    return f"crawler/output/progress/jd_{safe_filename(product_code)}.json"
+
+
+def prompt_interactive_args(
+    args: argparse.Namespace,
+    *,
+    input_fn: Callable[[str], str] = input,
+    print_fn: Callable[[str], None] = print,
+) -> argparse.Namespace:
+    print_fn("京东评论采集 CLI 向导")
+    print_fn(COMPLIANCE_NOTICE)
+    print_fn("请按提示输入信息；有默认值时直接回车会使用默认值。")
+
+    locator_default = args.product_url or args.product_id
+    while True:
+        locator = prompt_text(
+            "1. 京东商品链接或商品 ID（例如 https://item.jd.com/100127936932.html）",
+            default=locator_default,
+            required=True,
+            input_fn=input_fn,
+            print_fn=print_fn,
+        )
+        product_url, product_id = split_product_locator(locator)
+        try:
+            resolved_url = jd_product_url(product_url, product_id)
+            break
+        except ValueError as exc:
+            print_fn(str(exc))
+            locator_default = ""
+
+    derived_product_id = jd_product_id_from_url(resolved_url)
+    product_code_default = args.product_code or f"jd-{derived_product_id}"
+    product_code = prompt_text(
+        "2. 内部 productCode（系统数据库识别商品用，例如 jd-100127936932）",
+        default=product_code_default,
+        required=True,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+    product_name = prompt_text(
+        "3. 商品名称 productName（会写入每条 JSONL 评论）",
+        default=args.product_name,
+        required=True,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+    category = prompt_text(
+        "4. 品类 category（给后续 LLM/标签体系使用，例如 bluetooth-earphone）",
+        default=args.category or DEFAULT_CATEGORY,
+        required=True,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+    max_packets = prompt_int(
+        "5. 最大抓包数 maxPackets",
+        default=args.max_packets,
+        min_value=1,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+
+    output_default = args.output if args.output != DEFAULT_OUTPUT else interactive_output_default(product_code)
+    progress_default = args.progress if args.progress != DEFAULT_PROGRESS else interactive_progress_default(product_code)
+    output = prompt_text(
+        "6. 输出 JSONL 路径 output",
+        default=output_default,
+        required=True,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+    progress = prompt_text(
+        "7. 进度文件路径 progress",
+        default=progress_default,
+        required=True,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+    wait_seconds = prompt_int(
+        "8. 等待评论包总秒数 waitSeconds",
+        default=args.wait_seconds,
+        min_value=1,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+    verification_wait_seconds = prompt_int(
+        "9. 出现登录/验证/风控时等待人工处理秒数 verificationWaitSeconds",
+        default=args.verification_wait_seconds,
+        min_value=0,
+        input_fn=input_fn,
+        print_fn=print_fn,
+    )
+
+    args.product_url = resolved_url
+    args.product_id = ""
+    args.product_code = product_code
+    args.product_name = product_name
+    args.category = category
+    args.max_packets = max_packets
+    args.output = output
+    args.progress = progress
+    args.wait_seconds = wait_seconds
+    args.verification_wait_seconds = verification_wait_seconds
+    return args
+
+
+def validate_args(args: argparse.Namespace) -> None:
+    missing: list[str] = []
+    if not args.product_url and not args.product_id:
+        missing.append("--product-url 或 --product-id")
+    if not args.product_code:
+        missing.append("--product-code")
+    if not args.category:
+        missing.append("--category")
+    if missing:
+        joined = "、".join(missing)
+        raise ValueError(f"缺少必要参数：{joined}。可以直接运行 python crawler/jd_reviews.py 进入中文交互式 CLI，或按旧方式补齐参数。")
+
+
+def parse_args(
+    argv: list[str] | None = None,
+    *,
+    input_fn: Callable[[str], str] = input,
+    print_fn: Callable[[str], None] = print,
+) -> argparse.Namespace:
+    actual_argv = sys.argv[1:] if argv is None else list(argv)
+    args = build_parser().parse_args(actual_argv)
+    if args.interactive or not actual_argv:
+        args = prompt_interactive_args(args, input_fn=input_fn, print_fn=print_fn)
+    validate_args(args)
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        args = parse_args(argv)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+
     try:
         dry_run_payloads = None
         if args.dry_run_packet:
@@ -315,11 +541,13 @@ def main() -> int:
             product_url=args.product_url or None,
             product_id=args.product_id or None,
             product_code=args.product_code,
+            product_name=args.product_name,
             category=args.category,
             output=Path(args.output),
             progress_path=Path(args.progress),
             max_packets=args.max_packets,
             wait_seconds=args.wait_seconds,
+            verification_wait_seconds=args.verification_wait_seconds,
             dry_run_payloads=dry_run_payloads,
         )
     except (RuntimeError, ValueError) as exc:

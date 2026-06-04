@@ -1,6 +1,6 @@
 {
   "$schema": "nexus-mapper/concept-model/v1",
-  "generated_at": "2026-06-03T00:00:00+08:00",
+  "generated_at": "2026-06-04T00:00:00+08:00",
   "repo_path": "D:/code/review-analyzer",
   "generator": "nexus-mapper v2",
   "nodes": [
@@ -8,7 +8,7 @@
       "id": "frontend-console",
       "type": "System",
       "label": "Frontend Console",
-      "responsibility": "提供 Vue 单页验收看板、内部访问门禁、图表列表组件和 showcase 展示模块。",
+      "responsibility": "提供 Vue 单页验收看板、内部访问门禁、数据接入、问题、卖点、竞品、趋势、词云和前后对比模块。",
       "implementation_status": "implemented",
       "code_path": "frontend/",
       "evidence_path": null,
@@ -22,7 +22,7 @@
       "id": "backend-api",
       "type": "System",
       "label": "Backend API",
-      "responsibility": "提供 REST 接口、同步任务、分析任务、演示数据初始化、洞察查询、动作登记和 showcase 运行态。",
+      "responsibility": "提供 REST 接口、JSONL 清洗导入、taxonomy 绑定、同步/异步 LLM 分析、洞察查询和前后对比。",
       "implementation_status": "implemented",
       "code_path": "backend/",
       "evidence_path": null,
@@ -36,12 +36,12 @@
       "id": "nlp-service",
       "type": "System",
       "label": "NLP Service",
-      "responsibility": "提供 FastAPI 文本分析接口，用关键词规则识别评论方面、情感极性、置信度和问题簇。",
+      "responsibility": "提供 FastAPI 文本分析接口，默认调用 OpenAI-compatible LLM 输出结构化情感、UX 标签、证据和问题簇。",
       "implementation_status": "implemented",
       "code_path": "nlp-service/",
       "evidence_path": null,
       "evidence_gap": null,
-      "tech_stack": ["Python", "FastAPI", "Pydantic", "pytest", "keyword rules"],
+      "tech_stack": ["Python", "FastAPI", "Pydantic", "pytest", "OpenAI-compatible LLM"],
       "related_reqs": [],
       "complexity": "low",
       "hotspot": false
@@ -64,7 +64,7 @@
       "id": "docs-acceptance",
       "type": "System",
       "label": "Docs and Acceptance",
-      "responsibility": "沉淀操作手册、接口文档、代码文档、需求图和个人工作总结等答辩材料。",
+      "responsibility": "保存可选答辩材料；默认项目知识库以 .nexus-map 为准，只有用户明确要求时维护 docs。",
       "implementation_status": "implemented",
       "code_path": "docs/",
       "evidence_path": null,
@@ -75,29 +75,15 @@
       "hotspot": true
     },
     {
-      "id": "legacy-reference",
-      "type": "System",
-      "label": "Legacy Reference",
-      "responsibility": "保存旧版 wh-source 和 wh 目录代码，作为历史参考，不属于当前主运行链路。",
-      "implementation_status": "implemented",
-      "code_path": "legacy/",
-      "evidence_path": null,
-      "evidence_gap": null,
-      "tech_stack": ["legacy Java", "legacy Vue", "legacy Python"],
-      "related_reqs": [],
-      "complexity": "medium",
-      "hotspot": false
-    },
-    {
       "id": "review-domain",
       "type": "Domain",
       "label": "Review Decision Domain",
-      "responsibility": "围绕耳机评论采集、方面识别、情感判断、问题优先级、改进行动和效果验证建模。",
+      "responsibility": "围绕电商评论采集、清洗、LLM 语义分析、问题优先级、卖点提炼和改进效果验证建模。",
       "implementation_status": "implemented",
-      "code_path": "backend/src/main/java/com/wh/review/backend/",
+      "code_path": "backend/src/main/java/review/backend/",
       "evidence_path": null,
       "evidence_gap": null,
-      "tech_stack": ["REST contracts", "materialized analysis", "controlled demo data"],
+      "tech_stack": ["REST contracts", "materialized analysis", "JSONL intake", "LLM analysis"],
       "related_reqs": [],
       "complexity": "high",
       "hotspot": true
@@ -148,11 +134,11 @@
     }
   ],
   "metadata": {
-    "total_files": 695,
-    "total_lines": 92423,
+    "total_files": 293,
+    "total_lines": 72272,
     "languages": ["java", "javascript", "python", "sql", "typescript", "vue"],
     "git_commits_analyzed": 28,
     "analysis_days": 90,
-    "notes": "Vue and SQL files were parsed with module-only AST coverage; detailed frontend and schema conclusions combine AST/file-tree evidence with manual inspection."
+    "notes": "Vue and SQL files were parsed with module-only AST coverage; detailed frontend and schema conclusions combine AST/file-tree evidence with manual inspection. The old legacy/wh-source archive was deleted on 2026-06-04 and is no longer a system node."
   }
 }

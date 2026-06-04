@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Conservative JSONL review cleaning.
 
-The cleaner preserves valid user feedback distribution. It only removes invalid
-JSON, empty content, and exact duplicates, while normalizing technical noise
-such as HTML tags and whitespace.
+The cleaner preserves valid user feedback distribution. It removes invalid JSON,
+empty content, platform placeholder comments, and exact duplicates, while
+normalizing technical noise such as HTML tags and whitespace.
 """
 
 from __future__ import annotations
@@ -20,16 +20,24 @@ from typing import Any
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 WHITESPACE_RE = re.compile(r"\s+")
 ZERO_WIDTH_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
+PLACEHOLDER_COMMENT_RE = re.compile(r"(?:此|该)?用户(?:未及时|没有|未|尚未|未按时)?填写评价内容")
+LEADING_SEPARATOR_RE = re.compile(r"^[\s|｜:：,，;；。.!！?？\-—_]+")
+TRAILING_SEPARATOR_RE = re.compile(r"[\s|｜:：,，;；\-—_]+$")
 
 
-def clean_content(value: Any) -> tuple[str, bool]:
+def clean_content(value: Any) -> tuple[str, bool, bool]:
     raw = "" if value is None else str(value)
     unescaped = html.unescape(raw)
     without_tags = HTML_TAG_RE.sub(" ", unescaped)
     without_zero_width = ZERO_WIDTH_RE.sub("", without_tags)
     normalized = WHITESPACE_RE.sub(" ", without_zero_width.replace("\r", " ").replace("\n", " ")).strip()
+    without_placeholder = PLACEHOLDER_COMMENT_RE.sub(" ", normalized)
+    without_placeholder = LEADING_SEPARATOR_RE.sub("", without_placeholder)
+    without_placeholder = TRAILING_SEPARATOR_RE.sub("", without_placeholder)
+    normalized = WHITESPACE_RE.sub(" ", without_placeholder).strip()
     html_cleaned = bool(HTML_TAG_RE.search(raw)) or unescaped != raw
-    return normalized, html_cleaned
+    placeholder_cleaned = bool(PLACEHOLDER_COMMENT_RE.search(raw)) or bool(PLACEHOLDER_COMMENT_RE.search(unescaped))
+    return normalized, html_cleaned, placeholder_cleaned
 
 
 def stable_hash(value: str) -> str:
@@ -73,6 +81,7 @@ def clean_jsonl(input_path: Path, output_path: Path, removed_output_path: Path, 
         "exactDuplicateCount": 0,
         "emptyContentCount": 0,
         "invalidJsonCount": 0,
+        "placeholderContentCount": 0,
     }
 
     with input_path.open("r", encoding="utf-8") as source, output_path.open("w", encoding="utf-8") as cleaned, removed_output_path.open("w", encoding="utf-8") as removed:
@@ -100,11 +109,16 @@ def clean_jsonl(input_path: Path, output_path: Path, removed_output_path: Path, 
                 removed.write(json.dumps(removed_record(line_number, "invalid_json", review), ensure_ascii=False) + "\n")
                 continue
 
-            cleaned_content, html_cleaned = clean_content(review.get("content"))
+            cleaned_content, html_cleaned, placeholder_cleaned = clean_content(review.get("content"))
+            if placeholder_cleaned:
+                summary["placeholderContentCount"] += 1
             if not cleaned_content:
                 summary["removedCount"] += 1
-                summary["emptyContentCount"] += 1
-                removed.write(json.dumps(removed_record(line_number, "empty_content", review), ensure_ascii=False) + "\n")
+                if placeholder_cleaned:
+                    removed.write(json.dumps(removed_record(line_number, "placeholder_content", review), ensure_ascii=False) + "\n")
+                else:
+                    summary["emptyContentCount"] += 1
+                    removed.write(json.dumps(removed_record(line_number, "empty_content", review), ensure_ascii=False) + "\n")
                 continue
 
             cleaned_review = dict(review)

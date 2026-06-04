@@ -1,11 +1,15 @@
 package review.backend.application;
 
+import review.backend.api.dto.CrawlImportResponse;
 import review.backend.api.dto.CrawlJobResponse;
+import review.backend.api.dto.CrawlReviewSample;
 import review.backend.api.dto.CrawlStartRequest;
 import review.backend.api.dto.SyncJobResponse;
 import review.backend.api.dto.TaxonomyResponse;
 import review.backend.data.SyncJobRepository;
 import java.net.SocketTimeoutException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -43,6 +47,7 @@ public class CrawlJobService {
     private final ReviewAggregationService reviewAggregationService;
     private final SyncJobRepository syncJobRepository;
     private final TaxonomyService taxonomyService;
+    private final ReviewImportService reviewImportService;
     private final RestClient crawlerRestClient;
 
     public CrawlJobService(
@@ -50,6 +55,7 @@ public class CrawlJobService {
             ReviewAggregationService reviewAggregationService,
             SyncJobRepository syncJobRepository,
             TaxonomyService taxonomyService,
+            ReviewImportService reviewImportService,
             RestClient.Builder restClientBuilder,
             CrawlerProperties crawlerProperties
     ) {
@@ -57,6 +63,7 @@ public class CrawlJobService {
         this.reviewAggregationService = reviewAggregationService;
         this.syncJobRepository = syncJobRepository;
         this.taxonomyService = taxonomyService;
+        this.reviewImportService = reviewImportService;
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(crawlerProperties.getConnectTimeout());
@@ -123,7 +130,10 @@ public class CrawlJobService {
                        analysis_handoff_status,
                        analysis_handoff_note,
                        source_url,
-                       taxonomy_id
+                       taxonomy_id,
+                       output_path,
+                       progress_path,
+                       captured_packet_count
                 FROM sync_jobs
                 WHERE id = ?
                 """,
@@ -134,6 +144,39 @@ public class CrawlJobService {
             return Optional.empty();
         }
         return Optional.of(rows.getFirst());
+    }
+
+    public CrawlImportResponse cleanAndImport(String jobId) {
+        Long id = parseId(jobId);
+        if (id == null) {
+            throw new IllegalArgumentException("invalid crawl job id=" + jobId);
+        }
+        refreshExternalCrawlerJob(id);
+        CrawlJobImportBinding binding = findImportBinding(id);
+        if (binding.outputPath() == null || binding.outputPath().isBlank()) {
+            throw new IllegalStateException("crawl job has no JSONL output path yet; refresh the crawl job first");
+        }
+        Path rawOutputPath = resolveWorkspacePath(binding.outputPath());
+        CrawlImportResponse response = reviewImportService.importJsonlFile(
+                jobId,
+                binding.productCode(),
+                binding.platform(),
+                rawOutputPath
+        );
+        jdbcTemplate.update(
+                """
+                UPDATE sync_jobs
+                SET analysis_handoff_status = ?,
+                    analysis_handoff_note = ?,
+                    fetched_count = ?
+                WHERE id = ?
+                """,
+                response.analysisHandoffStatus(),
+                "JSONL cleaned and imported; cleanedOutputPath=" + response.cleanedOutputPath(),
+                response.totalReviewCount(),
+                id
+        );
+        return response;
     }
 
     private CrawlJobResponse startExternalCrawler(
@@ -239,6 +282,9 @@ public class CrawlJobService {
                 SET external_job_id = ?,
                     status = ?,
                     fetched_count = ?,
+                    captured_packet_count = ?,
+                    output_path = ?,
+                    progress_path = ?,
                     finished_at = ?,
                     error_message = ?,
                     analysis_handoff_status = ?,
@@ -248,6 +294,9 @@ public class CrawlJobService {
                 externalJob.jobId(),
                 status,
                 Math.max(0, externalJob.newReviewCount()),
+                Math.max(0, externalJob.capturedPackets()),
+                externalJob.outputPath(),
+                externalJob.progressPath(),
                 finishedAt,
                 externalJob.errorMessage(),
                 handoffStatus(status),
@@ -267,6 +316,12 @@ public class CrawlJobService {
                 rs.getString("status"),
                 rs.getTimestamp("started_at").toInstant(),
                 rs.getInt("fetched_count"),
+                rs.getInt("captured_packet_count"),
+                rs.getString("output_path"),
+                rs.getString("progress_path"),
+                buildCleanCommand(rs.getString("output_path"), rs.getString("target_product_code")),
+                buildImportCommand(rs.getString("output_path"), rs.getString("target_product_code")),
+                sampleReviews(rs.getString("output_path")),
                 rs.getString("error_message"),
                 rs.getString("analysis_handoff_status"),
                 rs.getString("analysis_handoff_note")
@@ -282,6 +337,12 @@ public class CrawlJobService {
                 job.status(),
                 job.startedAt(),
                 job.fetchedCount(),
+                0,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
                 job.errorMessage(),
                 job.analysisHandoffStatus(),
                 job.analysisHandoffNote()
@@ -391,10 +452,88 @@ public class CrawlJobService {
         }
     }
 
+    private CrawlJobImportBinding findImportBinding(long jobId) {
+        List<CrawlJobImportBinding> rows = jdbcTemplate.query(
+                """
+                SELECT target_product_code, platform, output_path
+                FROM sync_jobs
+                WHERE id = ?
+                """,
+                (rs, rowNum) -> new CrawlJobImportBinding(
+                        rs.getString("target_product_code"),
+                        rs.getString("platform"),
+                        rs.getString("output_path")
+                ),
+                jobId
+        );
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("crawl job not found: " + jobId);
+        }
+        return rows.getFirst();
+    }
+
+    private Path resolveWorkspacePath(String rawPath) {
+        Path path = Path.of(rawPath);
+        if (path.isAbsolute()) {
+            return path.normalize();
+        }
+        Path cwd = Path.of("").toAbsolutePath().normalize();
+        Path direct = cwd.resolve(path).normalize();
+        if (Files.exists(direct)) {
+            return direct;
+        }
+        Path parent = cwd.getParent();
+        if (parent != null) {
+            Path sibling = parent.resolve(path).normalize();
+            if (Files.exists(sibling)) {
+                return sibling;
+            }
+        }
+        return direct;
+    }
+
+    private List<CrawlReviewSample> sampleReviews(String outputPath) {
+        if (outputPath == null || outputPath.isBlank()) {
+            return List.of();
+        }
+        return reviewImportService.sampleReviews(resolveWorkspacePath(outputPath), 3);
+    }
+
+    private String buildCleanCommand(String outputPath, String productCode) {
+        if (outputPath == null || outputPath.isBlank()) {
+            return null;
+        }
+        String safeProduct = safeFilename(productCode);
+        return "python pipeline/clean_reviews.py --input \"" + outputPath
+                + "\" --output \"pipeline/output/cleaned_reviews_" + safeProduct
+                + ".jsonl\" --removed-output \"pipeline/output/removed_reviews_" + safeProduct
+                + ".jsonl\" --summary-output \"pipeline/output/cleaning_summary_" + safeProduct + ".json\"";
+    }
+
+    private String buildImportCommand(String outputPath, String productCode) {
+        if (outputPath == null || outputPath.isBlank()) {
+            return null;
+        }
+        String safeProduct = safeFilename(productCode);
+        return "python crawler/import_reviews.py --input \"pipeline/output/cleaned_reviews_" + safeProduct
+                + ".jsonl\" --cleaning-summary \"pipeline/output/cleaning_summary_" + safeProduct
+                + ".json\" --product-code \"" + productCode + "\"";
+    }
+
+    private String safeFilename(String value) {
+        if (value == null || value.isBlank()) {
+            return "product";
+        }
+        String safe = value.replaceAll("[^a-zA-Z0-9_.-]+", "-").replaceAll("^-+|-+$", "");
+        return safe.isBlank() ? "product" : safe;
+    }
+
     private record ExternalCrawlerJob(
             String jobId,
             String status,
             String outputPath,
+            String progressPath,
+            int capturedPackets,
             int newReviewCount,
             String errorMessage,
             String message
@@ -402,5 +541,8 @@ public class CrawlJobService {
     }
 
     private record ExternalBinding(String externalJobId, String sourceUrl, long taxonomyId) {
+    }
+
+    private record CrawlJobImportBinding(String productCode, String platform, String outputPath) {
     }
 }

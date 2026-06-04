@@ -30,6 +30,7 @@ public class DataQualityRepository {
                         "exact_duplicate_count",
                         "empty_content_count",
                         "invalid_json_count",
+                        "placeholder_content_count",
                         "summary_json"
                 );
     }
@@ -47,6 +48,7 @@ public class DataQualityRepository {
                 "exact_duplicate_count", intValue(summary, "exactDuplicateCount"),
                 "empty_content_count", intValue(summary, "emptyContentCount"),
                 "invalid_json_count", intValue(summary, "invalidJsonCount"),
+                "placeholder_content_count", intValue(summary, "placeholderContentCount"),
                 "summary_json", toJson(summary)
         ));
     }
@@ -62,6 +64,7 @@ public class DataQualityRepository {
                        exact_duplicate_count,
                        empty_content_count,
                        invalid_json_count,
+                       placeholder_content_count,
                        imported_at
                 FROM data_quality_runs
                 WHERE product_code = ?
@@ -81,6 +84,7 @@ public class DataQualityRepository {
                             rs.getInt("exact_duplicate_count"),
                             rs.getInt("empty_content_count"),
                             rs.getInt("invalid_json_count"),
+                            rs.getInt("placeholder_content_count"),
                             rs.getTimestamp("imported_at").toInstant()
                     ));
                 },
@@ -120,6 +124,7 @@ public class DataQualityRepository {
             int exactDuplicateCount,
             int emptyContentCount,
             int invalidJsonCount,
+            int placeholderContentCount,
             Instant importedAt
     ) {
     }

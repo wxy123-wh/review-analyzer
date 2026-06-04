@@ -5,9 +5,11 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Repository;
@@ -15,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class AnalysisMaterializationRepository {
+
+    public static final String STALE_REVIEW_DATA_MESSAGE =
+            "评论数据在 LLM 分析过程中被重新导入或替换，请重新启动 LLM 分析。";
 
     private final JdbcTemplate jdbcTemplate;
     private final ReviewSemanticLabelRepository reviewSemanticLabelRepository;
@@ -92,6 +97,50 @@ public class AnalysisMaterializationRepository {
                 productCode
         );
         return count != null && count > 0;
+    }
+
+    public int countMaterializedReviews(String productCode) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM review_aspects ra
+                JOIN reviews_raw r ON r.id = ra.review_id
+                JOIN products p ON p.id = r.product_id
+                WHERE p.product_code = ?
+                """,
+                Integer.class,
+                productCode
+        );
+        return count == null ? 0 : count;
+    }
+
+    public int countSemanticLabels(String productCode) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM review_semantic_labels rsl
+                JOIN reviews_raw r ON r.id = rsl.review_id
+                JOIN products p ON p.id = r.product_id
+                WHERE p.product_code = ?
+                """,
+                Integer.class,
+                productCode
+        );
+        return count == null ? 0 : count;
+    }
+
+    public int countIssueClusters(String productCode) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM issue_clusters ic
+                JOIN products p ON p.id = ic.product_id
+                WHERE p.product_code = ?
+                """,
+                Integer.class,
+                productCode
+        );
+        return count == null ? 0 : count;
     }
 
     public List<MaterializedIssueRecord> findIssues(String productCode) {
@@ -178,6 +227,7 @@ public class AnalysisMaterializationRepository {
                     COALESCE(ra.ux_primary_label, '') AS ux_primary_label,
                     COALESCE(ra.ux_secondary_label, ra.aspect) AS ux_secondary_label,
                     COUNT(*) AS mention_count,
+                    SUM(CASE WHEN ra.sentiment_polarity = 'NEGATIVE' THEN 1 ELSE 0 END) AS negative_count,
                     AVG(COALESCE(ra.sentiment_score, 0.5000)) AS avg_sentiment_score
                 FROM review_aspects ra
                 JOIN reviews_raw r ON r.id = ra.review_id
@@ -191,9 +241,44 @@ public class AnalysisMaterializationRepository {
                         rs.getString("ux_primary_label"),
                         rs.getString("ux_secondary_label"),
                         rs.getInt("mention_count"),
+                        rs.getInt("negative_count"),
                         rs.getDouble("avg_sentiment_score")
                 ),
                 productCode
+        );
+    }
+
+    public List<MaterializedUxChangeReviewRecord> findUxChangeReviews(
+            String productCode,
+            Instant windowStart,
+            Instant windowEnd
+    ) {
+        return jdbcTemplate.query(
+                """
+                SELECT
+                    ra.aspect,
+                    COALESCE(ra.ux_primary_label, '') AS ux_primary_label,
+                    COALESCE(ra.ux_secondary_label, ra.aspect) AS ux_secondary_label,
+                    r.review_time,
+                    ra.sentiment_polarity
+                FROM review_aspects ra
+                JOIN reviews_raw r ON r.id = ra.review_id
+                JOIN products p ON p.id = r.product_id
+                WHERE p.product_code = ?
+                  AND r.review_time >= ?
+                  AND r.review_time < ?
+                ORDER BY r.review_time ASC, r.id ASC
+                """,
+                (rs, rowNum) -> new MaterializedUxChangeReviewRecord(
+                        rs.getString("aspect"),
+                        rs.getString("ux_primary_label"),
+                        rs.getString("ux_secondary_label"),
+                        rs.getTimestamp("review_time").toInstant(),
+                        rs.getString("sentiment_polarity")
+                ),
+                productCode,
+                Timestamp.from(windowStart),
+                Timestamp.from(windowEnd)
         );
     }
 
@@ -202,14 +287,20 @@ public class AnalysisMaterializationRepository {
         args.add(productCode);
 
         StringBuilder sql = new StringBuilder("""
-                SELECT r.content, ra.sentiment_polarity
+                SELECT
+                    r.content,
+                    ra.sentiment_polarity,
+                    COALESCE(sl.ux_secondary_label, ra.ux_secondary_label) AS ux_secondary_label,
+                    sl.standardized_reason,
+                    sl.evidence
                 FROM review_aspects ra
                 JOIN reviews_raw r ON r.id = ra.review_id
                 JOIN products p ON p.id = r.product_id
+                LEFT JOIN review_semantic_labels sl ON sl.review_id = ra.review_id
                 WHERE p.product_code = ?
                 """);
         if (aspect != null && !aspect.isBlank()) {
-            sql.append(" AND ra.ux_secondary_label = ?");
+            sql.append(" AND COALESCE(sl.ux_secondary_label, ra.ux_secondary_label) = ?");
             args.add(aspect);
         }
         sql.append(" ORDER BY r.review_time ASC, r.id ASC");
@@ -218,7 +309,10 @@ public class AnalysisMaterializationRepository {
                 sql.toString(),
                 (rs, rowNum) -> new MaterializedWordCloudReviewRecord(
                         rs.getString("content"),
-                        rs.getString("sentiment_polarity")
+                        rs.getString("sentiment_polarity"),
+                        rs.getString("ux_secondary_label"),
+                        rs.getString("standardized_reason"),
+                        rs.getString("evidence")
                 ),
                 args.toArray()
         );
@@ -313,28 +407,59 @@ public class AnalysisMaterializationRepository {
             throw new IllegalStateException("product not found for productCode=" + productCode);
         }
 
-        jdbcTemplate.update(
-                """
-                UPDATE improvement_actions
-                SET issue_cluster_id = NULL
-                WHERE issue_cluster_id IN (
-                    SELECT id FROM issue_clusters WHERE product_id = ?
-                )
-                """,
-                productId
-        );
-        jdbcTemplate.update(
-                "DELETE FROM issue_scores WHERE issue_cluster_id IN (SELECT id FROM issue_clusters WHERE product_id = ?)",
-                productId
-        );
-        jdbcTemplate.update("DELETE FROM issue_clusters WHERE product_id = ?", productId);
-        jdbcTemplate.update(
-                "DELETE FROM review_aspects WHERE review_id IN (SELECT id FROM reviews_raw WHERE product_id = ?)",
-                productId
-        );
-        reviewSemanticLabelRepository.replaceForProduct(productId, materialization.semanticLabels());
+        validateReviewIdsBelongToProduct(productCode, productId, materialization);
+        clearOutputsForProductId(productId);
+        reviewSemanticLabelRepository.insertAll(materialization.semanticLabels());
+        insertReviewAspects(materialization.reviewAspects());
+        insertIssueClusters(productId, materialization.issueClusters());
+    }
 
+    @Transactional
+    public void appendOutputs(String productCode, Materialization batchMaterialization, Materialization cumulativeMaterialization) {
+        Long productId = findProductId(productCode);
+        if (productId == null) {
+            throw new IllegalStateException("product not found for productCode=" + productCode);
+        }
+
+        validateReviewIdsBelongToProduct(productCode, productId, batchMaterialization);
+        reviewSemanticLabelRepository.insertAll(batchMaterialization.semanticLabels());
+        insertReviewAspects(batchMaterialization.reviewAspects());
+        replaceIssueClustersForProductId(productId, cumulativeMaterialization.issueClusters());
+    }
+
+    private void validateReviewIdsBelongToProduct(String productCode, long productId, Materialization materialization) {
+        Set<Long> reviewIds = new LinkedHashSet<>();
         for (ReviewAspectRecord reviewAspect : materialization.reviewAspects()) {
+            reviewIds.add(reviewAspect.reviewId());
+        }
+        for (ReviewSemanticLabelRepository.SemanticLabelRecord semanticLabel : materialization.semanticLabels()) {
+            reviewIds.add(semanticLabel.reviewId());
+        }
+        if (reviewIds.isEmpty()) {
+            return;
+        }
+
+        String placeholders = String.join(",", reviewIds.stream().map(ignored -> "?").toList());
+        List<Object> args = new ArrayList<>();
+        args.add(productId);
+        args.addAll(reviewIds);
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM reviews_raw
+                WHERE product_id = ?
+                  AND id IN (
+                """ + placeholders + ")",
+                Integer.class,
+                args.toArray()
+        );
+        if (count == null || count != reviewIds.size()) {
+            throw new IllegalStateException(STALE_REVIEW_DATA_MESSAGE + " productCode=" + productCode);
+        }
+    }
+
+    private void insertReviewAspects(List<ReviewAspectRecord> reviewAspects) {
+        for (ReviewAspectRecord reviewAspect : reviewAspects) {
             Map<String, Object> payload = new HashMap<>();
             payload.put("review_id", reviewAspect.reviewId());
             payload.put("aspect", reviewAspect.aspect());
@@ -345,8 +470,10 @@ public class AnalysisMaterializationRepository {
             payload.put("confidence", reviewAspect.confidence());
             insertReviewAspect.execute(payload);
         }
+    }
 
-        for (IssueClusterRecord cluster : materialization.issueClusters()) {
+    private void insertIssueClusters(long productId, List<IssueClusterRecord> issueClusters) {
+        for (IssueClusterRecord cluster : issueClusters) {
             Number clusterId = insertIssueCluster.executeAndReturnKey(Map.of(
                     "product_id", productId,
                     "aspect", cluster.aspect(),
@@ -367,6 +494,43 @@ public class AnalysisMaterializationRepository {
                     "weight_config", cluster.weightConfig()
             ));
         }
+    }
+
+    @Transactional
+    public void clearOutputs(String productCode) {
+        Long productId = findProductId(productCode);
+        if (productId == null) {
+            return;
+        }
+        clearOutputsForProductId(productId);
+    }
+
+    private void clearOutputsForProductId(long productId) {
+        replaceIssueClustersForProductId(productId, List.of());
+        jdbcTemplate.update(
+                "DELETE FROM review_aspects WHERE review_id IN (SELECT id FROM reviews_raw WHERE product_id = ?)",
+                productId
+        );
+        reviewSemanticLabelRepository.replaceForProduct(productId, List.of());
+    }
+
+    private void replaceIssueClustersForProductId(long productId, List<IssueClusterRecord> issueClusters) {
+        jdbcTemplate.update(
+                """
+                UPDATE improvement_actions
+                SET issue_cluster_id = NULL
+                WHERE issue_cluster_id IN (
+                    SELECT id FROM issue_clusters WHERE product_id = ?
+                )
+                """,
+                productId
+        );
+        jdbcTemplate.update(
+                "DELETE FROM issue_scores WHERE issue_cluster_id IN (SELECT id FROM issue_clusters WHERE product_id = ?)",
+                productId
+        );
+        jdbcTemplate.update("DELETE FROM issue_clusters WHERE product_id = ?", productId);
+        insertIssueClusters(productId, issueClusters);
     }
 
     private Long findProductId(String productCode) {
@@ -437,14 +601,30 @@ public class AnalysisMaterializationRepository {
             String uxPrimaryLabel,
             String uxSecondaryLabel,
             int mentionCount,
+            int negativeCount,
             double avgSentimentScore
+    ) {
+    }
+
+    public record MaterializedUxChangeReviewRecord(
+            String aspect,
+            String uxPrimaryLabel,
+            String uxSecondaryLabel,
+            Instant reviewTime,
+            String sentimentPolarity
     ) {
     }
 
     public record MaterializedWordCloudReviewRecord(
             String content,
-            String sentimentPolarity
+            String sentimentPolarity,
+            String uxSecondaryLabel,
+            String standardizedReason,
+            String evidence
     ) {
+        public MaterializedWordCloudReviewRecord(String content, String sentimentPolarity) {
+            this(content, sentimentPolarity, null, null, null);
+        }
     }
 
     public record MaterializedValidationReviewRecord(

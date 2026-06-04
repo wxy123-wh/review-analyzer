@@ -107,6 +107,7 @@ public class SyncJobService {
                     ONEBOUND_PROVIDER,
                     draft.platform(),
                     draft.targetProductCode(),
+                    null,
                     Long.parseLong(draft.jobId()),
                     fetchedPage.reviews()
             );
