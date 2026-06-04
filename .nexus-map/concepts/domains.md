@@ -16,13 +16,13 @@
 - cleaned JSONL：清洗阶段去除空内容、非法 JSON、HTML 噪声、平台占位评价和精确重复；如果内容是“此用户未及时填写评价内容 | [追评]: ...”，只剥掉占位前缀并保留真实追评。`POST /api/v1/reviews/clean-jsonl` 输出 `cleaned_reviews_<productCode>.jsonl`、`removed_reviews_<productCode>.jsonl`、`cleaning_summary_<productCode>.json` 和 sample，摘要含 `placeholderContentCount`，handoff 为 `READY_FOR_TAXONOMY_BINDING`。这个步骤不写数据库。
 - `reviews_raw`：清洗后的评论导入数据库后进入分析主链路。当前前端显式导入数据库时优先使用 `cleanedOutputPath`，后端收到 `cleaned_reviews_*.jsonl` 时直接读取 cleaned 文件和同目录 summary 入库，不再重复清洗 raw JSONL；但启动 LLM 分析时如果数据库已经有该商品评论，前端会复用现有 `reviews_raw`，不会为了启动分析再次覆盖导入 cleaned JSONL。
 
-当前代码没有找到 `POST /api/v1/demo-data/init` controller。真实外部评论同步和导入入口已经存在，当前前端通过 `GET /api/v1/reviews/jsonl-files` 自动识别 `crawler/output` 下的 raw JSONL，并把候选选择、手动路径兜底、商品名称、raw/cleaned JSONL 文件反馈、taxonomy/UX 配置、数据库导入和异步分析启动放在 `ProductSetupPanel` 中。前端主流程不再负责启动爬虫。
+当前代码没有找到 `POST /api/v1/demo-data/init` controller。真实外部评论同步和导入入口已经存在，当前前端通过 `GET /api/v1/reviews/jsonl-files` 自动识别 `crawler/output` 下的 raw JSONL，并把候选选择、手动路径兜底、商品名称、raw/cleaned JSONL 文件反馈、已保存 taxonomy 选择与绑定、数据库导入和异步分析启动放在 `ProductSetupPanel` 中。UX 标签编辑不再挤在数据接入页内，而是在左侧同级业务模块 `taxonomy` 中完成。前端主流程不再负责启动爬虫。
 
 刷新页面后的进度恢复由 `GET /api/v1/reviews/intake-status` 提供。该接口按 `productCode` 和可选 `inputPath` 汇总 raw/cleaned 文件是否存在、清洗摘要、taxonomy 是否已绑定、数据库已导入评论数、已物化分析评论数、最新 LLM analysis job，以及默认最近 10 条评论。前端数据接入页优先用这个台账显示每一步状态，而不是只靠按钮亮/灭或本次点击返回值。
 
 ## Taxonomy Binding
 
-UX 标签不由爬虫或前端自动决定。前端先从已有 taxonomy 下拉框选择一套标签体系，再在右侧侧边栏编辑 UX 一级/二级标签并绑定到商品；后端在同步 `POST /api/v1/analysis/start` 或异步 `POST /api/v1/analysis/jobs` 分析时读取当前 `productCode` 绑定的 taxonomy，把它作为 NLP/规则分析的候选标签体系。`clean-jsonl` 完成后返回 `READY_FOR_TAXONOMY_BINDING`，表示下一步应先绑定 taxonomy；分析后如果更换 taxonomy，需要重新分析。
+UX 标签不由爬虫或前端自动决定。左侧独立 `taxonomy` 模块负责编辑和保存可复用 taxonomy，包括 taxonomy 名称、商品品类、UX 一级标签和 UX 二级标签。保存成功后，这套 taxonomy 会出现在数据接入页“商品品类”下拉框中；数据接入页只负责选择一个已保存 taxonomy、只读预览标签树，并绑定到当前商品，不再提供内联 UX 标签编辑。后端在同步 `POST /api/v1/analysis/start` 或异步 `POST /api/v1/analysis/jobs` 分析时读取当前 `productCode` 绑定的 taxonomy，把它作为 NLP/规则分析的候选标签体系。`clean-jsonl` 完成后返回 `READY_FOR_TAXONOMY_BINDING`，表示下一步应先绑定 taxonomy；分析后如果更换 taxonomy，需要重新分析。
 
 ## Aspect
 
@@ -55,7 +55,7 @@ UX 标签不由爬虫或前端自动决定。前端先从已有 taxonomy 下拉�
 当前主流程分四步：
 
 1. `POST /api/v1/reviews/clean-jsonl`：只读取 raw JSONL，执行清洗、去重、占位评价处理，写入 `crawler/output/cleaned/`，返回 cleaned/removed/summary/sample 和 handoff `READY_FOR_TAXONOMY_BINDING`，不写 `products`、`reviews_raw`、`sync_jobs`、`data_quality_runs`。
-2. 绑定 taxonomy：从已有 taxonomy 中下拉选择一套标签体系，必要时在右侧侧边栏编辑 UX 一级/二级标签，再绑定到当前商品。
+2. 绑定 taxonomy：先在左侧 `taxonomy` 模块维护并保存标签体系，再回到数据接入页从“商品品类”下拉框选择已保存 taxonomy，预览后绑定到当前商品。
 3. 导入数据库：用户执行导入动作时，前端只有在 cleaned 文件实际存在时才把 `cleanedOutputPath` 传给 `POST /api/v1/reviews/import-jsonl`；此时请求会带 `replaceExisting=true`。后端会先检查同商品是否有 `QUEUED`/`RUNNING` 的 LLM 分析任务；如果有，会拒绝覆盖导入，防止把正在分析任务持有的旧 `reviews_raw.id` 删除；如果没有，才清空该商品旧物化输出并删除旧本地 JSONL 评论，再直接读取 cleaned JSONL 并复用同目录 cleaning summary，形成新的 `products` 和 `reviews_raw`。如果用户跳过清洗直接传 raw JSONL，该接口仍兼容旧流程，会先清洗再入库。
 4. `POST /api/v1/analysis/jobs`：启动异步 LLM 分析；如果 `intake-status.importedReviewCount > 0`，前端直接复用现有入库评论，不再自动覆盖导入 cleaned JSONL。之后用 `GET /api/v1/analysis/jobs/{id}` 轮询；每批 LLM 结果写入数据库后都会更新物化计数，前端看到 `downstreamReady=true` 或物化计数增长时就刷新下游图表。
 

@@ -14,9 +14,10 @@
   - latest scope includes API normalization and trend rendering behavior: `fetchTrends` can send `uxSecondaryLabel`, trend data can be represented as multiple `TrendSeries`, `TrendList` renders multiple colored SVG lines, and clicking a legend item highlights that UX dimension and refreshes the detail panel.
 
 - Frontend full suite: `npm --prefix frontend test`
-  - result: failed in latest run
-  - observed passing before final ProductSetupPanel mismatch: 11 files / 52 tests had passed earlier in this session
-  - current blocker: `ProductSetupPanel.spec.ts` still looks for `[data-testid="setup-secondary-0"]`, while current `ProductSetupPanel.vue` renders a read-only `UxTaxonomyTree` plus `setup-bind-taxonomy` button and no longer includes that input. This failure is outside the multi-series trend change.
+  - result: passed
+  - files: 12 passed
+  - tests: 54 passed
+  - latest scope includes the standalone `TaxonomyManagerPanel`, sidebar `taxonomy` navigation, data intake product-category dropdown, readonly taxonomy preview, and bind-only taxonomy flow in `ProductSetupPanel`.
 
 - Frontend build: `npm --prefix frontend run build`
   - result: passed
@@ -59,6 +60,7 @@ Frontend tests:
 - `frontend/src/test/PositiveInsightPanel.spec.ts`
 - `frontend/src/test/ProductSetupPanel.spec.ts`
 - `frontend/src/test/StatusCard.spec.ts`
+- `frontend/src/test/TaxonomyManagerPanel.spec.ts`
 - `frontend/src/test/TrendList.spec.ts`
 - `frontend/src/test/UxChangeComparisonPanel.spec.ts`
 - `frontend/src/test/UxTaxonomyTree.spec.ts`
@@ -77,7 +79,7 @@ Crawler/pipeline tests:
 
 ## Covered Behaviors
 
-- Frontend focused coverage currently confirms taxonomy-driven multi-series trend rendering and click highlight behavior plus API normalization. Full shell/ProductSetupPanel coverage needs the `ProductSetupPanel.spec.ts` vs `ProductSetupPanel.vue` mismatch resolved before it can be treated as passing again.
+- Frontend coverage currently confirms taxonomy-driven multi-series trend rendering and click highlight behavior, API normalization, sidebar `taxonomy` navigation, standalone taxonomy create/edit/save behavior, data intake dropdown selection of saved taxonomies, readonly taxonomy preview, bind-only product taxonomy flow, persisted intake status restoration, and async LLM progress polling.
 - NLP health, explicit rule-mode analyze response behavior for keyword-based aspect/sentiment logic, no-key LLM config failure behavior, LLM prompt construction safety, and JSON error responses for remote LLM connection failures.
 - Crawler/pipeline tests cover parser extraction, output dedupe, dry-run JSONL writing, cleaner summary counts, and platform placeholder removal/追评保留。
 - Backend tests cover persistence integration, API smoke path, analysis lifecycle/degradation/fatal LLM config failure, async analysis job queue/polling with persisted progress and materialization counts, stale review-id materialization guard, active-analysis replacement import guard, intake-status workflow ledger, JSONL clean-only behavior, direct import placeholder filtering, manual JSONL path handling, positive insight aggregation, compare/trends/wordcloud, UX before/after comparison, sync jobs, and validation/action compatibility.
