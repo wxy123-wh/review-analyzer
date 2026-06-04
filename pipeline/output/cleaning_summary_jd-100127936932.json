@@ -1,0 +1,9 @@
+{
+  "rawCount": 828,
+  "cleanedCount": 810,
+  "removedCount": 18,
+  "htmlCleanedCount": 12,
+  "exactDuplicateCount": 18,
+  "emptyContentCount": 0,
+  "invalidJsonCount": 0
+}

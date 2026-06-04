@@ -27,13 +27,13 @@
 
 ## Interpretation
 
-The active change surface is not the NLP algorithm. It is the acceptance/demo shell:
+The active change surface is not the NLP algorithm. It is the frontend shell and API contract:
 
 - frontend application shell and login gate
 - frontend API client and component states
 - README and OpenSpec task docs
-- backend smoke and integration tests
-- showcase panels
+- backend smoke, integration, insight-query, and UX-change tests
+- historical showcase panels, which are now backend-compatible legacy rather than current frontend main navigation
 
 This supports a conservative refactor order: stabilize the acceptance path and API contract before rewriting algorithms or moving large directories.
 
@@ -51,5 +51,7 @@ High co-change pairs include:
 
 - Changing `frontend/src/api/client.ts` can affect many panels at once because it normalizes response contracts.
 - Changing `frontend/src/App.vue` can break login, navigation, initial data loading, and module visibility.
-- Changing `InsightQueryService` can break multiple read APIs: issues, compare, trends, wordcloud, validation.
+- Changing `InsightQueryService` can break multiple read APIs: issues, positive insights, compare, trends, wordcloud, and legacy validation/showcase consumers.
+- Changing `UxChangeComparisonService` or `ux_change_checkpoints` can break the前后对比 module.
+- Changing `ProductRepository` or product-name fields in compare/UX-change DTOs can affect whether前端显示真实商品名 or falls back to `productCode`.
 - Changing backend persistence schema must be validated against both `infra/db/init/001_init.sql` and `PersistenceSchemaInitializer`.

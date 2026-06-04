@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -33,10 +33,10 @@
   --space-10: 2.5rem;
   --space-12: 3rem;
 
-  --radius-sm: 0.625rem;
-  --radius-md: 0.875rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
   --radius-pill: 999px;
 
   --z-base: 0;
@@ -48,59 +48,53 @@
   --motion-slow: 320ms;
   --easing-standard: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --color-canvas: #07111f;
-  --color-canvas-alt: #0b1628;
-  --color-canvas-grid: rgba(148, 163, 184, 0.08);
-  --color-shell-gradient: radial-gradient(circle at 18% 18%, rgba(47, 126, 255, 0.16) 0%, transparent 34%),
-    radial-gradient(circle at 82% 0%, rgba(61, 212, 180, 0.1) 0%, transparent 28%),
-    linear-gradient(180deg, #0d1728 0%, #08101d 52%, #060c16 100%);
-  --color-surface-1: rgba(9, 19, 35, 0.92);
-  --color-surface-2: rgba(13, 25, 45, 0.9);
-  --color-surface-3: rgba(19, 34, 58, 0.92);
-  --color-surface-overlay: rgba(8, 15, 27, 0.78);
-  --color-surface-input: rgba(11, 23, 41, 0.92);
+  --color-canvas: #ffffff;
+  --color-canvas-alt: #f8fafc;
+  --color-canvas-grid: rgba(15, 23, 42, 0.06);
+  --color-shell-gradient: #ffffff;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #ffffff;
+  --color-surface-3: #f8fafc;
+  --color-surface-overlay: #ffffff;
+  --color-surface-input: #ffffff;
 
-  --color-border-subtle: rgba(128, 160, 196, 0.16);
-  --color-border-default: rgba(132, 168, 211, 0.26);
-  --color-border-strong: rgba(143, 186, 237, 0.44);
+  --color-border-subtle: #edf0f3;
+  --color-border-default: #dfe4ea;
+  --color-border-strong: #c9d2dc;
 
-  --color-text-primary: #eef4ff;
-  --color-text-secondary: #b6c4d9;
-  --color-text-muted: #7f90a8;
-  --color-text-inverse: #08101d;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #ffffff;
 
-  --color-accent-primary: #7ab8ff;
-  --color-accent-secondary: #66e0c2;
-  --color-accent-soft: rgba(72, 133, 216, 0.16);
-  --color-accent-strong: rgba(102, 224, 194, 0.28);
+  --color-accent-primary: #2563eb;
+  --color-accent-secondary: #059669;
+  --color-accent-soft: #eff6ff;
+  --color-accent-strong: #dbeafe;
 
-  --color-semantic-up: #4fd08b;
-  --color-semantic-up-soft: rgba(79, 208, 139, 0.14);
-  --color-semantic-down: #ff7b85;
-  --color-semantic-down-soft: rgba(255, 123, 133, 0.14);
-  --color-semantic-unknown: #f0bd67;
-  --color-semantic-unknown-soft: rgba(240, 189, 103, 0.14);
+  --color-semantic-up: #15803d;
+  --color-semantic-up-soft: #f0fdf4;
+  --color-semantic-down: #b91c1c;
+  --color-semantic-down-soft: #fef2f2;
+  --color-semantic-unknown: #a16207;
+  --color-semantic-unknown-soft: #fffbeb;
 
-  --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.28);
-  --shadow-raised: 0 18px 40px rgba(0, 0, 0, 0.24);
-  --shadow-focus: 0 0 0 3px rgba(122, 184, 255, 0.18);
-  --outline-focus: 2px solid rgba(122, 184, 255, 0.92);
-  --shadow-glow: 0 0 0 1px rgba(122, 184, 255, 0.12), 0 16px 38px rgba(38, 92, 167, 0.22);
-  --shadow-inset-soft: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  --shadow-status-up: var(--shadow-inset-soft), 0 18px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px var(--color-semantic-up-soft);
-  --shadow-status-down: var(--shadow-inset-soft), 0 18px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px var(--color-semantic-down-soft);
-  --shadow-status-unknown: var(--shadow-inset-soft), 0 18px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px var(--color-semantic-unknown-soft);
+  --shadow-panel: none;
+  --shadow-raised: none;
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  --outline-focus: 2px solid rgba(37, 99, 235, 0.92);
+  --shadow-glow: none;
+  --shadow-inset-soft: none;
+  --shadow-status-up: 0 0 0 1px var(--color-semantic-up-soft);
+  --shadow-status-down: 0 0 0 1px var(--color-semantic-down-soft);
+  --shadow-status-unknown: 0 0 0 1px var(--color-semantic-unknown-soft);
 
-  --gradient-accent: linear-gradient(135deg, rgba(122, 184, 255, 0.95), rgba(102, 224, 194, 0.88));
-  --gradient-surface: linear-gradient(180deg, rgba(17, 31, 54, 0.95), rgba(9, 18, 34, 0.98));
-  --gradient-sidebar: linear-gradient(180deg, rgba(8, 16, 30, 0.98), rgba(9, 19, 35, 0.9));
-  --gradient-nav-active: linear-gradient(180deg, rgba(24, 43, 73, 0.98), rgba(13, 26, 46, 0.98));
-  --gradient-login-canvas: radial-gradient(circle at 16% 20%, rgba(122, 184, 255, 0.16) 0%, transparent 34%),
-    radial-gradient(circle at 88% 4%, rgba(102, 224, 194, 0.1) 0%, transparent 26%),
-    linear-gradient(var(--color-canvas-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-canvas-grid) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(9, 19, 35, 0.98), rgba(6, 12, 22, 1));
-  --gradient-login-panel: linear-gradient(180deg, rgba(15, 28, 48, 0.96), rgba(8, 16, 28, 0.98));
+  --gradient-accent: #111827;
+  --gradient-surface: #ffffff;
+  --gradient-sidebar: #ffffff;
+  --gradient-nav-active: #f8fafc;
+  --gradient-login-canvas: #ffffff;
+  --gradient-login-panel: #ffffff;
 }
 
 * {
@@ -111,7 +105,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--color-shell-gradient);
+  background: #ffffff;
   color: var(--color-text-primary);
   overflow-x: hidden;
 }
@@ -128,8 +122,163 @@ textarea {
 }
 
 ::selection {
-  background: rgba(122, 184, 255, 0.28);
+  background: rgba(37, 99, 235, 0.16);
   color: var(--color-text-primary);
+}
+
+* {
+  letter-spacing: 0 !important;
+}
+
+.shell,
+.container,
+.content,
+.content-shell {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+.shell-backdrop,
+.ambient-orb,
+.characters-halo,
+.module-card::before,
+.hero-shell::after,
+.panel::after,
+.card::before,
+.status-card::before,
+[data-motion-spotlight='soft']::after {
+  display: none !important;
+}
+
+.module-card,
+.hero-shell,
+.panel,
+.sidebar,
+.stage-identity,
+.characters-frame,
+.context-card,
+.panel-shell,
+.credential-note,
+.label-editor,
+.status-panel,
+.jsonl-panel,
+.chart-panel,
+.chart-container,
+.chart-legend,
+.chart-item,
+.summary-card,
+.table-shell,
+.state-shell,
+.history-panel,
+.detail-panel,
+.summary-block,
+.point-detail,
+.chart-meta,
+.legend,
+.chip-list li,
+.point-list li,
+.history-button,
+.metrics,
+.tag,
+.score,
+.score-pill,
+.gap-pill,
+.delta-pill,
+.meta-pill,
+.wordcloud-stage,
+.trend-card,
+.insight-card,
+.comparison-card,
+.table-wrap,
+.empty-state,
+.notice,
+.handoff,
+.input-affix-wrapper {
+  background: #ffffff !important;
+  background-image: none !important;
+  border-color: var(--color-border-default) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.rail {
+  background: #ffffff !important;
+  border-right-color: var(--color-border-default) !important;
+  box-shadow: none !important;
+}
+
+.nav-item,
+.secondary-btn,
+.icon-btn,
+.chart-button,
+.ghost-button,
+.retry-btn,
+input,
+select,
+textarea {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-default) !important;
+  box-shadow: none !important;
+}
+
+.nav-item.active,
+.nav-item:hover,
+.state-badge,
+.dot,
+.file-state,
+.hero-kicker,
+.hero-state,
+.user-chip,
+.eyebrow,
+.stage-kicker,
+.identity-chip,
+.context-label,
+.panel-eyebrow,
+.panel-status,
+.credential-note-label,
+.chip-item {
+  background: #f8fafc !important;
+  background-image: none !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow: none !important;
+}
+
+.primary-btn,
+.submit-btn,
+.submit-button {
+  background: #111827 !important;
+  background-image: none !important;
+  border-color: #111827 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled,
+.submit-btn:disabled {
+  opacity: 0.45 !important;
+}
+
+table,
+thead,
+tbody,
+tr,
+th,
+td {
+  background: #ffffff !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+.notice--error,
+.handoff--error,
+.error-box {
+  background: var(--color-semantic-down-soft) !important;
+  border-color: #fecaca !important;
+  color: var(--color-semantic-down) !important;
 }
 
 button:focus-visible,

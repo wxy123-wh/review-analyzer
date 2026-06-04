@@ -8,6 +8,7 @@ public record ReviewImportItem(
         String source,
         String sourceReviewId,
         String productCode,
+        String productName,
         String category,
         BigDecimal rating,
         @NotBlank(message = "content must not be blank")

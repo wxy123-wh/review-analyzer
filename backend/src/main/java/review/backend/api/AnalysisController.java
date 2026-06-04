@@ -30,6 +30,12 @@ public class AnalysisController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
+    @PostMapping("/jobs")
+    public ResponseEntity<AnalysisJobResponse> startAsync(@Valid @RequestBody AnalysisStartRequest request) {
+        AnalysisJobResponse response = analysisJobService.startAsyncJob(request.productCode(), request.taxonomyId());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
     @GetMapping("/jobs/{id}")
     public ResponseEntity<?> job(@PathVariable("id") String id) {
         return analysisJobService.findJob(id)

@@ -203,7 +203,7 @@ class ApiSmokeTest {
                                     {
                                       "sourceReviewId": "%s-002",
                                       "rating": 5,
-                                      "content": "续航很好，佩戴舒适，日常通勤很满意。",
+                                      "content": "佩戴舒适，重量轻，日常通勤很满意。",
                                       "reviewTime": "2026-06-02T10:20:00Z",
                                       "anonymizedAuthorId": "user-b"
                                     },

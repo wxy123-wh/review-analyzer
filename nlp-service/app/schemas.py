@@ -68,3 +68,6 @@ class AnalyzeResponse(BaseModel):
     jobId: str
     aspectSentiments: list[AspectSentiment]
     issueClusters: list[IssueCluster]
+    analysisMode: str | None = None
+    llmUsed: bool | None = None
+    fallbackReason: str | None = None

@@ -1,0 +1,232 @@
+- generic [ref=e84]:
+  - complementary [ref=e86]:
+    - generic [ref=e88]:
+      - generic [ref=e89]: VOC
+      - generic [ref=e90]:
+        - strong [ref=e91]: Review VOC
+        - generic [ref=e92]: 分析工作台
+    - navigation [ref=e93]:
+      - generic [ref=e94]:
+        - paragraph [ref=e95]: 业务模块
+        - generic [ref=e96]:
+          - button "接 数据接入" [ref=e97] [cursor=pointer]:
+            - generic [ref=e99]: 接
+            - generic [ref=e102]: 数据接入
+          - button "题 问题" [ref=e103] [cursor=pointer]:
+            - generic [ref=e105]: 题
+            - generic [ref=e108]: 问题
+          - button "卖 卖点" [ref=e109] [cursor=pointer]:
+            - generic [ref=e111]: 卖
+            - generic [ref=e114]: 卖点
+          - button "比 竞品对比" [ref=e115] [cursor=pointer]:
+            - generic [ref=e117]: 比
+            - generic [ref=e120]: 竞品对比
+          - button "势 趋势图" [ref=e121] [cursor=pointer]:
+            - generic [ref=e123]: 势
+            - generic [ref=e126]: 趋势图
+          - button "云 词云" [ref=e127] [cursor=pointer]:
+            - generic [ref=e129]: 云
+            - generic [ref=e132]: 词云
+          - button "改 前后对比" [ref=e133] [cursor=pointer]:
+            - generic [ref=e135]: 改
+            - generic [ref=e138]: 前后对比
+  - main [ref=e139]:
+    - generic [ref=e140]:
+      - generic [ref=e143]:
+        - generic [ref=e144]:
+          - heading "评论 VOC 分析工作台" [level=1] [ref=e145]
+          - paragraph [ref=e146]: 评论接入、问题聚合、卖点提炼、趋势和词云分析
+        - generic [ref=e147]: 当前用户：内部分析员
+      - generic [ref=e149]:
+        - generic [ref=e151]:
+          - heading "数据接入" [level=3] [ref=e152]
+          - paragraph [ref=e153]: 清洗 JSONL、绑定标签、导入数据库并启动 LLM 分析。
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - generic [ref=e156]: 商品编号
+            - textbox "商品编号" [ref=e157]:
+              - /placeholder: jd-100127936932
+              - text: jd-100127936932
+          - generic [ref=e158]:
+            - generic [ref=e159]: 商品名称
+            - textbox "商品名称" [ref=e160]:
+              - /placeholder: 小米 Buds 5 Pro
+              - text: 小米 Buds 5 Pro
+          - generic [ref=e161]:
+            - generic [ref=e162]: 平台
+            - combobox "平台" [ref=e163]:
+              - option "京东" [selected]
+              - option "淘宝"
+              - option "其他"
+          - generic [ref=e164]:
+            - generic [ref=e165]: 商品品类
+            - textbox "商品品类" [ref=e166]:
+              - /placeholder: general-product
+              - text: general-product
+          - generic [ref=e167]:
+            - generic [ref=e168]: 已识别 JSONL
+            - generic [ref=e169]:
+              - combobox [ref=e170]:
+                - option "选择已识别文件"
+                - option "小米 Buds 5 Pro · jd-100127936932" [selected]
+                - option "OPPO Enco Free4 · jd-new-product"
+              - button "刷新文件" [ref=e171] [cursor=pointer]
+          - generic [ref=e172]:
+            - generic [ref=e173]: raw JSONL 路径
+            - textbox "raw JSONL 路径" [ref=e174]:
+              - /placeholder: crawler/output/raw_reviews_jd-100127936932.jsonl
+              - text: crawler/output/raw_reviews_jd-100127936932.jsonl
+        - generic [ref=e175]:
+          - button "读取标签" [ref=e176] [cursor=pointer]
+          - button "刷新状态" [ref=e177] [cursor=pointer]
+          - button "清洗 JSONL" [ref=e178] [cursor=pointer]
+          - button "绑定 taxonomy" [ref=e179] [cursor=pointer]
+          - button "导入数据库" [ref=e180] [cursor=pointer]
+          - button "启动 LLM 分析" [ref=e181] [cursor=pointer]
+        - paragraph [ref=e182]: 已识别 2 个 raw JSONL 文件，并已回填最新候选。
+        - generic [ref=e183]:
+          - article [ref=e184]:
+            - generic [ref=e185]:
+              - heading "UX 标签组合" [level=4] [ref=e186]
+              - button "新增标签" [ref=e187] [cursor=pointer]
+            - list [ref=e188]:
+              - listitem [ref=e189]:
+                - generic [ref=e190]:
+                  - checkbox "启用" [checked] [ref=e191]
+                  - generic [ref=e192]: 启用
+                - textbox "UX 一级标签" [ref=e193]: 产品体验
+                - textbox "UX 二级标签" [ref=e194]: 质量与性能
+                - button "删除 质量与性能" [ref=e195] [cursor=pointer]: ×
+              - listitem [ref=e196]:
+                - generic [ref=e197]:
+                  - checkbox "启用" [checked] [ref=e198]
+                  - generic [ref=e199]: 启用
+                - textbox "UX 一级标签" [ref=e200]: 产品体验
+                - textbox "UX 二级标签" [ref=e201]: 易用性与操作
+                - button "删除 易用性与操作" [ref=e202] [cursor=pointer]: ×
+              - listitem [ref=e203]:
+                - generic [ref=e204]:
+                  - checkbox "启用" [checked] [ref=e205]
+                  - generic [ref=e206]: 启用
+                - textbox "UX 一级标签" [ref=e207]: 交易体验
+                - textbox "UX 二级标签" [ref=e208]: 物流与售后
+                - button "删除 物流与售后" [ref=e209] [cursor=pointer]: ×
+          - complementary [ref=e210]:
+            - heading "任务状态" [level=4] [ref=e211]
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - term [ref=e214]: 商品名称
+                - definition [ref=e215]: 小米 Buds 5 Pro
+              - generic [ref=e216]:
+                - term [ref=e217]: 商品编号
+                - definition [ref=e218]: jd-100127936932
+              - generic [ref=e219]:
+                - term [ref=e220]: 标签数量
+                - definition [ref=e221]: 3 / 3
+              - generic [ref=e222]:
+                - term [ref=e223]: taxonomyId
+                - definition [ref=e224]: "1"
+              - generic [ref=e225]:
+                - term [ref=e226]: 数据来源
+                - definition [ref=e227]: 本地 JSONL
+              - generic [ref=e228]:
+                - term [ref=e229]: raw JSONL
+                - definition [ref=e230]: crawler/output/raw_reviews_jd-100127936932.jsonl
+              - generic [ref=e231]:
+                - term [ref=e232]: 清洗阶段
+                - definition [ref=e233]: 已清洗 126 条
+              - generic [ref=e234]:
+                - term [ref=e235]: taxonomy 阶段
+                - definition [ref=e236]: 已绑定 1
+              - generic [ref=e237]:
+                - term [ref=e238]: 入库阶段
+                - definition [ref=e239]: 已导入 126 条
+              - generic [ref=e240]:
+                - term [ref=e241]: 数据库评论
+                - definition [ref=e242]: "126"
+              - generic [ref=e243]:
+                - term [ref=e244]: 已分析评论
+                - definition [ref=e245]: "80"
+              - generic [ref=e246]:
+                - term [ref=e247]: LLM 分析
+                - definition [ref=e248]: RUNNING
+            - generic [ref=e249]:
+              - generic [ref=e250]:
+                - generic [ref=e251]: LLM 已完成 80 / 126 条
+                - strong [ref=e252]: 62%
+              - generic "LLM 分析进度" [ref=e253]
+            - paragraph [ref=e255]: LLM 分析已启动，成功后会刷新问题、趋势、词云和卖点。
+          - article [ref=e256]:
+            - generic [ref=e257]:
+              - heading "JSONL 文件" [level=4] [ref=e258]
+              - generic [ref=e259]: analyzing
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - term [ref=e262]: raw_reviews
+                - definition [ref=e263]: crawler/output/raw_reviews_jd-100127936932.jsonl
+              - generic [ref=e264]:
+                - term [ref=e265]: cleaned_reviews
+                - definition [ref=e266]: crawler/output/cleaned/cleaned_reviews_jd-100127936932.jsonl
+              - generic [ref=e267]:
+                - term [ref=e268]: removed_reviews
+                - definition [ref=e269]: crawler/output/cleaned/removed_reviews_jd-100127936932.jsonl
+              - generic [ref=e270]:
+                - term [ref=e271]: cleaning_summary
+                - definition [ref=e272]: crawler/output/cleaned/cleaning_summary_jd-100127936932.json
+            - generic [ref=e273]:
+              - generic [ref=e274]:
+                - strong [ref=e275]: "128"
+                - generic [ref=e276]: raw
+              - generic [ref=e277]:
+                - strong [ref=e278]: "126"
+                - generic [ref=e279]: cleaned
+              - generic [ref=e280]:
+                - strong [ref=e281]: "2"
+                - generic [ref=e282]: removed
+              - generic [ref=e283]:
+                - strong [ref=e284]: "1"
+                - generic [ref=e285]: duplicate
+              - generic [ref=e286]:
+                - strong [ref=e287]: "1"
+                - generic [ref=e288]: placeholder
+              - generic [ref=e289]:
+                - strong [ref=e290]: "1"
+                - generic [ref=e291]: empty
+              - generic [ref=e292]:
+                - strong [ref=e293]: "0"
+                - generic [ref=e294]: invalid
+            - generic [ref=e295]:
+              - generic [ref=e296]:
+                - heading "最近评论" [level=4] [ref=e297]
+                - generic [ref=e298]: 10 / 10 条
+              - list [ref=e299]:
+                - listitem [ref=e300]:
+                  - generic [ref=e301]: 2星
+                  - paragraph [ref=e302]: 蓝牙连接偶尔断开，通话声音也不够清晰。
+                - listitem [ref=e303]:
+                  - generic [ref=e304]: 5星
+                  - paragraph [ref=e305]: 佩戴很舒服，通勤戴两个小时耳朵不疼。
+                - listitem [ref=e306]:
+                  - generic [ref=e307]: 3星
+                  - paragraph [ref=e308]: 降噪一般，地铁里还是能听到明显噪音。
+                - listitem [ref=e309]:
+                  - generic [ref=e310]: 2星
+                  - paragraph [ref=e311]: 续航比预期短，下午就需要补电。
+                - listitem [ref=e312]:
+                  - generic [ref=e313]: 5星
+                  - paragraph [ref=e314]: 包装完整，物流速度很快。
+                - listitem [ref=e315]:
+                  - generic [ref=e316]: 3星
+                  - paragraph [ref=e317]: 触控操作有点不灵敏，经常误触。
+                - listitem [ref=e318]:
+                  - generic [ref=e319]: 2星
+                  - paragraph [ref=e320]: 音质清晰，低音效果比旧款好。
+                - listitem [ref=e321]:
+                  - generic [ref=e322]: 5星
+                  - paragraph [ref=e323]: 连接手机很快，但是切换设备不稳定。
+                - listitem [ref=e324]:
+                  - generic [ref=e325]: 3星
+                  - paragraph [ref=e326]: 耳塞尺寸合适，跑步时不容易掉。
+                - listitem [ref=e327]:
+                  - generic [ref=e328]: 2星
+                  - paragraph [ref=e329]: 客服回复及时，换货处理比较顺利。

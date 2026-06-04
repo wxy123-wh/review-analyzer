@@ -24,6 +24,17 @@ services:
       context: ./nlp-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-60}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-}
+      NLP_FORCE_LOCAL: ${NLP_FORCE_LOCAL:-false}
+      NLP_ALLOW_LLM_FALLBACK: ${NLP_ALLOW_LLM_FALLBACK:-false}
     expose:
       - "8000"
 
@@ -35,7 +46,10 @@ services:
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-8080}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:5175,http://127.0.0.1:5175}
+      APP_CORS_ALLOWED_ORIGIN_PATTERNS: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:-http://localhost:*,http://127.0.0.1:*,http://[::1]:*,http://192.168.*.*:*,http://10.*.*.*:*,http://172.*.*.*:*}
       NLP_BASE_URL: ${NLP_BASE_URL:-http://nlp-service:8000}
+      NLP_CONNECT_TIMEOUT: ${NLP_CONNECT_TIMEOUT:-1s}
+      NLP_READ_TIMEOUT: ${NLP_READ_TIMEOUT:-90s}
       ONEBOUND_BASE_URL: ${ONEBOUND_BASE_URL:-https://api-gw.onebound.cn}
       ONEBOUND_API_KEY: ${ONEBOUND_API_KEY:-}
       ONEBOUND_API_SECRET: ${ONEBOUND_API_SECRET:-}
@@ -52,6 +66,8 @@ services:
         condition: service_started
       nlp-service:
         condition: service_started
+    volumes:
+      - ./crawler/output:/app/crawler/output
     expose:
       - "8080"
 

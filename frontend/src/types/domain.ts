@@ -21,17 +21,6 @@ export type CollectionContract<T> = {
   notice?: string
 }
 
-export type OverviewContract = {
-  topIssue: IssueItem | null
-  topSellingPoint: PositiveInsightItem | null
-  issueCount: number
-  positiveInsightCount: number
-  actionCount: number
-  validationCount: number
-  state: ContractState
-  notice?: string
-}
-
 export type IssueResponse = CollectionContract<IssueItem>
 
 export type PositiveInsightItem = {
@@ -55,12 +44,18 @@ export type CompareItem = {
   ourScore: number
   competitorScore: number
   gap: number
+  ourMentionCount?: number
+  competitorMentionCount?: number
+  ourNegativeRate?: number
+  competitorNegativeRate?: number
+  negativeRateGap?: number
 }
 
 export type CompareState =
   | 'idle'
   | 'loading'
   | 'success'
+  | 'taxonomy-mismatch'
   | 'missing-target'
   | 'comparison-unavailable'
   | 'primary-unavailable'
@@ -68,7 +63,9 @@ export type CompareState =
 
 export type CompareResponse = {
   productCode: string
+  productName?: string
   comparisonProductCode?: string
+  comparisonProductName?: string
   items: CompareItem[]
   state: CompareState
   notice?: string
@@ -78,6 +75,17 @@ export type TrendPoint = {
   period: string
   negativeRate: number
   mentionVolume: number
+}
+
+export type TrendSeries = {
+  id: string
+  aspect: string
+  uxPrimaryLabel?: string
+  uxSecondaryLabel: string
+  color: string
+  points: TrendPoint[]
+  state: ChartLoadState
+  notice?: string
 }
 
 export type ChartLoadState =
@@ -105,6 +113,8 @@ export type WordCloudItem = {
   frequency: number
   weight: number
   sentimentTag: string
+  partOfSpeech: string
+  wordType: string
 }
 
 export type WordCloudResponse = {
@@ -167,11 +177,67 @@ export type CrawlJobResponse = {
   platform?: string
   taxonomyId?: number
   fetchedCount: number
+  capturedPackets?: number
+  outputPath?: string
+  progressPath?: string
+  cleanCommand?: string
+  importCommand?: string
+  sampleReviews?: CrawlReviewSample[]
   errorMessage?: string
   analysisHandoffStatus?: string
   analysisHandoffNote?: string
   startedAt?: string
   finishedAt?: string
+}
+
+export type CrawlReviewSample = {
+  sourceReviewId?: string
+  productName?: string
+  content: string
+  rating?: string
+  reviewTime?: string
+}
+
+export type CrawlImportResponse = {
+  jobId: string
+  importJobId: string
+  productCode: string
+  productName?: string
+  provider: string
+  platform: string
+  rawOutputPath: string
+  cleanedOutputPath: string
+  removedOutputPath: string
+  cleaningSummaryPath: string
+  receivedCount: number
+  insertedReviewCount: number
+  updatedReviewCount: number
+  totalReviewCount: number
+  cleaningSummary: Record<string, unknown>
+  sampleReviews: CrawlReviewSample[]
+  analysisHandoffStatus: string
+  analysisHandoffNote?: string
+  importedAt?: string
+}
+
+export type JsonlFileImportPayload = {
+  productCode: string
+  inputPath: string
+  platform?: string
+  productName?: string
+  replaceExisting?: boolean
+}
+
+export type JsonlFileCleanPayload = JsonlFileImportPayload
+
+export type JsonlFileCandidate = {
+  path: string
+  fileName: string
+  productCode?: string
+  productName?: string
+  sizeBytes: number
+  lastModifiedAt?: string
+  sampleReviews: CrawlReviewSample[]
 }
 
 export type AnalysisJobResponse = {
@@ -181,92 +247,86 @@ export type AnalysisJobResponse = {
   startedAt?: string
   finishedAt?: string
   errorMessage?: string
+  totalReviewCount?: number
+  processedReviewCount?: number
+  progressPercent?: number
+  currentStage?: string
+  materializedReviewCount?: number
+  semanticLabelCount?: number
+  issueClusterCount?: number
+  downstreamReady?: boolean
 }
 
-export type ActionItem = {
-  actionId: string
+export type ReviewIntakeStatusResponse = {
   productCode: string
-  issueId: string
-  actionName: string
-  actionDesc?: string
-  status: string
-  createdAt: string
+  productName?: string
+  rawOutputPath: string
+  rawJsonlExists: boolean
+  rawCount: number
+  cleanedOutputPath: string
+  cleanedJsonlExists: boolean
+  removedOutputPath: string
+  cleaningSummaryPath: string
+  cleaningSummary: Record<string, unknown>
+  taxonomyBound: boolean
+  taxonomyId?: number
+  taxonomyVersion?: number
+  importedReviewCount: number
+  analyzedReviewCount: number
+  downstreamReady: boolean
+  latestAnalysisJob?: AnalysisJobResponse
+  recentReviews: CrawlReviewSample[]
+  stage: string
+  notice?: string
 }
 
-export type ActionResponse = CollectionContract<ActionItem>
+export type ProductAnalysisReadyPayload = {
+  productCode: string
+  productName?: string
+  importResult: CrawlImportResponse
+  analysisJob: AnalysisJobResponse
+}
 
-export type ValidationItem = {
-  actionId: string
+export type UxChangeComparisonWindowPreset = 'ONE_MONTH' | 'TWO_WEEKS' | 'THREE_MONTHS' | 'CUSTOM'
+
+export type UxChangeComparisonCreatePayload = {
+  productCode: string
+  changeDate: string
+  windowPreset: UxChangeComparisonWindowPreset
+  customBeforeDays?: number
+  customAfterDays?: number
+}
+
+export type UxChangeComparisonItem = {
+  uxPrimaryLabel?: string
+  uxSecondaryLabel: string
+  beforeMentionCount: number
+  afterMentionCount: number
   beforeNegativeRate: number
   afterNegativeRate: number
   improvementRate: number
-  summary: string
+  summary?: string
 }
 
-export type ValidationResponse = CollectionContract<ValidationItem>
-
-export type ActionCreatePayload = {
+export type UxChangeComparisonRecord = {
+  id: string
   productCode: string
-  issueId: string
-  actionName: string
-  actionDesc?: string
+  productName?: string
+  changeDate: string
+  windowPreset: UxChangeComparisonWindowPreset
+  customBeforeDays?: number
+  customAfterDays?: number
+  beforeWindowStart?: string
+  beforeWindowEnd?: string
+  afterWindowStart?: string
+  afterWindowEnd?: string
+  state: ContractState
+  summary?: string
+  notice?: string
+  items: UxChangeComparisonItem[]
 }
 
-export type ShowcaseStage = {
-  name: string
-  state: string
-  detail: string
-}
-
-export type ShowcasePipelineData = {
-  status: string
-  implemented: boolean
-  note: string
-  stages: ShowcaseStage[]
-}
-
-export type ShowcaseAgent = {
-  agentName: string
-  role: string
-  state: string
-  confidence: number
-}
-
-export type ShowcaseAgentArenaData = {
-  status: string
-  implemented: boolean
-  note: string
-  agents: ShowcaseAgent[]
-}
-
-export type ShowcaseFeatureContribution = {
-  feature: string
-  weight: number
-}
-
-export type ShowcaseExplainabilityData = {
-  status: string
-  implemented: boolean
-  note: string
-  featureContributions: ShowcaseFeatureContribution[]
-}
-
-export type ShowcaseChaosDrill = {
-  scenario: string
-  state: string
-  detail: string
-}
-
-export type ShowcaseChaosData = {
-  status: string
-  implemented: boolean
-  note: string
-  drills: ShowcaseChaosDrill[]
-}
-
-export type ShowcaseReportPreviewData = {
-  status: string
-  implemented: boolean
-  note: string
-  previewSections: string[]
+export type UxChangeComparisonListResponse = CollectionContract<UxChangeComparisonRecord> & {
+  productCode?: string
+  productName?: string
 }

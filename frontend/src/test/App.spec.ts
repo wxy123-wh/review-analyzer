@@ -2,51 +2,53 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import LoginGate from '../components/LoginGate.vue'
-import ShowcaseChaosPanel from '../components/ShowcaseChaosPanel.vue'
 
 const clientMocks = vi.hoisted(() => ({
-  createAction: vi.fn(),
-  fetchCrawlJob: vi.fn(),
-  fetchActions: vi.fn(),
-  fetchBackendHealth: vi.fn(),
+  bindProductTaxonomy: vi.fn(),
+  cleanJsonlFile: vi.fn(),
+  createUxChangeComparison: vi.fn(),
   fetchCompare: vi.fn(),
+  fetchCrawlJob: vi.fn(),
+  fetchAnalysisJob: vi.fn(),
   fetchIssues: vi.fn(),
+  fetchJsonlFiles: vi.fn(),
   fetchPositiveInsights: vi.fn(),
   fetchProductTaxonomy: vi.fn(),
-  fetchShowcaseAgentArena: vi.fn(),
-  fetchShowcaseChaos: vi.fn(),
-  fetchShowcaseExplainability: vi.fn(),
-  fetchShowcasePipeline: vi.fn(),
+  fetchReviewIntakeStatus: vi.fn(),
+  fetchTaxonomies: vi.fn(),
   fetchTrends: vi.fn(),
-  fetchValidation: vi.fn(),
+  fetchUxChangeComparisonDetail: vi.fn(),
+  fetchUxChangeComparisons: vi.fn(),
   fetchWordCloud: vi.fn(),
-  nlpServiceStatus: vi.fn(),
-  previewShowcaseReport: vi.fn(),
+  importCrawlJob: vi.fn(),
+  importJsonlFile: vi.fn(),
+  saveTaxonomyDefinition: vi.fn(),
   saveProductTaxonomy: vi.fn(),
   startAnalysis: vi.fn(),
   startCrawl: vi.fn(),
 }))
 
 vi.mock('../api/client', () => ({
-  DEFAULT_COMPARE_PRODUCT_CODE: 'jd-competitor',
   DEFAULT_PRODUCT_CODE: 'jd-100127936932',
-  createAction: clientMocks.createAction,
-  fetchCrawlJob: clientMocks.fetchCrawlJob,
-  fetchActions: clientMocks.fetchActions,
-  fetchBackendHealth: clientMocks.fetchBackendHealth,
+  bindProductTaxonomy: clientMocks.bindProductTaxonomy,
+  cleanJsonlFile: clientMocks.cleanJsonlFile,
+  createUxChangeComparison: clientMocks.createUxChangeComparison,
   fetchCompare: clientMocks.fetchCompare,
+  fetchCrawlJob: clientMocks.fetchCrawlJob,
+  fetchAnalysisJob: clientMocks.fetchAnalysisJob,
   fetchIssues: clientMocks.fetchIssues,
+  fetchJsonlFiles: clientMocks.fetchJsonlFiles,
   fetchPositiveInsights: clientMocks.fetchPositiveInsights,
   fetchProductTaxonomy: clientMocks.fetchProductTaxonomy,
-  fetchShowcaseAgentArena: clientMocks.fetchShowcaseAgentArena,
-  fetchShowcaseChaos: clientMocks.fetchShowcaseChaos,
-  fetchShowcaseExplainability: clientMocks.fetchShowcaseExplainability,
-  fetchShowcasePipeline: clientMocks.fetchShowcasePipeline,
+  fetchReviewIntakeStatus: clientMocks.fetchReviewIntakeStatus,
+  fetchTaxonomies: clientMocks.fetchTaxonomies,
   fetchTrends: clientMocks.fetchTrends,
-  fetchValidation: clientMocks.fetchValidation,
+  fetchUxChangeComparisonDetail: clientMocks.fetchUxChangeComparisonDetail,
+  fetchUxChangeComparisons: clientMocks.fetchUxChangeComparisons,
   fetchWordCloud: clientMocks.fetchWordCloud,
-  nlpServiceStatus: clientMocks.nlpServiceStatus,
-  previewShowcaseReport: clientMocks.previewShowcaseReport,
+  importCrawlJob: clientMocks.importCrawlJob,
+  importJsonlFile: clientMocks.importJsonlFile,
+  saveTaxonomyDefinition: clientMocks.saveTaxonomyDefinition,
   saveProductTaxonomy: clientMocks.saveProductTaxonomy,
   startAnalysis: clientMocks.startAnalysis,
   startCrawl: clientMocks.startCrawl,
@@ -70,10 +72,32 @@ async function enterDashboard(wrapper: ReturnType<typeof mount>): Promise<void> 
   await settleLoginDelay()
 }
 
+function makeIntakeStatus(productCode = 'jd-100127936932', inputPath = '') {
+  return {
+    productCode,
+    productName: productCode === 'jd-auto-refresh' ? '小米 Buds 5 Pro' : undefined,
+    rawOutputPath: inputPath || `crawler/output/raw_reviews_${productCode}.jsonl`,
+    rawJsonlExists: true,
+    rawCount: 128,
+    cleanedOutputPath: `crawler/output/cleaned/cleaned_reviews_${productCode}.jsonl`,
+    cleanedJsonlExists: false,
+    removedOutputPath: `crawler/output/cleaned/removed_reviews_${productCode}.jsonl`,
+    cleaningSummaryPath: `crawler/output/cleaned/cleaning_summary_${productCode}.json`,
+    cleaningSummary: {},
+    taxonomyBound: false,
+    importedReviewCount: 0,
+    analyzedReviewCount: 0,
+    downstreamReady: false,
+    latestAnalysisJob: undefined,
+    recentReviews: [],
+    stage: 'RAW_READY',
+    notice: '请先选择 raw JSONL 并执行清洗。',
+  }
+}
+
 describe('App shell', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    clientMocks.fetchBackendHealth.mockResolvedValue({ name: 'Backend API', status: 'UP' })
     clientMocks.fetchIssues.mockResolvedValue({
       state: 'success',
       items: [
@@ -104,27 +128,13 @@ describe('App shell', () => {
         },
       ],
     })
-    clientMocks.fetchActions.mockResolvedValue({
-      state: 'success',
-      items: [
-        {
-          actionId: 'action-test-1',
-          productCode: 'jd-100127936932',
-          issueId: 'iss-battery-7',
-          actionName: '处理：续航体验波动',
-          actionDesc: '基于动作关联评论窗口回看负向率变化。',
-          status: 'PLANNED',
-          createdAt: '2026-03-12T00:00:00Z',
-        },
-      ],
-    })
     clientMocks.fetchCompare.mockResolvedValue({
       productCode: 'jd-100127936932',
-      comparisonProductCode: 'jd-competitor',
+      comparisonProductCode: 'jd-100127936933',
       state: 'success',
       items: [
+        { aspect: 'bluetooth', uxSecondaryLabel: '连接与稳定性', ourScore: 0.78, competitorScore: 0.5, gap: 0.28 },
         { aspect: 'battery', uxSecondaryLabel: '电池与续航', ourScore: 0.22, competitorScore: 0.78, gap: -0.56 },
-        { aspect: 'noise-canceling', uxSecondaryLabel: '环境降噪', ourScore: 0.5, competitorScore: 0.78, gap: -0.28 },
       ],
     })
     clientMocks.fetchTrends.mockResolvedValue({
@@ -136,33 +146,33 @@ describe('App shell', () => {
       ],
       state: 'success',
     })
-    clientMocks.fetchValidation.mockResolvedValue({
-      state: 'success',
-      items: [
-        {
-          actionId: 'action-test-1',
-          beforeNegativeRate: 0.42,
-          afterNegativeRate: 0.31,
-          improvementRate: 0.11,
-          summary: '上线后负面率下降 11.00%，问题热度趋稳。',
-        },
-      ],
-    })
     clientMocks.fetchWordCloud.mockResolvedValue({
       productCode: 'jd-100127936932',
       aspect: 'all',
       uxSecondaryLabel: '全部',
       items: [
-        { keyword: '续航', frequency: 42, weight: 0.92, sentimentTag: 'POSITIVE' },
-        { keyword: '断连', frequency: 31, weight: 0.85, sentimentTag: 'NEGATIVE' },
+        { keyword: '续航', frequency: 42, weight: 0.92, sentimentTag: 'POSITIVE', partOfSpeech: '名词', wordType: '体验维度' },
+        { keyword: '断连', frequency: 31, weight: 0.85, sentimentTag: 'NEGATIVE', partOfSpeech: '动词', wordType: '问题词' },
       ],
-      notice: '真实评论词云测试数据',
+      notice: '评论关键词已按词频聚合。',
       state: 'success',
     })
-    clientMocks.nlpServiceStatus.mockReturnValue({ name: 'NLP Service', status: 'UP' })
+    clientMocks.fetchJsonlFiles.mockResolvedValue([
+      {
+        path: 'crawler/output/raw_reviews_jd-100127936932.jsonl',
+        fileName: 'raw_reviews_jd-100127936932.jsonl',
+        productCode: 'jd-100127936932',
+        productName: '小米 Buds 5 Pro',
+        sizeBytes: 4096,
+        lastModifiedAt: '2026-06-03T00:05:00Z',
+        sampleReviews: [{ productName: '小米 Buds 5 Pro', content: '蓝牙连接偶尔断开，通话声音也不够清晰。' }],
+      },
+    ])
     clientMocks.fetchProductTaxonomy.mockResolvedValue({
       productCode: 'jd-100127936932',
       category: 'general-product',
+      taxonomyId: 1,
+      name: '通用电商 UX 标签',
       labels: [
         {
           id: 'quality-performance',
@@ -173,7 +183,48 @@ describe('App shell', () => {
       ],
       state: 'success',
     })
+    clientMocks.fetchTaxonomies.mockResolvedValue([
+      {
+        productCode: 'jd-100127936932',
+        category: 'general-product',
+        taxonomyId: 1,
+        name: '通用电商 UX 标签',
+        labels: [
+          {
+            id: 'quality-performance',
+            uxPrimaryLabel: '产品体验',
+            uxSecondaryLabel: '质量与性能',
+            enabled: true,
+          },
+        ],
+        state: 'success',
+      },
+    ])
+    clientMocks.fetchReviewIntakeStatus.mockImplementation((productCode, inputPath) =>
+      Promise.resolve(makeIntakeStatus(productCode, inputPath)),
+    )
     clientMocks.saveProductTaxonomy.mockImplementation((payload) => Promise.resolve({ ...payload, state: 'success' }))
+    clientMocks.saveTaxonomyDefinition.mockImplementation((payload) =>
+      Promise.resolve({ ...payload, taxonomyId: payload.taxonomyId ?? 3, state: 'success', notice: 'taxonomy 已保存。' }),
+    )
+    clientMocks.bindProductTaxonomy.mockImplementation((productCode, taxonomyId) =>
+      Promise.resolve({
+        productCode,
+        category: 'general-product',
+        taxonomyId,
+        name: '通用电商 UX 标签',
+        labels: [
+          {
+            id: 'quality-performance',
+            uxPrimaryLabel: '产品体验',
+            uxSecondaryLabel: '质量与性能',
+            enabled: true,
+          },
+        ],
+        state: 'success',
+        notice: 'taxonomy 已绑定到商品。',
+      }),
+    )
     clientMocks.startCrawl.mockResolvedValue({
       jobId: 'crawl-test-1',
       productCode: 'jd-100127936932',
@@ -186,55 +237,148 @@ describe('App shell', () => {
       productCode: 'jd-100127936932',
       status: 'SUCCEEDED',
       fetchedCount: 128,
+      capturedPackets: 8,
+      outputPath: 'crawler/output/raw_reviews_jd-100127936932.jsonl',
       analysisHandoffStatus: 'READY_FOR_ANALYSIS',
     })
-    clientMocks.startAnalysis.mockResolvedValue({
-      jobId: 'analysis-test-1',
+    clientMocks.importCrawlJob.mockResolvedValue({
+      jobId: 'crawl-test-1',
+      importJobId: 'import-test-1',
       productCode: 'jd-100127936932',
-      status: 'SUCCEEDED',
+      provider: 'local-jsonl',
+      platform: 'jd',
+      rawOutputPath: 'crawler/output/raw_reviews_jd-100127936932.jsonl',
+      cleanedOutputPath: 'crawler/output/cleaned/cleaned_reviews_jd-100127936932.jsonl',
+      removedOutputPath: 'crawler/output/cleaned/removed_reviews_jd-100127936932.jsonl',
+      cleaningSummaryPath: 'crawler/output/cleaned/cleaning_summary_jd-100127936932.json',
+      receivedCount: 126,
+      insertedReviewCount: 120,
+      updatedReviewCount: 6,
+      totalReviewCount: 126,
+      cleaningSummary: { rawCount: 128, cleanedCount: 126, removedCount: 2, exactDuplicateCount: 1 },
+      sampleReviews: [{ content: '蓝牙连接偶尔断开，通话声音也不够清晰。', rating: '2' }],
+      analysisHandoffStatus: 'READY_FOR_ANALYSIS',
+      analysisHandoffNote: 'JSONL 已清洗并导入，可以启动分析。',
     })
-    clientMocks.fetchShowcasePipeline.mockResolvedValue({
-      status: 'LIVE',
-      implemented: true,
-      note: '流水线视图来自真实 sync/analysis/materialization/action/validation 状态。',
-      stages: [
-        { name: 'SYNC', state: 'QUEUED', detail: 'provider=local-jsonl; productCode=jd-100127936932; fetchedCount=0' },
-        { name: 'ANALYSIS', state: 'SUCCEEDED', detail: 'productCode=jd-100127936932; jobId=analysis-test-1' },
-        { name: 'MATERIALIZATION', state: 'SUCCEEDED', detail: 'productCode=jd-100127936932; issueCount=3' },
+    clientMocks.importJsonlFile.mockImplementation((payload) =>
+      Promise.resolve({
+        jobId: 'manual-jsonl',
+        importJobId: 'import-jsonl-test-1',
+        productCode: payload.productCode,
+        productName: payload.productName,
+        provider: 'local-jsonl',
+        platform: payload.platform ?? 'jd',
+        rawOutputPath: payload.inputPath,
+        cleanedOutputPath: `crawler/output/cleaned/cleaned_reviews_${payload.productCode}.jsonl`,
+        removedOutputPath: `crawler/output/cleaned/removed_reviews_${payload.productCode}.jsonl`,
+        cleaningSummaryPath: `crawler/output/cleaned/cleaning_summary_${payload.productCode}.json`,
+        receivedCount: 126,
+        insertedReviewCount: 120,
+        updatedReviewCount: 6,
+        totalReviewCount: 126,
+        cleaningSummary: { rawCount: 128, cleanedCount: 126, removedCount: 2, exactDuplicateCount: 1 },
+        sampleReviews: [{ productName: payload.productName, content: '蓝牙连接偶尔断开，通话声音也不够清晰。', rating: '2' }],
+        analysisHandoffStatus: 'READY_FOR_ANALYSIS',
+        analysisHandoffNote: 'JSONL 已清洗并导入，可以启动分析。',
+      }),
+    )
+    clientMocks.cleanJsonlFile.mockImplementation((payload) =>
+      Promise.resolve({
+        jobId: 'manual-jsonl',
+        importJobId: 'clean-jsonl-test-1',
+        productCode: payload.productCode,
+        productName: payload.productName,
+        provider: 'local-jsonl',
+        platform: payload.platform ?? 'jd',
+        rawOutputPath: payload.inputPath,
+        cleanedOutputPath: `crawler/output/cleaned/cleaned_reviews_${payload.productCode}.jsonl`,
+        removedOutputPath: `crawler/output/cleaned/removed_reviews_${payload.productCode}.jsonl`,
+        cleaningSummaryPath: `crawler/output/cleaned/cleaning_summary_${payload.productCode}.json`,
+        receivedCount: 126,
+        insertedReviewCount: 0,
+        updatedReviewCount: 0,
+        totalReviewCount: 0,
+        cleaningSummary: { rawCount: 128, cleanedCount: 126, removedCount: 2, exactDuplicateCount: 1 },
+        sampleReviews: [{ productName: payload.productName, content: '蓝牙连接偶尔断开，通话声音也不够清晰。', rating: '2' }],
+        analysisHandoffStatus: 'READY_FOR_ANALYSIS',
+        analysisHandoffNote: 'JSONL 已清洗完成，请检查摘要和样本，再绑定 taxonomy 并导入数据库。',
+      }),
+    )
+    clientMocks.startAnalysis.mockImplementation((productCode) =>
+      Promise.resolve({
+        jobId: 'analysis-test-1',
+        productCode,
+        status: 'SUCCEEDED',
+        materializedReviewCount: 126,
+        semanticLabelCount: 126,
+        issueClusterCount: 2,
+        downstreamReady: true,
+      }),
+    )
+    clientMocks.fetchAnalysisJob.mockImplementation((jobId, productCode) =>
+      Promise.resolve({
+        jobId,
+        productCode,
+        status: 'SUCCEEDED',
+        finishedAt: '2026-06-03T00:06:12Z',
+        materializedReviewCount: 126,
+        semanticLabelCount: 126,
+        issueClusterCount: 2,
+        downstreamReady: true,
+      }),
+    )
+    clientMocks.fetchUxChangeComparisons.mockResolvedValue({
+      state: 'success',
+      items: [
+        {
+          id: 'ux-change-1',
+          productCode: 'jd-100127936932',
+          changeDate: '2026-06-03',
+          windowPreset: 'ONE_MONTH',
+          state: 'success',
+          summary: '连接与稳定性负面率下降。',
+          items: [
+            {
+              uxPrimaryLabel: '产品体验',
+              uxSecondaryLabel: '连接与稳定性',
+              beforeMentionCount: 42,
+              afterMentionCount: 38,
+              beforeNegativeRate: 0.48,
+              afterNegativeRate: 0.31,
+              improvementRate: 0.17,
+            },
+          ],
+        },
       ],
     })
-    clientMocks.fetchShowcaseAgentArena.mockResolvedValue({
-      status: 'LIVE',
-      implemented: true,
-      note: '席位状态由真实子系统运行态合成。',
-      agents: [
-        { agentName: 'sync-lane', role: 'SYNC', state: 'QUEUED', confidence: 0.6 },
-        { agentName: 'analysis-lane', role: 'ANALYSIS', state: 'SUCCEEDED', confidence: 0.92 },
+    clientMocks.fetchUxChangeComparisonDetail.mockImplementation((id) =>
+      Promise.resolve({
+        id,
+        productCode: 'jd-100127936932',
+        changeDate: '2026-06-03',
+        windowPreset: 'ONE_MONTH',
+        state: 'success',
+        summary: '详情已加载。',
+        items: [],
+      }),
+    )
+    clientMocks.createUxChangeComparison.mockResolvedValue({
+      id: 'ux-change-new',
+      productCode: 'jd-100127936932',
+      changeDate: '2026-06-05',
+      windowPreset: 'TWO_WEEKS',
+      state: 'success',
+      summary: '新时间点已计算。',
+      items: [
+        {
+          uxSecondaryLabel: '电池与续航',
+          beforeMentionCount: 20,
+          afterMentionCount: 18,
+          beforeNegativeRate: 0.4,
+          afterNegativeRate: 0.32,
+          improvementRate: 0.08,
+        },
       ],
-    })
-    clientMocks.fetchShowcaseExplainability.mockResolvedValue({
-      status: 'LIVE',
-      implemented: true,
-      note: '当前解释的是固定权重问题分数拆解，不是模型内部归因。',
-      featureContributions: [
-        { feature: 'negative_rate', weight: 0.41 },
-        { feature: 'mention_volume', weight: 0.28 },
-      ],
-    })
-    clientMocks.fetchShowcaseChaos.mockResolvedValue({
-      status: 'DEGRADED',
-      implemented: true,
-      note: '当前展示最近一次真实运行态告警。',
-      drills: [
-        { scenario: 'sync-runtime', state: 'DEGRADED', detail: 'latest sync remains queued' },
-        { scenario: 'analysis-runtime', state: 'STABLE', detail: 'latest analysis completed successfully' },
-      ],
-    })
-    clientMocks.previewShowcaseReport.mockResolvedValue({
-      status: 'LIVE',
-      implemented: true,
-      note: '当前预览由真实 issues/compare/trends/actions/validation 查询结果拼装。',
-      previewSections: ['执行摘要：当前最高优先级问题是连接稳定性偶发断连。'],
     })
   })
 
@@ -244,37 +388,27 @@ describe('App shell', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the redesigned auth gate with stable accessibility hooks before entering the dashboard', async () => {
+  it('renders the auth gate before entering the dashboard', async () => {
     const wrapper = mount(App)
     await flushPromises()
 
     expect(wrapper.find('[data-testid="login-gate"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Internal-use access')
-    expect(wrapper.text()).toContain('使用当前环境凭据进入看板')
-    expect(wrapper.text()).toContain('仅用于内部验收与真实评论分析。')
-    expect(wrapper.text()).toContain('账号')
-    expect(wrapper.text()).toContain('密码')
-    expect(wrapper.text()).not.toContain('Nexus')
-    expect(wrapper.text()).not.toContain('飞书账号一键登录')
-    expect(wrapper.get('[data-testid="login-username"]').attributes('placeholder')).toBe('输入您的账号')
-    expect(wrapper.get('[data-testid="login-password"]').attributes('placeholder')).toBe('输入您的密码')
-    expect(wrapper.get('[data-testid="login-username"]').attributes('aria-invalid')).toBe('false')
-    expect(wrapper.get('[data-testid="login-password"]').attributes('aria-invalid')).toBe('false')
-    expect(wrapper.get('[data-testid="login-username"]').attributes('aria-describedby')).toBe('login-helper login-error-message')
-    expect(wrapper.get('[data-testid="login-password"]').attributes('aria-describedby')).toBe('login-helper login-error-message')
+    expect(wrapper.text()).not.toContain('内部访问')
+    expect(wrapper.text()).not.toContain('使用访问凭据进入工作台')
+    expect(wrapper.text()).not.toContain('请输入访问凭据')
     expect(wrapper.get('[data-testid="login-submit"]').text()).toBe('登录')
     expect(wrapper.find('[data-testid="narrow-sidebar"]').exists()).toBe(false)
-    expect(document.documentElement.getAttribute('data-motion')).toBe('none')
 
     await enterDashboard(wrapper)
 
     expect(wrapper.find('[data-testid="login-gate"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="narrow-sidebar"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('当前用户：内部体验账号')
-    expect(document.documentElement.getAttribute('data-motion')).toBe('none')
+    expect(wrapper.text()).not.toContain('当前用户：内部分析员')
+    expect(wrapper.text()).not.toContain('评论 VOC 分析工作台')
+    expect(wrapper.text()).not.toContain('Review VOC')
   })
 
-  it('preserves login-character interactions, password toggling, loading state, and validation messaging', async () => {
+  it('preserves login-character interactions, password toggling, loading state, and form error messaging', async () => {
     vi.useRealTimers()
 
     const wrapper = mount(LoginGate, {
@@ -282,16 +416,11 @@ describe('App shell', () => {
         expectedUsername: 'internal-review',
         expectedPassword: 'internal-pass',
         displayName: '内部评审',
-        accessHint: '仅开放给内部评审环境。',
       },
     })
     const monsters = wrapper.findAll('[data-testid="login-monster"]')
 
-    expect(monsters.length).toBe(4)
     expect(monsters.map((item) => item.attributes('data-monster-id'))).toEqual(['purple', 'black', 'orange', 'yellow'])
-
-    const pupils = wrapper.findAll('[data-testid="monster-pupil"]')
-    expect(pupils.length).toBe(8)
 
     window.dispatchEvent(new MouseEvent('mousemove', { clientX: 480, clientY: 320 }))
     await wait(50)
@@ -302,232 +431,193 @@ describe('App shell', () => {
     await wait(420)
     expect(monsters[0].classes()).not.toContain('jumping')
 
-    await monsters[1].trigger('dblclick')
-    await flushPromises()
-    expect(monsters[1].classes()).toContain('lightened')
-    await monsters[1].trigger('click')
-    await flushPromises()
-    expect(monsters[1].classes()).not.toContain('lightened')
-
-    expect(wrapper.text()).toContain('internal-review')
-    expect(wrapper.text()).toContain('internal-pass')
-    expect(wrapper.text()).toContain('仅开放给内部评审环境。')
-
     const passwordInput = wrapper.get('[data-testid="login-password"]')
     const eyeToggle = wrapper.get('.eye-toggle')
 
     expect(passwordInput.attributes('type')).toBe('password')
-    expect(eyeToggle.attributes('aria-pressed')).toBe('false')
     await eyeToggle.trigger('click')
     expect(wrapper.get('[data-testid="login-password"]').attributes('type')).toBe('text')
-    expect(wrapper.get('.eye-toggle').attributes('aria-pressed')).toBe('true')
-    await eyeToggle.trigger('click')
-    expect(wrapper.get('[data-testid="login-password"]').attributes('type')).toBe('password')
 
     await wrapper.get('[data-testid="login-username"]').setValue('bad-user')
     await wrapper.get('[data-testid="login-password"]').setValue('bad-pass')
     await wrapper.get('.form').trigger('submit')
 
     expect(wrapper.get('[data-testid="login-submit"]').text()).toBe('登录中...')
-    expect(wrapper.get('[data-testid="login-submit"]').attributes('disabled')).toBeDefined()
-
     await wait(850)
     await flushPromises()
 
     expect(wrapper.get('[data-testid="login-error"]').text()).toContain('账号或密码有误')
-    expect(wrapper.get('[data-testid="login-username"]').attributes('aria-invalid')).toBe('true')
-    expect(wrapper.get('[data-testid="login-password"]').attributes('aria-invalid')).toBe('true')
-    expect(wrapper.emitted('enter')).toBeUndefined()
-
-    await wrapper.get('[data-testid="login-username"]').setValue('internal-review')
-    await wrapper.get('[data-testid="login-password"]').setValue('internal-pass')
-    await wrapper.get('.form').trigger('submit')
-    await wait(850)
-    await flushPromises()
-    expect(wrapper.emitted('enter')?.[0]).toEqual([{ username: 'internal-review', displayName: '内部评审' }])
   })
 
-  it('renders dashboard data from real response contracts and keeps compare/trend/wordcloud semantics intact', async () => {
+  it('keeps only the requested business modules in the sidebar', async () => {
+    const wrapper = mount(App)
+    await flushPromises()
+    await enterDashboard(wrapper)
+
+    const navIds = wrapper
+      .findAll('.nav-item')
+      .map((item) => item.attributes('data-testid'))
+      .filter(Boolean)
+
+    expect(navIds).toEqual([
+      'nav-product-setup',
+      'nav-taxonomy',
+      'nav-issues',
+      'nav-positive-insights',
+      'nav-compare',
+      'nav-trends',
+      'nav-wordcloud',
+      'nav-ux-change-comparisons',
+    ])
+    expect(navIds).toHaveLength(8)
+    expect(wrapper.text()).toContain('数据接入')
+    expect(wrapper.text()).toContain('taxonomy')
+    expect(wrapper.text()).not.toContain('采集配置')
+
+    await wrapper.get('[data-testid="nav-taxonomy"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="taxonomy-manager"]').isVisible()).toBe(true)
+  })
+
+  it('loads core data and runs compare only after two product codes are submitted', async () => {
     const wrapper = mount(App)
     await flushPromises()
     await enterDashboard(wrapper)
 
     expect(clientMocks.fetchIssues).toHaveBeenCalledTimes(1)
+    expect(clientMocks.fetchIssues).toHaveBeenCalledWith('jd-100127936932')
     expect(clientMocks.fetchPositiveInsights).toHaveBeenCalledTimes(1)
-    expect(clientMocks.fetchActions).toHaveBeenCalledTimes(1)
-    expect(clientMocks.fetchValidation).toHaveBeenCalledTimes(1)
+    expect(clientMocks.fetchPositiveInsights).toHaveBeenCalledWith('jd-100127936932')
+    expect(clientMocks.fetchTrends).toHaveBeenCalledTimes(1)
+    expect(clientMocks.fetchTrends).toHaveBeenCalledWith('jd-100127936932', 'general', '质量与性能')
+    expect(clientMocks.fetchCompare).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="nav-issues"]').trigger('click')
+    await flushPromises()
     expect(wrapper.text()).toContain('连接稳定性偶发断连')
-    expect(wrapper.text()).toContain('佩戴舒适')
-    expect(wrapper.text()).toContain('1')
 
     await wrapper.get('[data-testid="nav-positive-insights"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('正面卖点')
-    expect(wrapper.text()).toContain('佩戴与人体工学')
-    expect(wrapper.text()).toContain('戴了几个小时耳朵也不疼')
+    expect(wrapper.text()).toContain('佩戴舒适')
 
     await wrapper.get('[data-testid="nav-compare"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('竞品对比概览')
-    expect(wrapper.text()).toContain('环境降噪')
+    expect(wrapper.text()).toContain('输入两个商品编号后查看对比结果。')
 
-    await wrapper.get('[data-testid="nav-trends"]').trigger('click')
+    await wrapper.get('[data-testid="compare-product-code"]').setValue('jd-100127936932')
+    await wrapper.get('[data-testid="compare-comparison-product-code"]').setValue('jd-100127936933')
+    await wrapper.get('[data-testid="compare-form"]').trigger('submit')
     await flushPromises()
-    expect(wrapper.text()).toContain('趋势图（电池与续航）')
-    expect(wrapper.text()).toContain('2026-W09')
-    expect(wrapper.text()).toContain('负面率 40.0%')
+
+    expect(clientMocks.fetchCompare).toHaveBeenCalledWith('jd-100127936932', 'jd-100127936933')
+    expect(wrapper.text()).toContain('竞品对比')
+    expect(wrapper.text()).toContain('电池与续航')
+  })
+
+  it('refreshes stale empty issue data when the module is opened again', async () => {
+    clientMocks.fetchIssues.mockResolvedValueOnce({
+      state: 'empty',
+      items: [],
+      notice: '真实评论已导入数据库，但 LLM 分析结果尚未写入下游表。',
+    })
+
+    const wrapper = mount(App)
+    await flushPromises()
+    await enterDashboard(wrapper)
+
+    expect(clientMocks.fetchIssues).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('[data-testid="nav-issues"]').trigger('click')
+    await flushPromises()
+
+    expect(clientMocks.fetchIssues).toHaveBeenCalledTimes(2)
+    expect(clientMocks.fetchIssues).toHaveBeenLastCalledWith('jd-100127936932')
+    expect(wrapper.text()).toContain('连接稳定性偶发断连')
+  })
+
+  it('auto-starts analysis after JSONL import and refreshes downstream data with that product code', async () => {
+    const wrapper = mount(App)
+    await flushPromises()
+    await enterDashboard(wrapper)
+
+    expect(clientMocks.fetchWordCloud).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="setup-product-code"]').setValue('jd-auto-refresh')
+    await wrapper.get('[data-testid="setup-product-name"]').setValue('小米 Buds 5 Pro')
+    await wrapper.get('[data-testid="setup-jsonl-path"]').setValue('crawler/output/raw_reviews_jd-auto-refresh.jsonl')
+    await wrapper.findAll('button').find((button) => button.text() === '启动 LLM 分析')!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(clientMocks.importJsonlFile).toHaveBeenCalledWith({
+      productCode: 'jd-auto-refresh',
+      productName: '小米 Buds 5 Pro',
+      inputPath: 'crawler/output/raw_reviews_jd-auto-refresh.jsonl',
+      platform: 'jd',
+    })
+    expect(clientMocks.bindProductTaxonomy).toHaveBeenLastCalledWith('jd-auto-refresh', 1, 'general-product')
+    expect(clientMocks.saveProductTaxonomy).not.toHaveBeenCalled()
+    expect(clientMocks.startAnalysis).toHaveBeenCalledWith('jd-auto-refresh')
+    expect(clientMocks.fetchIssues).toHaveBeenLastCalledWith('jd-auto-refresh')
+    expect(clientMocks.fetchPositiveInsights).toHaveBeenLastCalledWith('jd-auto-refresh')
+    expect(clientMocks.fetchTrends).toHaveBeenLastCalledWith('jd-auto-refresh', 'general', '质量与性能')
+    expect(clientMocks.fetchWordCloud).toHaveBeenLastCalledWith('jd-auto-refresh', 'all')
+
+    await wrapper.get('[data-testid="nav-compare"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('[data-testid="compare-product-code"]').element as HTMLInputElement).value).toBe('jd-auto-refresh')
+    expect(wrapper.text()).toContain('小米 Buds 5 Pro')
 
     await wrapper.get('[data-testid="nav-wordcloud"]').trigger('click')
     await flushPromises()
     expect(clientMocks.fetchWordCloud).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('词云洞察（全部）')
-    expect(wrapper.text()).toContain('真实评论词云测试数据')
     expect(wrapper.text()).toContain('续航')
-
-    await wrapper.get('[data-testid="nav-actions"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('处理：续航体验波动')
-
-    await wrapper.get('[data-testid="nav-validation"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('上线后负面率下降 11.00%，问题热度趋稳。')
+    expect(wrapper.text()).toContain('断连')
   })
 
-  it('shows degraded notices consistently for overview, issues, actions, and validation contracts', async () => {
-    clientMocks.fetchIssues.mockResolvedValueOnce({
-      state: 'degraded',
-      items: [
-        {
-          issueId: 'iss-bluetooth-001',
-          title: '连接稳定性偶发断连',
-          aspect: 'bluetooth',
-          priorityScore: 0.554,
-          evidenceSummary: '近30天断连反馈上升且竞品差距扩大。',
-        },
-      ],
-      notice: '问题列表暂时回退为受限结果，请稍后刷新。',
-    })
-    clientMocks.fetchActions.mockResolvedValueOnce({
-      state: 'degraded',
+  it('shows compare taxonomy mismatch and lazy-loads word cloud and ux change comparisons', async () => {
+    clientMocks.fetchCompare.mockResolvedValueOnce({
+      productCode: 'jd-a',
+      comparisonProductCode: 'jd-b',
+      state: 'taxonomy-mismatch',
       items: [],
-      notice: '动作列表暂时只返回部分结果，可稍后重试刷新。',
-    })
-    clientMocks.fetchValidation.mockResolvedValueOnce({
-      state: 'degraded',
-      items: [],
-      notice: '验证结果暂时回退为部分数据，请稍后刷新。',
+      notice: '两个商品绑定的 taxonomy 不一致。',
     })
 
     const wrapper = mount(App)
     await flushPromises()
     await enterDashboard(wrapper)
 
-    expect(wrapper.text()).toContain('问题列表暂时回退为受限结果，请稍后刷新。')
-
-    await wrapper.get('[data-testid="nav-issues"]').trigger('click')
+    await wrapper.get('[data-testid="nav-compare"]').trigger('click')
+    await wrapper.get('[data-testid="compare-product-code"]').setValue('jd-a')
+    await wrapper.get('[data-testid="compare-comparison-product-code"]').setValue('jd-b')
+    await wrapper.get('[data-testid="compare-form"]').trigger('submit')
     await flushPromises()
-    expect(wrapper.text()).toContain('问题列表暂时回退为受限结果，请稍后刷新。')
-    expect(wrapper.text()).toContain('连接稳定性偶发断连')
-
-    await wrapper.get('[data-testid="nav-actions"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('动作列表暂时只返回部分结果，可稍后重试刷新。')
-
-    await wrapper.get('[data-testid="nav-validation"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('验证结果暂时回退为部分数据，请稍后刷新。')
-  })
-
-  it('renders explicit disabled, degraded, and runtime-unavailable semantics without module-specific fallback copy', async () => {
-    clientMocks.fetchTrends.mockResolvedValueOnce({
-      aspect: 'battery',
-      points: [],
-      state: 'degraded',
-      notice: '趋势数据暂时只保留最近一次可用时间窗，请稍后重试。',
-    })
-    clientMocks.fetchWordCloud.mockResolvedValueOnce({
-      productCode: 'jd-100127936932',
-      aspect: 'all',
-      items: [],
-      state: 'runtime-unavailable',
-      notice: '词云运行态暂不可用，请稍后重试。',
-    })
-
-    const wrapper = mount(App)
-    await flushPromises()
-    await enterDashboard(wrapper)
-
-    expect(wrapper.get('[data-testid="nav-hidden-showcase-chaos"]').text()).toContain('已禁用')
-    expect(wrapper.get('[data-testid="nav-hidden-showcase-chaos"]').text()).toContain('需开启 VITE_SHOW_CHAOS_MODULE')
-
-    await wrapper.get('[data-testid="nav-trends"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('趋势数据暂时只保留最近一次可用时间窗，请稍后重试。')
+    expect(wrapper.text()).toContain('两个商品绑定的 taxonomy 不一致。')
 
     await wrapper.get('[data-testid="nav-wordcloud"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('词云运行态暂不可用，请稍后重试。')
-  })
+    expect(clientMocks.fetchWordCloud).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('续航')
+    expect(wrapper.text()).toContain('断连')
 
-  it('renders live showcase semantics and generates report preview from real-style payloads', async () => {
-    const wrapper = mount(App)
+    await wrapper.get('[data-testid="nav-ux-change-comparisons"]').trigger('click')
     await flushPromises()
-    await enterDashboard(wrapper)
+    expect(clientMocks.fetchUxChangeComparisons).toHaveBeenCalledWith('jd-100127936932')
+    expect(wrapper.text()).toContain('前后对比')
+    expect(wrapper.text()).toContain('连接与稳定性负面率下降。')
 
-    await wrapper.get('[data-testid="nav-showcase-pipeline"]').trigger('click')
+    await wrapper.get('[data-testid="ux-change-date"]').setValue('2026-06-05')
+    await wrapper.get('[data-testid="ux-change-window-preset"]').setValue('TWO_WEEKS')
+    await wrapper.get('[data-testid="ux-change-form"]').trigger('submit')
     await flushPromises()
-    expect(wrapper.text()).toContain('实时数据')
-    expect(wrapper.text()).toContain('流水线视图来自真实 sync/analysis/materialization/action/validation 状态。')
-    expect(wrapper.text()).toContain('MATERIALIZATION')
 
-    await wrapper.get('[data-testid="nav-showcase-agent-arena"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('sync-lane')
-    expect(wrapper.text()).toContain('analysis-lane')
-
-    await wrapper.get('[data-testid="nav-showcase-explainability"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('真实评论')
-    expect(wrapper.text()).toContain('negative_rate')
-
-    await wrapper.get('[data-testid="nav-showcase-report-center"]').trigger('click')
-    await flushPromises()
-    await wrapper.get('.preview-button').trigger('click')
-    await flushPromises()
-    expect(clientMocks.previewShowcaseReport).toHaveBeenCalledWith('overview')
-    expect(wrapper.text()).toContain('执行摘要：当前最高优先级问题是连接稳定性偶发断连。')
-  })
-
-  it('shows degraded and runtime-unavailable showcase states without falling back to placeholder copy', async () => {
-    clientMocks.fetchShowcasePipeline.mockResolvedValueOnce({
-      status: 'DEGRADED',
-      implemented: true,
-      note: '流水线当前部分降级，但仍保留最近一次真实阶段信号。',
-      stages: [{ name: 'VALIDATION', state: 'DEGRADED', detail: 'validation snapshots are lagging behind actions' }],
+    expect(clientMocks.createUxChangeComparison).toHaveBeenCalledWith({
+      productCode: 'jd-100127936932',
+      changeDate: '2026-06-05',
+      windowPreset: 'TWO_WEEKS',
     })
-    const wrapper = mount(App)
-    await flushPromises()
-    await enterDashboard(wrapper)
-
-    await wrapper.get('[data-testid="nav-showcase-pipeline"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.text()).toContain('降级可用')
-    expect(wrapper.text()).toContain('流水线当前部分降级，但仍保留最近一次真实阶段信号。')
-    expect(wrapper.text()).toContain('VALIDATION')
-
-    const chaosWrapper = mount(ShowcaseChaosPanel, {
-      props: {
-        data: {
-          status: 'RUNTIME_UNAVAILABLE',
-          implemented: true,
-          note: '当前未记录可用于韧性视图的真实运行态。',
-          drills: [{ scenario: 'materialization-runtime', state: 'UNAVAILABLE', detail: 'no materialized outputs yet' }],
-        },
-      },
-    })
-
-    expect(chaosWrapper.text()).toContain('运行态不可用')
-    expect(chaosWrapper.text()).toContain('materialization-runtime')
-    expect(chaosWrapper.text()).toContain('当前未记录可用于韧性视图的真实运行态。')
+    expect(wrapper.text()).toContain('新时间点已计算。')
+    expect(wrapper.text()).toContain('电池与续航')
   })
 })

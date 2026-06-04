@@ -42,6 +42,10 @@ public class ReviewSemanticLabelRepository {
                 "DELETE FROM review_semantic_labels WHERE review_id IN (SELECT id FROM reviews_raw WHERE product_id = ?)",
                 productId
         );
+        insertAll(labels);
+    }
+
+    public void insertAll(List<SemanticLabelRecord> labels) {
         for (SemanticLabelRecord label : labels) {
             Map<String, Object> payload = new HashMap<>();
             payload.put("review_id", label.reviewId());

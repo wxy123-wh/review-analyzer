@@ -4,6 +4,8 @@ public record WordCloudItem(
         String keyword,
         int frequency,
         double weight,
-        String sentimentTag
+        String sentimentTag,
+        String partOfSpeech,
+        String wordType
 ) {
 }

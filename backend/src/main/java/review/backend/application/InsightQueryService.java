@@ -10,6 +10,9 @@ import review.backend.api.dto.PositiveInsightItem;
 import review.backend.api.dto.PositiveInsightResponse;
 import review.backend.api.dto.TrendPoint;
 import review.backend.api.dto.TrendResponse;
+import review.backend.api.dto.TaxonomyResponse;
+import review.backend.api.dto.UxPrimaryLabelResponse;
+import review.backend.api.dto.UxSecondaryLabelResponse;
 import review.backend.api.dto.ValidationItem;
 import review.backend.api.dto.ValidationResponse;
 import review.backend.api.dto.WordCloudItem;
@@ -23,15 +26,20 @@ import review.backend.data.AnalysisMaterializationRepository.MaterializedWordClo
 import review.backend.data.ActionRepository.ActionValidationContext;
 import review.backend.data.DataQualityRepository;
 import review.backend.data.DataQualityRepository.DataQualityRun;
+import review.backend.data.ProductRepository;
+import review.backend.data.ReviewQueryRepository;
 import review.backend.data.ReviewSemanticLabelRepository;
 import review.backend.data.ReviewSemanticLabelRepository.PositiveInsightAggregate;
+import review.backend.data.TaxonomyRepository;
 import review.backend.data.ValidationMetricsRepository;
 import review.backend.data.ValidationMetricsRepository.MetricsPayload;
 import review.backend.data.ValidationMetricsRepository.ValidationSnapshot;
 import review.backend.util.MathUtils;
 import review.backend.util.SimpleCache;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -41,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -55,6 +64,7 @@ public class InsightQueryService {
     private static final double W_TREND_GROWTH = 0.20;
     private static final double W_COMPETITOR_GAP = 0.20;
     private static final String NO_DATA_NOTICE = "当前暂无可分析的真实评论，请先通过爬虫或 JSONL 导入评论，再启动分析。";
+    private static final String ANALYSIS_NOT_READY_NOTICE = "真实评论已导入数据库，但 LLM 分析结果尚未写入下游表，请等待分析完成或重新启动 LLM 分析。";
     private static final String QUERY_FAILURE_NOTICE = "评论洞察正在更新，请稍后刷新重试。";
     private static final String STATE_SUCCESS = "success";
     private static final String STATE_EMPTY = "empty";
@@ -65,16 +75,33 @@ public class InsightQueryService {
     private static final String COMPARE_STATE_MISSING_TARGET = "missing-target";
     private static final String COMPARE_STATE_PRIMARY_UNAVAILABLE = "primary-unavailable";
     private static final String COMPARE_STATE_COMPARISON_UNAVAILABLE = "comparison-unavailable";
+    private static final String COMPARE_STATE_TAXONOMY_MISMATCH = "taxonomy-mismatch";
     private static final String COMPARE_STATE_ERROR = "error";
     private static final String COMPARE_MISSING_TARGET_NOTICE = "请选择需要对比的竞品后再查看对比结果。";
     private static final String COMPARE_PRIMARY_UNAVAILABLE_NOTICE = "主产品暂无可用分析结果，请先导入真实评论并启动分析。";
     private static final String COMPARE_COMPARISON_UNAVAILABLE_NOTICE = "竞品暂无可用分析结果，请先导入竞品真实评论并启动分析。";
+    private static final String COMPARE_TAXONOMY_MISMATCH_NOTICE = "主商品与竞品绑定的 UX 标签体系不一致，请先统一 taxonomy 后再对比。";
     private static final String ACTION_NOT_FOUND_NOTICE = "未找到对应改进动作，请确认动作编号。";
     private static final String NO_ACTION_NOTICE = "当前暂无改进动作，请先创建动作后查看验证结果。";
     private static final int WORD_CLOUD_TOP_N = 24;
+    private static final int WORD_CLOUD_SENTIMENT_BUCKET_SIZE = WORD_CLOUD_TOP_N / 2;
     private static final Pattern WORD_TOKEN_PATTERN = Pattern.compile("[\\p{IsHan}]{2,}|[A-Za-z][A-Za-z\\-]{2,}");
     private static final Set<String> WORD_STOP_WORDS = Set.of(
-            "批次", "整体", "表现", "体验", "场景", "使用", "连续", "明显", "日常", "需要", "影响", "希望", "优化"
+            "批次", "整体", "表现", "体验", "场景", "使用", "连续", "明显", "日常", "需要", "影响", "希望", "优化",
+            "商品", "用户", "评价", "评论", "追评", "京东", "平台", "购买", "收到", "客服", "发货",
+            "手机", "耳机", "小米", "buds", "pro", "airpods", "app",
+            "音质音效", "做工质感", "舒适度", "续航能力", "其他特色", "无明显问题", "综合体验问题",
+            "这款", "这个", "首先", "一般"
+    );
+    private static final Set<String> WORD_TEXT_NOISE_TERMS = Set.of(
+            "商品", "产品", "手机", "耳机", "小米", "Buds", "buds", "Pro", "pro", "AirPods", "airpods", "APP", "app",
+            "音质音效", "做工质感", "舒适度", "续航能力", "其他特色"
+    );
+    private static final Set<String> WORD_ALLOWED_ENGLISH_TERMS = Set.of(
+            "wifi", "wi-fi", "nfc", "ios", "android", "type-c", "usb-c"
+    );
+    private static final Set<String> WORD_PHRASE_NOISE_MARKERS = Set.of(
+            "觉得", "最近", "这款", "这个", "入手", "拿到", "挑了", "评测", "首先", "最后", "决定"
     );
     private static final Map<String, String> WORD_ALIAS = Map.ofEntries(
             Map.entry("battery", "续航"),
@@ -83,13 +110,30 @@ public class InsightQueryService {
             Map.entry("comfort", "舒适"),
             Map.entry("microphone", "通话收音")
     );
+    private static final Set<String> WORD_DIMENSION_TERMS = Set.of(
+            "续航", "电池", "蓝牙", "蓝牙连接", "连接", "降噪", "通透", "舒适", "佩戴", "通话", "通话收音",
+            "麦克风", "音质", "音效", "低音", "高音", "物流", "售后", "包装", "客服"
+    );
+    private static final Set<String> WORD_ISSUE_TERMS = Set.of(
+            "断连", "断开", "卡顿", "延迟", "漏音", "杂音", "噪音", "掉电", "耗电", "发热", "刺耳", "不稳",
+            "不适", "压耳", "夹耳", "失灵", "坏了", "闷", "糊", "差评", "故障"
+    );
+    private static final Set<String> WORD_POSITIVE_TERMS = Set.of(
+            "稳定", "舒适", "清晰", "满意", "好用", "不错", "漂亮", "轻便", "流畅", "推荐", "方便", "精致"
+    );
+    private static final Set<String> WORD_ACTION_TERMS = Set.of(
+            "连接", "断开", "断连", "佩戴", "充电", "收音", "降噪", "切换", "更新", "检测", "维修", "退换"
+    );
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InsightQueryService.class);
 
     private final ActionService actionService;
     private final AnalysisMaterializationRepository analysisMaterializationRepository;
     private final DataQualityRepository dataQualityRepository;
+    private final ProductRepository productRepository;
+    private final ReviewQueryRepository reviewQueryRepository;
     private final ReviewSemanticLabelRepository reviewSemanticLabelRepository;
+    private final TaxonomyRepository taxonomyRepository;
     private final ReviewAggregationService reviewAggregationService;
     private final ValidationMetricsRepository validationMetricsRepository;
     private final SimpleCache<String, List<ReviewAggregationService.AggregatedReview>> reviewsCache =
@@ -99,14 +143,20 @@ public class InsightQueryService {
             ActionService actionService,
             AnalysisMaterializationRepository analysisMaterializationRepository,
             DataQualityRepository dataQualityRepository,
+            ProductRepository productRepository,
+            ReviewQueryRepository reviewQueryRepository,
             ReviewSemanticLabelRepository reviewSemanticLabelRepository,
+            TaxonomyRepository taxonomyRepository,
             ReviewAggregationService reviewAggregationService,
             ValidationMetricsRepository validationMetricsRepository
     ) {
         this.actionService = actionService;
         this.analysisMaterializationRepository = analysisMaterializationRepository;
         this.dataQualityRepository = dataQualityRepository;
+        this.productRepository = productRepository;
+        this.reviewQueryRepository = reviewQueryRepository;
         this.reviewSemanticLabelRepository = reviewSemanticLabelRepository;
+        this.taxonomyRepository = taxonomyRepository;
         this.reviewAggregationService = reviewAggregationService;
         this.validationMetricsRepository = validationMetricsRepository;
     }
@@ -116,7 +166,7 @@ public class InsightQueryService {
         try {
             List<MaterializedIssueRecord> records = analysisMaterializationRepository.findIssues(normalizedProductCode);
             if (records.isEmpty() && !analysisMaterializationRepository.hasMaterializedOutputs(normalizedProductCode)) {
-                return new IssueListResponse(List.of(), STATE_EMPTY, NO_DATA_NOTICE);
+                return new IssueListResponse(List.of(), STATE_EMPTY, emptyAnalysisNotice(normalizedProductCode));
             }
 
             List<IssueItem> items = records.stream()
@@ -155,10 +205,16 @@ public class InsightQueryService {
     public CompareResponse compare(String productCode, String comparisonProductCode) {
         String normalizedProductCode = reviewAggregationService.normalizeProductCode(productCode);
         String normalizedComparisonProductCode = normalizeComparisonProductCode(comparisonProductCode);
+        String productName = resolveProductName(normalizedProductCode);
+        String comparisonProductName = normalizedComparisonProductCode == null
+                ? null
+                : resolveProductName(normalizedComparisonProductCode);
 
         if (normalizedComparisonProductCode == null) {
             return new CompareResponse(
                     normalizedProductCode,
+                    productName,
+                    null,
                     null,
                     COMPARE_STATE_MISSING_TARGET,
                     COMPARE_MISSING_TARGET_NOTICE,
@@ -170,7 +226,9 @@ public class InsightQueryService {
             if (!analysisMaterializationRepository.hasMaterializedOutputs(normalizedProductCode)) {
                 return new CompareResponse(
                         normalizedProductCode,
+                        productName,
                         normalizedComparisonProductCode,
+                        comparisonProductName,
                         COMPARE_STATE_PRIMARY_UNAVAILABLE,
                         COMPARE_PRIMARY_UNAVAILABLE_NOTICE,
                         List.of()
@@ -179,9 +237,22 @@ public class InsightQueryService {
             if (!analysisMaterializationRepository.hasMaterializedOutputs(normalizedComparisonProductCode)) {
                 return new CompareResponse(
                         normalizedProductCode,
+                        productName,
                         normalizedComparisonProductCode,
+                        comparisonProductName,
                         COMPARE_STATE_COMPARISON_UNAVAILABLE,
                         COMPARE_COMPARISON_UNAVAILABLE_NOTICE,
+                        List.of()
+                );
+            }
+            if (!hasMatchingTaxonomy(normalizedProductCode, normalizedComparisonProductCode)) {
+                return new CompareResponse(
+                        normalizedProductCode,
+                        productName,
+                        normalizedComparisonProductCode,
+                        comparisonProductName,
+                        COMPARE_STATE_TAXONOMY_MISMATCH,
+                        COMPARE_TAXONOMY_MISMATCH_NOTICE,
                         List.of()
                 );
             }
@@ -203,20 +274,31 @@ public class InsightQueryService {
                         MaterializedCompareAspectRecord record = primaryRecords.getOrDefault(label, comparisonRecords.get(label));
                         double ourScore = primaryScores.getOrDefault(label, 0D);
                         double competitorScore = comparisonScores.getOrDefault(label, 0D);
+                        int ourMentionCount = primaryRecords.containsKey(label) ? primaryRecords.get(label).mentionCount() : 0;
+                        int competitorMentionCount = comparisonRecords.containsKey(label) ? comparisonRecords.get(label).mentionCount() : 0;
+                        double ourNegativeRate = negativeRate(primaryRecords.get(label));
+                        double competitorNegativeRate = negativeRate(comparisonRecords.get(label));
                         return new CompareItem(
                                 record == null ? ReviewAggregationService.ASPECT_UNKNOWN : record.aspect(),
                                 record == null ? "" : record.uxPrimaryLabel(),
                                 label,
                                 roundTo4(ourScore),
                                 roundTo4(competitorScore),
-                                roundTo4(ourScore - competitorScore)
+                                roundTo4(ourScore - competitorScore),
+                                ourMentionCount,
+                                competitorMentionCount,
+                                ourNegativeRate,
+                                competitorNegativeRate,
+                                roundTo4(ourNegativeRate - competitorNegativeRate)
                         );
                     })
                     .toList();
 
             return new CompareResponse(
                     normalizedProductCode,
+                    productName,
                     normalizedComparisonProductCode,
+                    comparisonProductName,
                     COMPARE_STATE_SUCCESS,
                     null,
                     items
@@ -230,7 +312,9 @@ public class InsightQueryService {
             );
             return new CompareResponse(
                     normalizedProductCode,
+                    productName,
                     normalizedComparisonProductCode,
+                    comparisonProductName,
                     COMPARE_STATE_ERROR,
                     QUERY_FAILURE_NOTICE,
                     List.of()
@@ -253,7 +337,14 @@ public class InsightQueryService {
                     normalizedLabel
             );
             if (reviews.isEmpty()) {
-                return new TrendResponse(normalizedProductCode, normalizedAspect, normalizedLabel, List.of(), STATE_EMPTY, NO_DATA_NOTICE);
+                return new TrendResponse(
+                        normalizedProductCode,
+                        normalizedAspect,
+                        normalizedLabel,
+                        List.of(),
+                        STATE_EMPTY,
+                        emptyAnalysisNotice(normalizedProductCode)
+                );
             }
 
             Map<String, PeriodStats> periodStats = new TreeMap<>();
@@ -308,28 +399,49 @@ public class InsightQueryService {
                     scopedAspect
             );
             if (reviews.isEmpty()) {
-                return new WordCloudResponse(normalizedProductCode, normalizedAspect, normalizedLabel, List.of(), STATE_EMPTY, NO_DATA_NOTICE);
+                return new WordCloudResponse(
+                        normalizedProductCode,
+                        normalizedAspect,
+                        normalizedLabel,
+                        List.of(),
+                        STATE_EMPTY,
+                        emptyAnalysisNotice(normalizedProductCode)
+                );
             }
 
-            Map<String, KeywordStats> keywordStats = new HashMap<>();
+            Map<ReviewAggregationService.Sentiment, Map<String, KeywordStats>> keywordStatsBySentiment =
+                    new EnumMap<>(ReviewAggregationService.Sentiment.class);
+            keywordStatsBySentiment.put(ReviewAggregationService.Sentiment.NEGATIVE, new HashMap<>());
+            keywordStatsBySentiment.put(ReviewAggregationService.Sentiment.POSITIVE, new HashMap<>());
+            keywordStatsBySentiment.put(ReviewAggregationService.Sentiment.NEUTRAL, new HashMap<>());
+
             for (MaterializedWordCloudReviewRecord review : reviews) {
-                Matcher matcher = WORD_TOKEN_PATTERN.matcher(review.content() == null ? "" : review.content());
-                while (matcher.find()) {
-                    String keyword = normalizeWordCloudKeyword(matcher.group());
-                    if (keyword == null || WORD_STOP_WORDS.contains(keyword)) {
-                        continue;
+                ReviewAggregationService.Sentiment sentiment = normalizeSentiment(review.sentimentPolarity());
+                Map<String, KeywordStats> keywordStats = keywordStatsBySentiment.get(sentiment);
+                Set<String> keywordsInReview = new LinkedHashSet<>();
+                for (String sourceText : wordCloudSourceTexts(review)) {
+                    Matcher matcher = WORD_TOKEN_PATTERN.matcher(sourceText);
+                    while (matcher.find()) {
+                        String keyword = normalizeWordCloudKeyword(matcher.group());
+                        if (keyword == null) {
+                            continue;
+                        }
+                        for (String expandedKeyword : expandWordCloudKeyword(keyword, sentiment)) {
+                            if (!shouldSkipWordCloudKeyword(expandedKeyword, sentiment)) {
+                                keywordsInReview.add(expandedKeyword);
+                            }
+                        }
                     }
+                }
+                for (String keyword : keywordsInReview) {
                     KeywordStats stats = keywordStats.computeIfAbsent(keyword, key -> new KeywordStats());
-                    stats.frequency++;
-                    switch (normalizeSentiment(review.sentimentPolarity())) {
-                        case POSITIVE -> stats.positiveCount++;
-                        case NEGATIVE -> stats.negativeCount++;
-                        case NEUTRAL -> stats.neutralCount++;
-                    }
+                    stats.add(sentiment);
                 }
             }
 
-            if (keywordStats.isEmpty()) {
+            List<KeywordCandidate> candidates = balancedWordCloudCandidates(keywordStatsBySentiment);
+
+            if (candidates.isEmpty()) {
                 return new WordCloudResponse(
                         normalizedProductCode,
                         normalizedAspect,
@@ -340,22 +452,19 @@ public class InsightQueryService {
                 );
             }
 
-            int maxFrequency = keywordStats.values().stream()
-                    .mapToInt(KeywordStats::frequency)
+            int maxFrequency = candidates.stream()
+                    .mapToInt(KeywordCandidate::frequency)
                     .max()
                     .orElse(1);
 
-            List<WordCloudItem> items = keywordStats.entrySet().stream()
-                    .sorted(Comparator
-                            .comparingInt((Map.Entry<String, KeywordStats> entry) -> entry.getValue().frequency())
-                            .reversed()
-                            .thenComparing(Map.Entry::getKey))
-                    .limit(WORD_CLOUD_TOP_N)
-                    .map(entry -> new WordCloudItem(
-                            entry.getKey(),
-                            entry.getValue().frequency(),
-                            roundTo4((double) entry.getValue().frequency() / maxFrequency),
-                            resolveSentimentTag(entry.getValue())
+            List<WordCloudItem> items = candidates.stream()
+                    .map(candidate -> new WordCloudItem(
+                            candidate.keyword(),
+                            candidate.frequency(),
+                            roundTo4((double) candidate.frequency() / maxFrequency),
+                            candidate.sentimentTag(),
+                            inferPartOfSpeech(candidate.keyword()),
+                            inferWordType(candidate.keyword())
                     ))
                     .toList();
 
@@ -412,6 +521,7 @@ public class InsightQueryService {
                         0,
                         0,
                         0,
+                        0,
                         null
                 );
             }
@@ -427,6 +537,7 @@ public class InsightQueryService {
                     run.exactDuplicateCount(),
                     run.emptyContentCount(),
                     run.invalidJsonCount(),
+                    run.placeholderContentCount(),
                     run.importedAt()
             );
         } catch (Exception ex) {
@@ -435,6 +546,7 @@ public class InsightQueryService {
                     normalizedProductCode,
                     STATE_ERROR,
                     QUERY_FAILURE_NOTICE,
+                    0,
                     0,
                     0,
                     0,
@@ -457,7 +569,7 @@ public class InsightQueryService {
             if (aggregates.isEmpty() || totalPositiveLabels <= 0) {
                 return new PositiveInsightResponse(
                         STATE_EMPTY,
-                        "当前暂无可提炼的正面 UX 标签，请先导入真实评论并启动分析。",
+                        positiveInsightEmptyNotice(normalizedProductCode),
                         List.of()
                 );
             }
@@ -507,6 +619,20 @@ public class InsightQueryService {
                 score,
                 evidence
         );
+    }
+
+    private String emptyAnalysisNotice(String productCode) {
+        return reviewQueryRepository.countByProductCode(productCode) > 0 ? ANALYSIS_NOT_READY_NOTICE : NO_DATA_NOTICE;
+    }
+
+    private String positiveInsightEmptyNotice(String productCode) {
+        if (reviewQueryRepository.countByProductCode(productCode) <= 0) {
+            return NO_DATA_NOTICE;
+        }
+        if (analysisMaterializationRepository.hasMaterializedOutputs(productCode)) {
+            return "LLM 分析已完成，但当前没有足够的正向 UX 标签可提炼卖点。";
+        }
+        return ANALYSIS_NOT_READY_NOTICE;
     }
 
     private String buildSellingPointId(String aspect, String uxSecondaryLabel) {
@@ -856,6 +982,212 @@ public class InsightQueryService {
         return actionName.trim();
     }
 
+    private List<String> wordCloudSourceTexts(MaterializedWordCloudReviewRecord review) {
+        List<String> sourceTexts = new ArrayList<>();
+        addWordCloudSourceText(sourceTexts, review.standardizedReason());
+        addWordCloudSourceText(sourceTexts, review.evidence());
+        if (sourceTexts.isEmpty()) {
+            addWordCloudSourceText(sourceTexts, review.content());
+        }
+        return sourceTexts;
+    }
+
+    private void addWordCloudSourceText(List<String> sourceTexts, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        if (normalized.isBlank() || TaxonomyService.FALLBACK_SECONDARY_LABEL.equals(normalized)) {
+            return;
+        }
+        String stripped = stripWordCloudNoiseTerms(normalized);
+        if (!stripped.isBlank()) {
+            sourceTexts.add(stripped);
+        }
+    }
+
+    private String stripWordCloudNoiseTerms(String value) {
+        String stripped = value;
+        for (String noiseTerm : WORD_TEXT_NOISE_TERMS) {
+            stripped = stripped.replace(noiseTerm, " ");
+        }
+        return stripped.replaceAll("\\s+", " ").trim();
+    }
+
+    private List<String> expandWordCloudKeyword(String keyword, ReviewAggregationService.Sentiment sentiment) {
+        if (!isLongChinesePhrase(keyword)) {
+            return List.of(keyword);
+        }
+
+        Set<String> extracted = new LinkedHashSet<>();
+        for (String term : WORD_DIMENSION_TERMS) {
+            if (keyword.contains(term)) {
+                extracted.add(term);
+            }
+        }
+        Set<String> sentimentTerms = sentiment == ReviewAggregationService.Sentiment.NEGATIVE
+                ? WORD_ISSUE_TERMS
+                : WORD_POSITIVE_TERMS;
+        for (String term : sentimentTerms) {
+            if (keyword.contains(term)) {
+                extracted.add(term);
+            }
+        }
+        return List.copyOf(extracted);
+    }
+
+    private boolean shouldSkipWordCloudKeyword(String keyword, ReviewAggregationService.Sentiment sentiment) {
+        if (keyword == null || keyword.isBlank() || WORD_STOP_WORDS.contains(keyword)) {
+            return true;
+        }
+        if (keyword.matches("[a-z][a-z\\-]+") && !WORD_ALLOWED_ENGLISH_TERMS.contains(keyword)) {
+            return true;
+        }
+        if (WORD_PHRASE_NOISE_MARKERS.stream().anyMatch(keyword::contains)) {
+            return true;
+        }
+        if (
+                sentiment == ReviewAggregationService.Sentiment.NEGATIVE
+                        && containsAny(keyword, WORD_POSITIVE_TERMS)
+                        && !containsAny(keyword, WORD_ISSUE_TERMS)
+        ) {
+            return true;
+        }
+        return sentiment == ReviewAggregationService.Sentiment.POSITIVE
+                && containsAny(keyword, WORD_ISSUE_TERMS)
+                && !containsAny(keyword, WORD_POSITIVE_TERMS);
+    }
+
+    private boolean containsAny(String keyword, Set<String> terms) {
+        return terms.stream().anyMatch(keyword::contains);
+    }
+
+    private boolean isLongChinesePhrase(String keyword) {
+        return keyword != null && keyword.length() > 6 && keyword.matches("[\\p{IsHan}]+");
+    }
+
+    private List<KeywordCandidate> balancedWordCloudCandidates(
+            Map<ReviewAggregationService.Sentiment, Map<String, KeywordStats>> keywordStatsBySentiment
+    ) {
+        List<KeywordCandidate> negativeCandidates = new ArrayList<>();
+        List<KeywordCandidate> positiveCandidates = new ArrayList<>();
+        Set<String> selectedKeywords = new LinkedHashSet<>();
+
+        appendTopCandidates(
+                keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.NEGATIVE, Map.of()),
+                "负向",
+                WORD_CLOUD_SENTIMENT_BUCKET_SIZE,
+                selectedKeywords,
+                negativeCandidates
+        );
+        appendTopCandidates(
+                keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.POSITIVE, Map.of()),
+                "正向",
+                WORD_CLOUD_SENTIMENT_BUCKET_SIZE,
+                selectedKeywords,
+                positiveCandidates
+        );
+
+        int remaining = WORD_CLOUD_TOP_N - negativeCandidates.size() - positiveCandidates.size();
+        if (remaining > 0 && negativeCandidates.size() < WORD_CLOUD_SENTIMENT_BUCKET_SIZE) {
+            int before = positiveCandidates.size();
+            appendTopCandidates(
+                    keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.POSITIVE, Map.of()),
+                    "正向",
+                    remaining,
+                    selectedKeywords,
+                    positiveCandidates
+            );
+            remaining -= positiveCandidates.size() - before;
+        }
+        if (remaining > 0 && positiveCandidates.size() < WORD_CLOUD_SENTIMENT_BUCKET_SIZE) {
+            int before = negativeCandidates.size();
+            appendTopCandidates(
+                    keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.NEGATIVE, Map.of()),
+                    "负向",
+                    remaining,
+                    selectedKeywords,
+                    negativeCandidates
+            );
+            remaining -= negativeCandidates.size() - before;
+        }
+        if (remaining > 0) {
+            int before = negativeCandidates.size();
+            appendTopCandidates(
+                    keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.NEGATIVE, Map.of()),
+                    "负向",
+                    remaining,
+                    selectedKeywords,
+                    negativeCandidates
+            );
+            remaining -= negativeCandidates.size() - before;
+        }
+        if (remaining > 0) {
+            appendTopCandidates(
+                    keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.POSITIVE, Map.of()),
+                    "正向",
+                    remaining,
+                    selectedKeywords,
+                    positiveCandidates
+            );
+        }
+
+        List<KeywordCandidate> candidates = interleaveCandidates(negativeCandidates, positiveCandidates);
+        if (!candidates.isEmpty()) {
+            return candidates;
+        }
+
+        List<KeywordCandidate> neutralCandidates = new ArrayList<>();
+        appendTopCandidates(
+                keywordStatsBySentiment.getOrDefault(ReviewAggregationService.Sentiment.NEUTRAL, Map.of()),
+                "中性",
+                WORD_CLOUD_TOP_N,
+                new LinkedHashSet<>(),
+                neutralCandidates
+        );
+        return neutralCandidates;
+    }
+
+    private void appendTopCandidates(
+            Map<String, KeywordStats> keywordStats,
+            String sentimentTag,
+            int limit,
+            Set<String> selectedKeywords,
+            List<KeywordCandidate> target
+    ) {
+        if (limit <= 0 || keywordStats.isEmpty()) {
+            return;
+        }
+        keywordStats.entrySet().stream()
+                .filter(entry -> !selectedKeywords.contains(entry.getKey()))
+                .sorted(Comparator
+                        .comparingInt((Map.Entry<String, KeywordStats> entry) -> entry.getValue().frequency())
+                        .reversed()
+                        .thenComparing(Map.Entry::getKey))
+                .limit(limit)
+                .forEach(entry -> {
+                    selectedKeywords.add(entry.getKey());
+                    target.add(new KeywordCandidate(entry.getKey(), entry.getValue().frequency(), sentimentTag));
+                });
+    }
+
+    private List<KeywordCandidate> interleaveCandidates(
+            List<KeywordCandidate> negativeCandidates,
+            List<KeywordCandidate> positiveCandidates
+    ) {
+        List<KeywordCandidate> candidates = new ArrayList<>(negativeCandidates.size() + positiveCandidates.size());
+        int maxSize = Math.max(negativeCandidates.size(), positiveCandidates.size());
+        for (int index = 0; index < maxSize; index++) {
+            if (index < negativeCandidates.size()) {
+                candidates.add(negativeCandidates.get(index));
+            }
+            if (index < positiveCandidates.size()) {
+                candidates.add(positiveCandidates.get(index));
+            }
+        }
+        return candidates;
+    }
+
     private String normalizeWordCloudKeyword(String rawKeyword) {
         if (rawKeyword == null || rawKeyword.isBlank()) {
             return null;
@@ -886,6 +1218,43 @@ public class InsightQueryService {
             return "正向";
         }
         return "中性";
+    }
+
+    private String inferPartOfSpeech(String keyword) {
+        String normalized = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) {
+            return "名词";
+        }
+        if (normalized.matches("[a-z][a-z\\-]+")) {
+            return "英文词";
+        }
+        if (WORD_POSITIVE_TERMS.contains(normalized)) {
+            return "形容词";
+        }
+        if (WORD_ACTION_TERMS.contains(normalized) || WORD_ISSUE_TERMS.contains(normalized)) {
+            return "动词";
+        }
+        return "名词";
+    }
+
+    private String inferWordType(String keyword) {
+        String normalized = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) {
+            return "商品属性";
+        }
+        if (WORD_ISSUE_TERMS.contains(normalized)) {
+            return "问题词";
+        }
+        if (WORD_POSITIVE_TERMS.contains(normalized)) {
+            return "正向评价词";
+        }
+        if (WORD_DIMENSION_TERMS.contains(normalized)) {
+            return "体验维度";
+        }
+        if (normalized.matches("[a-z][a-z\\-]+")) {
+            return "英文词";
+        }
+        return "商品属性";
     }
 
     private double computeNegativeRate(List<ReviewAggregationService.AggregatedReview> reviews) {
@@ -945,6 +1314,85 @@ public class InsightQueryService {
         return scores;
     }
 
+    private boolean hasMatchingTaxonomy(String productCode, String comparisonProductCode) {
+        Optional<TaxonomyResponse> primaryTaxonomy = taxonomyRepository.findBoundForProduct(productCode);
+        Optional<TaxonomyResponse> comparisonTaxonomy = taxonomyRepository.findBoundForProduct(comparisonProductCode);
+        if (primaryTaxonomy.isEmpty() || comparisonTaxonomy.isEmpty()) {
+            return false;
+        }
+        TaxonomyResponse primary = primaryTaxonomy.get();
+        TaxonomyResponse comparison = comparisonTaxonomy.get();
+        if (primary.taxonomyId() == comparison.taxonomyId()) {
+            return true;
+        }
+        String primarySignature = taxonomySignature(primary);
+        String comparisonSignature = taxonomySignature(comparison);
+        return !primarySignature.isBlank() && primarySignature.equals(comparisonSignature);
+    }
+
+    private String taxonomySignature(TaxonomyResponse taxonomy) {
+        if (taxonomy == null || taxonomy.primaryLabels() == null || taxonomy.primaryLabels().isEmpty()) {
+            return "";
+        }
+        List<String> labelSignatures = taxonomy.primaryLabels().stream()
+                .filter(primary -> primary != null && hasText(primary.labelName()))
+                .flatMap(primary -> primary.secondaryLabels() == null
+                        ? java.util.stream.Stream.<String>empty()
+                        : primary.secondaryLabels().stream()
+                                .filter(secondary -> secondary != null && hasText(secondary.labelName()))
+                                .map(secondary -> taxonomyLabelSignature(primary, secondary)))
+                .sorted()
+                .toList();
+        if (labelSignatures.isEmpty()) {
+            return "";
+        }
+        return normalizeSignaturePart(taxonomy.productCategory()) + "\n" + String.join("\n", labelSignatures);
+    }
+
+    private String taxonomyLabelSignature(UxPrimaryLabelResponse primary, UxSecondaryLabelResponse secondary) {
+        String synonyms = secondary.synonyms() == null
+                ? ""
+                : secondary.synonyms().stream()
+                        .filter(this::hasText)
+                        .map(this::normalizeSignaturePart)
+                        .sorted()
+                        .collect(Collectors.joining(","));
+        return String.join("|",
+                normalizeSignaturePart(primary.labelName()),
+                normalizeSignaturePart(secondary.labelName()),
+                Boolean.toString(secondary.enabled()),
+                synonyms,
+                normalizeSignaturePart(secondary.description())
+        );
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String normalizeSignaturePart(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveProductName(String productCode) {
+        try {
+            Optional<String> productName = productRepository.findProductName(productCode);
+            return productName == null
+                    ? null
+                    : productName.filter(name -> !productCode.equals(name)).orElse(null);
+        } catch (Exception ex) {
+            LOGGER.debug("failed to resolve product display name, productCode={}", productCode, ex);
+            return null;
+        }
+    }
+
+    private double negativeRate(MaterializedCompareAspectRecord record) {
+        if (record == null || record.mentionCount() <= 0) {
+            return 0D;
+        }
+        return roundTo4((double) record.negativeCount() / record.mentionCount());
+    }
+
     private String normalizeUxFilter(String uxSecondaryLabel, String fallbackAspect) {
         if (uxSecondaryLabel != null && !uxSecondaryLabel.isBlank()) {
             return uxSecondaryLabel.trim();
@@ -967,11 +1415,23 @@ public class InsightQueryService {
         return label.trim();
     }
 
+    private record KeywordCandidate(String keyword, int frequency, String sentimentTag) {
+    }
+
     private static final class KeywordStats {
         private int frequency;
         private int positiveCount;
         private int neutralCount;
         private int negativeCount;
+
+        private void add(ReviewAggregationService.Sentiment sentiment) {
+            frequency++;
+            switch (sentiment) {
+                case POSITIVE -> positiveCount++;
+                case NEGATIVE -> negativeCount++;
+                case NEUTRAL -> neutralCount++;
+            }
+        }
 
         private int frequency() {
             return frequency;

@@ -7,6 +7,7 @@ public record ReviewImportResponse(
         String provider,
         String platform,
         String productCode,
+        String productName,
         int receivedCount,
         int insertedReviewCount,
         int updatedReviewCount,

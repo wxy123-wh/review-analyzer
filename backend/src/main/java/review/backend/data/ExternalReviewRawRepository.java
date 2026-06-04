@@ -44,10 +44,11 @@ public class ExternalReviewRawRepository {
             String provider,
             String platform,
             String productCode,
+            String productName,
             long syncJobId,
             List<ExternalRawReview> reviews
     ) {
-        long productId = productRepository.ensureProductId(productCode);
+        long productId = productRepository.ensureProductId(productCode, productName);
         String source = provider + ":" + platform;
 
         int insertedCount = 0;
@@ -101,6 +102,20 @@ public class ExternalReviewRawRepository {
                 insertedCount,
                 updatedCount,
                 totalCount == null ? 0 : totalCount
+        );
+    }
+
+    public int deleteReviews(String provider, String platform, String productCode) {
+        return jdbcTemplate.update(
+                """
+                DELETE FROM reviews_raw
+                WHERE provider = ?
+                  AND platform = ?
+                  AND external_product_code = ?
+                """,
+                provider,
+                platform,
+                productCode
         );
     }
 

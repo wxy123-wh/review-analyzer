@@ -2,11 +2,8 @@
   <section class="panel">
     <header class="head">
       <div class="title-block">
-        <span class="eyebrow">Keyword pulse</span>
-        <div class="title-copy">
-          <h3>词云洞察（{{ uxLabel }}）</h3>
-          <p class="support">保留词云为主视图，说明、情绪图例与补充结论收拢到图外，提升信息分层。</p>
-        </div>
+        <h3>词云</h3>
+        <p class="support">{{ uxLabel }} · {{ items.length }} 个关键词</p>
       </div>
       <button v-if="canRetry" type="button" class="retry-btn" @click="emit('retry')">重试</button>
     </header>
@@ -15,13 +12,8 @@
       <span class="state-label">加载中</span>
       <p class="hint">正在加载词云，请稍候...</p>
     </div>
-    <div v-else-if="chartRenderError" class="state-shell state-shell--error">
-      <span class="state-label">渲染异常</span>
-      <p class="hint error">{{ chartRenderError }}</p>
-      <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
-    </div>
     <div v-else-if="state === 'degraded'" class="state-shell">
-      <span class="state-label">降级可用</span>
+      <span class="state-label">部分数据</span>
       <p class="hint">{{ stateMessage }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
     </div>
@@ -31,59 +23,67 @@
       <button type="button" class="retry-btn" @click="emit('retry')">重新加载</button>
     </div>
     <div v-else-if="state === 'empty' || state === 'disabled'" class="state-shell">
-      <span class="state-label">{{ state === 'disabled' ? '模块已禁用' : '暂无数据' }}</span>
+      <span class="state-label">{{ state === 'disabled' ? '模块已停用' : '暂无数据' }}</span>
       <p class="hint">{{ stateMessage }}</p>
       <button type="button" class="retry-btn" @click="emit('retry')">刷新数据</button>
     </div>
     <template v-else>
-      <div class="chart-meta">
-        <p class="support support--chart">颜色仅承担情绪分组，补充说明和高频词摘要保持紧凑，避免盖过词项本身。</p>
-        <div class="legend">
-          <span class="legend-item">
-            <i class="swatch positive"></i>
-            正向
-          </span>
-          <span class="legend-item">
-            <i class="swatch neutral"></i>
-            中性
-          </span>
-          <span class="legend-item">
-            <i class="swatch negative"></i>
-            负向
-          </span>
+      <div class="wordcloud-layout">
+        <div class="wordcloud-stage" aria-label="词云图">
+          <button
+            v-for="word in cloudWords"
+            :key="word.keyword"
+            type="button"
+            class="word-node"
+            :class="sentimentClass(word.sentimentTag)"
+            :style="wordStyle(word)"
+            @click="selectedWord = word"
+          >
+            {{ word.keyword }}
+          </button>
         </div>
+
+        <aside class="word-detail">
+          <template v-if="selectedWord">
+            <span class="detail-kicker">关键词</span>
+            <h4>{{ selectedWord.keyword }}</h4>
+            <dl>
+              <div>
+                <dt>词频</dt>
+                <dd>{{ selectedWord.frequency }}</dd>
+              </div>
+              <div>
+                <dt>情绪</dt>
+                <dd :class="sentimentClass(selectedWord.sentimentTag)">{{ sentimentLabel(selectedWord.sentimentTag) }}</dd>
+              </div>
+              <div>
+                <dt>词性</dt>
+                <dd>{{ selectedWord.partOfSpeech || '未标注' }}</dd>
+              </div>
+              <div>
+                <dt>类型</dt>
+                <dd>{{ selectedWord.wordType || '商品属性' }}</dd>
+              </div>
+            </dl>
+          </template>
+        </aside>
       </div>
 
-      <div v-if="renderChart" ref="chartContainer" class="chart" />
-      <ul v-else class="chip-list">
-        <li v-for="item in items" :key="item.keyword" :class="sentimentClass(item.sentimentTag)">
-          <strong>{{ item.keyword }}</strong>
-          <span>词频 {{ item.frequency }}</span>
+      <ul class="rank-list" aria-label="关键词排行">
+        <li v-for="item in topItems" :key="item.keyword" :class="{ active: selectedWord?.keyword === item.keyword }">
+          <button type="button" @click="selectedWord = item">
+            <strong>{{ item.keyword }}</strong>
+            <span>{{ item.frequency }}</span>
+            <small :class="sentimentClass(item.sentimentTag)">{{ sentimentLabel(item.sentimentTag) }}</small>
+          </button>
         </li>
       </ul>
-
-      <article v-if="topWord" class="summary">
-        <div class="summary-head">
-          <span class="summary-kicker">Top term</span>
-          <h4>当前高频词</h4>
-        </div>
-        <p>
-          <strong>{{ topWord.keyword }}</strong>
-          <span>
-            词频 {{ topWord.frequency }} · {{ sentimentLabel(topWord.sentimentTag) }}
-          </span>
-        </p>
-      </article>
-
-      <p v-if="notice" class="notice">{{ notice }}</p>
-      <p class="touch-tip">触控提示：轻触词项可查看关键词与词频详情。</p>
     </template>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { WordCloud, WordCloudOptions } from '@antv/g2plot/esm/plots/word-cloud'
+import { computed, ref, watch } from 'vue'
 
 import type { ChartLoadState, WordCloudItem } from '../types/domain'
 
@@ -102,13 +102,28 @@ const sentimentText: Record<string, string> = {
   NEUTRAL: '中性',
 }
 
-const sentimentColor: Record<string, string> = {
-  POSITIVE: '#4fd08b',
-  NEGATIVE: '#ff7b85',
-  NEUTRAL: '#7ab8ff',
-}
+const cloudSlots = [
+  { x: 48, y: 45 },
+  { x: 28, y: 35 },
+  { x: 67, y: 35 },
+  { x: 36, y: 62 },
+  { x: 60, y: 64 },
+  { x: 18, y: 55 },
+  { x: 78, y: 55 },
+  { x: 50, y: 24 },
+  { x: 24, y: 72 },
+  { x: 74, y: 73 },
+  { x: 13, y: 26 },
+  { x: 86, y: 27 },
+  { x: 43, y: 80 },
+  { x: 61, y: 16 },
+]
 
-const isTestMode = import.meta.env.MODE === 'test'
+type CloudWord = WordCloudItem & {
+  x: number
+  y: number
+  size: number
+}
 
 const props = defineProps<{
   aspect: string
@@ -123,25 +138,19 @@ const emit = defineEmits<{
   (event: 'retry'): void
 }>()
 
-const chartContainer = ref<HTMLDivElement | null>(null)
-const chartHeight = ref(320)
-const chartRenderError = ref('')
+const selectedWord = ref<WordCloudItem | null>(null)
 
-const renderChart = computed(() => !isTestMode && props.state === 'success' && props.items.length > 0)
-const canRetry = computed(
-  () => Boolean(chartRenderError.value) || ['empty', 'degraded', 'error', 'timeout', 'runtime-unavailable'].includes(props.state),
-)
+const canRetry = computed(() => ['empty', 'degraded', 'error', 'timeout', 'runtime-unavailable'].includes(props.state))
 const aspectLabel = computed(() => aspectAlias[props.aspect] ?? props.aspect)
 const uxLabel = computed(() => props.uxSecondaryLabel?.trim() || aspectLabel.value)
-const topWord = computed(() => props.items[0] ?? null)
-const notice = computed(() => props.notice?.trim() ?? '')
+const topItems = computed(() => props.items.slice(0, 8))
 
 const stateMessage = computed(() => {
   if (props.state === 'empty') {
-    return props.message || '暂无词云数据，请先导入真实评论并启动分析后重试。'
+    return props.message || '暂无词云数据，请先完成评论分析。'
   }
   if (props.state === 'degraded') {
-    return props.message || '词云数据暂时退化为受限结果，请稍后重试。'
+    return props.message || '词云数据暂时只返回部分结果。'
   }
   if (props.state === 'timeout') {
     return props.message || '词云接口请求超时，请检查网络后重试。'
@@ -150,7 +159,7 @@ const stateMessage = computed(() => {
     return props.message || '词云运行态暂不可用，请稍后重试。'
   }
   if (props.state === 'disabled') {
-    return props.message || '词云模块当前已禁用。'
+    return props.message || '词云模块当前已停用。'
   }
   if (props.state === 'error') {
     return props.message || '词云接口请求失败，请稍后重试。'
@@ -158,17 +167,33 @@ const stateMessage = computed(() => {
   return ''
 })
 
-let wordCloudChart: WordCloud | null = null
-let renderVersion = 0
-
-function syncChartHeight(): void {
-  chartHeight.value = window.innerWidth <= 768 ? 250 : 320
-}
+const cloudWords = computed<CloudWord[]>(() => {
+  const values = props.items.slice(0, cloudSlots.length)
+  const maxWeight = Math.max(...values.map((item) => Number(item.weight) || item.frequency || 1), 1)
+  const minWeight = Math.min(...values.map((item) => Number(item.weight) || item.frequency || 1), maxWeight)
+  const range = Math.max(maxWeight - minWeight, 1)
+  return values.map((item, index) => {
+    const slot = cloudSlots[index % cloudSlots.length]
+    const weight = Number(item.weight) || item.frequency || 1
+    return {
+      ...item,
+      x: slot.x,
+      y: slot.y,
+      size: 16 + ((weight - minWeight) / range) * 28,
+    }
+  })
+})
 
 function normalizeSentiment(sentimentTag: string): string {
   const normalized = sentimentTag.trim().toUpperCase()
-  if (normalized === 'POSITIVE' || normalized === 'NEGATIVE' || normalized === 'NEUTRAL') {
-    return normalized
+  if (normalized === 'POSITIVE' || normalized === '正向') {
+    return 'POSITIVE'
+  }
+  if (normalized === 'NEGATIVE' || normalized === '负向') {
+    return 'NEGATIVE'
+  }
+  if (normalized === 'NEUTRAL' || normalized === '中性') {
+    return 'NEUTRAL'
   }
   return 'NEUTRAL'
 }
@@ -181,95 +206,21 @@ function sentimentClass(sentimentTag: string): string {
   return normalizeSentiment(sentimentTag).toLowerCase()
 }
 
-function destroyWordCloudChart(): void {
-  wordCloudChart?.destroy()
-  wordCloudChart = null
-}
-
-function buildWordCloudOptions(): WordCloudOptions {
+function wordStyle(word: CloudWord): Record<string, string> {
   return {
-    autoFit: true,
-    height: chartHeight.value,
-    data: props.items.map((item) => ({
-      ...item,
-      sentimentTag: normalizeSentiment(item.sentimentTag),
-    })),
-    wordField: 'keyword',
-    weightField: 'weight',
-    colorField: 'sentimentTag',
-    color: (datum: { sentimentTag?: string }) => {
-      const sentiment = normalizeSentiment(datum.sentimentTag ?? 'NEUTRAL')
-      return sentimentColor[sentiment] ?? sentimentColor.NEUTRAL
-    },
-    wordStyle: {
-      fontFamily: 'Segoe UI, PingFang SC, sans-serif',
-      fontWeight: 600,
-      rotation: [0, 0],
-      fontSize: [14, 42],
-      padding: 2,
-    },
-    tooltip: {
-      formatter: (datum: WordCloudItem) => ({
-        name: datum.keyword,
-        value: `词频 ${datum.frequency} · ${sentimentLabel(datum.sentimentTag)}`,
-      }),
-    },
-    legend: false,
-    interactions: [{ type: 'element-active' }],
-    animation: false,
-  }
-}
-
-async function renderWordCloudChart(): Promise<void> {
-  const currentRenderVersion = ++renderVersion
-  if (!renderChart.value || !chartContainer.value) {
-    chartRenderError.value = ''
-    destroyWordCloudChart()
-    return
-  }
-
-  try {
-    chartRenderError.value = ''
-    const { WordCloud } = await import('@antv/g2plot/esm/plots/word-cloud')
-    if (currentRenderVersion !== renderVersion || !chartContainer.value || !renderChart.value) {
-      return
-    }
-
-    destroyWordCloudChart()
-    wordCloudChart = new WordCloud(chartContainer.value, buildWordCloudOptions())
-    wordCloudChart.render()
-  } catch {
-    destroyWordCloudChart()
-    chartRenderError.value = '词云渲染失败，请刷新后重试。'
+    left: `${word.x}%`,
+    top: `${word.y}%`,
+    fontSize: `${word.size}px`,
   }
 }
 
 watch(
-  () => [props.items, props.state, chartHeight.value],
+  () => [props.items, props.state],
   () => {
-    void renderWordCloudChart()
+    selectedWord.value = props.items[0] ?? null
   },
-  { deep: true },
+  { deep: true, immediate: true },
 )
-
-watch(
-  () => props.aspect,
-  () => {
-    void renderWordCloudChart()
-  },
-)
-
-onMounted(() => {
-  syncChartHeight()
-  window.addEventListener('resize', syncChartHeight, { passive: true })
-  void renderWordCloudChart()
-})
-
-onBeforeUnmount(() => {
-  renderVersion += 1
-  window.removeEventListener('resize', syncChartHeight)
-  destroyWordCloudChart()
-})
 </script>
 
 <style scoped>
@@ -277,32 +228,19 @@ onBeforeUnmount(() => {
   position: relative;
   overflow: hidden;
   display: grid;
-  gap: var(--space-4);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 58%),
-    var(--gradient-surface);
+  padding: var(--space-3);
+  background: var(--gradient-surface);
   box-shadow: var(--shadow-raised);
-}
-
-.panel::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(102, 224, 194, 0.08), transparent 34%);
 }
 
 .head,
 .state-shell,
-.chart-meta,
-.chart,
-.chip-list,
-.summary,
-.notice,
-.touch-tip {
+.wordcloud-layout,
+.rank-list {
   position: relative;
   z-index: var(--z-raised);
 }
@@ -314,41 +252,13 @@ onBeforeUnmount(() => {
   gap: var(--space-3);
 }
 
-.title-block,
-.title-copy,
-.summary-head {
+.title-block {
   display: grid;
-  gap: var(--space-2);
-}
-
-.eyebrow,
-.state-label,
-.legend-item,
-.summary-kicker {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  min-height: 1.75rem;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-overlay);
-  box-shadow: var(--shadow-inset-soft);
-  font-size: var(--font-size-xs);
-}
-
-.eyebrow,
-.summary-kicker {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.eyebrow {
-  color: var(--color-accent-secondary);
+  gap: var(--space-1);
 }
 
 h3,
-.summary h4 {
+.word-detail h4 {
   margin: 0;
   color: var(--color-text-primary);
 }
@@ -356,33 +266,21 @@ h3,
 h3 {
   font-size: var(--font-size-xl);
   line-height: var(--line-height-tight);
-  letter-spacing: -0.02em;
-}
-
-.summary h4 {
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-snug);
 }
 
 .support,
-.hint,
-.notice,
-.touch-tip {
+.hint {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
-}
-
-.support--chart {
-  max-width: 38rem;
 }
 
 .retry-btn {
   flex-shrink: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, rgba(122, 184, 255, 0.16), rgba(102, 224, 194, 0.16));
+  background: var(--color-surface-1);
   color: var(--color-text-primary);
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-sm);
@@ -390,29 +288,14 @@ h3 {
   line-height: 1;
   cursor: pointer;
   box-shadow: var(--shadow-inset-soft);
-  transition:
-    border-color var(--motion-medium) var(--easing-standard),
-    box-shadow var(--motion-medium) var(--easing-standard),
-    transform var(--motion-fast) var(--easing-standard);
-}
-
-.retry-btn:hover {
-  border-color: var(--color-accent-primary);
-  box-shadow: var(--shadow-glow);
-}
-
-.retry-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 .state-shell,
-.chart,
-.summary,
-.notice {
+.wordcloud-stage,
+.word-detail {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  background: rgba(8, 16, 29, 0.56);
+  background: var(--color-surface-1);
   box-shadow: var(--shadow-inset-soft);
 }
 
@@ -424,160 +307,169 @@ h3 {
 }
 
 .state-shell--error {
-  border-color: rgba(255, 123, 133, 0.24);
-  background: rgba(38, 12, 20, 0.36);
+  border-color: #fecaca;
+  background: var(--color-semantic-down-soft);
 }
 
-.state-label {
-  color: var(--color-text-secondary);
+.state-label,
+.detail-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 1.5rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-overlay);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 
 .hint.error {
   color: var(--color-semantic-down);
 }
 
-.chart-meta {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.wordcloud-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.32fr);
   gap: var(--space-3);
-  flex-wrap: wrap;
 }
 
-.legend {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.legend-item {
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-}
-
-.swatch {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-pill);
-}
-
-.legend .positive,
-.chip-list .positive {
-  background: rgba(79, 208, 139, 0.14);
-}
-
-.legend .neutral,
-.chip-list .neutral {
-  background: rgba(122, 184, 255, 0.14);
-}
-
-.legend .negative,
-.chip-list .negative {
-  background: rgba(255, 123, 133, 0.14);
-}
-
-.legend .positive {
-  box-shadow: 0 0 0 0.2rem rgba(79, 208, 139, 0.14);
-}
-
-.legend .neutral {
-  box-shadow: 0 0 0 0.2rem rgba(122, 184, 255, 0.14);
-}
-
-.legend .negative {
-  box-shadow: 0 0 0 0.2rem rgba(255, 123, 133, 0.14);
-}
-
-.chart {
-  min-height: 220px;
-  padding: var(--space-2);
+.wordcloud-stage {
+  position: relative;
+  min-height: 260px;
+  height: min(38vh, 330px);
+  overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 65%),
-    rgba(8, 16, 29, 0.72);
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--color-accent-soft) 80%, transparent), transparent 58%),
+    var(--color-surface-1);
 }
 
-.chip-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.chip-list li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  padding: var(--space-2) var(--space-3);
-  background: rgba(8, 16, 29, 0.56);
-  box-shadow: var(--shadow-inset-soft);
-}
-
-.chip-list strong {
-  font-size: var(--font-size-md);
+.word-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  max-width: 9.5rem;
+  border: 0;
+  background: transparent;
   color: var(--color-text-primary);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-wrap: nowrap;
 }
 
-.chip-list span {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.chip-list .positive {
-  border-color: rgba(79, 208, 139, 0.24);
+.word-node.positive {
   color: var(--color-semantic-up);
 }
 
-.chip-list .neutral {
-  border-color: rgba(122, 184, 255, 0.24);
-  color: var(--color-accent-primary);
-}
-
-.chip-list .negative {
-  border-color: rgba(255, 123, 133, 0.24);
+.word-node.negative {
   color: var(--color-semantic-down);
 }
 
-.summary {
+.word-node.neutral {
+  color: var(--color-accent-primary);
+}
+
+.word-node:focus-visible {
+  outline: var(--outline-focus);
+  outline-offset: 4px;
+}
+
+.word-detail {
   display: grid;
+  align-content: start;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-3);
 }
 
-.summary-kicker {
-  color: var(--color-accent-secondary);
+.word-detail h4 {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
 }
 
-.summary p {
+.word-detail dl {
+  display: grid;
+  gap: var(--space-2);
   margin: 0;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+}
+
+.word-detail div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.word-detail dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.word-detail dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.positive {
+  color: var(--color-semantic-up);
+}
+
+.negative {
+  color: var(--color-semantic-down);
+}
+
+.neutral {
+  color: var(--color-accent-primary);
+}
+
+.rank-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.summary strong {
-  font-size: var(--font-size-2xl);
-  line-height: var(--line-height-tight);
+.rank-list button {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  background: var(--color-surface-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rank-list li.active button {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-soft);
+}
+
+.rank-list strong {
+  overflow: hidden;
   color: var(--color-text-primary);
-}
-
-.summary span {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.notice {
-  padding: var(--space-3);
-  border-style: dashed;
-}
-
-.touch-tip {
-  padding-left: var(--space-1);
+.rank-list span {
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
+  font-weight: 800;
+}
+
+.rank-list small {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-xs);
 }
 
 @media (max-width: 768px) {
@@ -591,17 +483,14 @@ h3 {
 
   .retry-btn {
     width: 100%;
-    justify-content: center;
   }
 
-  .chip-list strong {
-    font-size: var(--font-size-sm);
+  .wordcloud-layout {
+    grid-template-columns: 1fr;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .retry-btn {
-    transition: none;
+  .rank-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

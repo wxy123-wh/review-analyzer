@@ -1,15 +1,5 @@
 <template>
   <aside data-testid="narrow-sidebar" class="sidebar" data-motion-reveal>
-    <div class="sidebar-head" data-motion-reveal style="--motion-delay: 60ms">
-      <div class="brand-wrap">
-        <div class="brand">WH</div>
-        <div class="brand-copy">
-          <strong>Workbench</strong>
-          <span>Dashboard shell</span>
-        </div>
-      </div>
-    </div>
-
     <nav class="nav">
       <section v-for="group in navGroups" :key="group.label" class="nav-group">
         <p class="nav-group-label">{{ group.label }}</p>
@@ -31,34 +21,9 @@
             <span class="label-wrap">
               <span class="label-row">
                 <span class="label">{{ module.label }}</span>
-                <span class="state-badge">{{ module.stateLabel }}</span>
               </span>
-              <span class="meta">{{ module.strategyLabel }}</span>
             </span>
           </button>
-        </div>
-      </section>
-
-      <section v-if="hiddenItems.length > 0" class="nav-group nav-group-muted">
-        <p class="nav-group-label">待显式开启</p>
-
-        <div class="nav-group-items">
-          <article
-            v-for="module in hiddenItems"
-            :key="module.id"
-            :data-testid="`nav-hidden-${module.id}`"
-            class="nav-item nav-item-muted"
-          >
-            <span class="dot">{{ module.icon }}</span>
-            <span class="label-wrap">
-              <span class="label-row">
-                <span class="label">{{ module.label }}</span>
-                <span class="state-badge">{{ module.stateLabel }}</span>
-              </span>
-              <span class="meta">{{ module.availabilityLabel }}</span>
-              <span class="meta meta-subtle">{{ module.strategyLabel }}</span>
-            </span>
-          </article>
         </div>
       </section>
     </nav>
@@ -72,14 +37,10 @@ type ShellModuleItem = {
   id: string
   label: string
   icon: string
-  stateLabel: string
-  strategyLabel: string
-  availabilityLabel: string
 }
 
 const props = defineProps<{
   items: ShellModuleItem[]
-  hiddenItems: ShellModuleItem[]
   activeModule: string
 }>()
 
@@ -88,13 +49,7 @@ const emit = defineEmits<{
 }>()
 
 const navGroups = computed(() => {
-  const core = props.items.filter((module) => !module.id.startsWith('showcase-'))
-  const showcase = props.items.filter((module) => module.id.startsWith('showcase-'))
-
-  return [
-    { label: '核心模块', items: core },
-    { label: '运行场景', items: showcase },
-  ].filter((group) => group.items.length > 0)
+  return [{ label: '业务模块', items: props.items }]
 })
 </script>
 
@@ -102,61 +57,21 @@ const navGroups = computed(() => {
 .sidebar {
   position: sticky;
   top: 0;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-5) var(--space-3) var(--space-4);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-2);
   background: var(--gradient-sidebar);
-  backdrop-filter: blur(16px);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
-}
-
-.sidebar-head {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.brand-wrap {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-3);
-}
-
-.brand {
-  width: 60px;
-  height: 60px;
-  border-radius: var(--radius-lg);
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  background: var(--gradient-accent);
-  color: var(--color-text-inverse);
-  box-shadow: var(--shadow-glow);
-}
-
-.brand-copy {
-  display: grid;
-  gap: var(--space-1);
-  text-align: center;
-}
-
-.brand-copy strong {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-}
-
-.brand-copy span {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
 }
 
 .nav {
   width: 100%;
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: 0;
+  overflow: hidden;
 }
 
 .nav-group {
@@ -168,40 +83,33 @@ const navGroups = computed(() => {
   margin: 0;
   padding: 0 var(--space-2);
   font-size: var(--font-size-2xs);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--color-text-muted);
 }
 
 .nav-group-items {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .nav-item {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
-  background: rgba(8, 16, 29, 0.42);
+  background: var(--color-surface-1);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-2);
   color: var(--color-text-secondary);
   cursor: pointer;
   display: grid;
   justify-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   transition:
     border-color var(--motion-medium) var(--easing-standard),
     background-color var(--motion-medium) var(--easing-standard),
     box-shadow var(--motion-medium) var(--easing-standard),
     color var(--motion-medium) var(--easing-standard),
     transform var(--motion-fast) var(--easing-standard);
-}
-
-.nav-item-muted {
-  cursor: default;
-  color: var(--color-text-muted);
-  box-shadow: none;
 }
 
 .nav-item:focus-visible {
@@ -223,25 +131,21 @@ const navGroups = computed(() => {
 
 @media (hover: hover) {
   .nav-item:hover {
-  background: linear-gradient(180deg, rgba(19, 34, 58, 0.92), rgba(12, 23, 41, 0.94));
-  border-color: var(--color-border-default);
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-inset-soft);
+    background: var(--color-canvas-alt);
+    border-color: var(--color-border-default);
+    color: var(--color-text-primary);
   }
 }
 
 .nav-item.active {
-   border-color: var(--color-border-strong);
-   background:
-     linear-gradient(90deg, rgba(122, 184, 255, 0.16), transparent 28%),
-     var(--gradient-nav-active);
-   color: var(--color-text-primary);
-   box-shadow: var(--shadow-glow);
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
 }
 
 .dot {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-pill);
   display: grid;
   place-items: center;
@@ -249,7 +153,6 @@ const navGroups = computed(() => {
   font-weight: 700;
   background: var(--color-accent-soft);
   color: var(--color-accent-primary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
     background-color var(--motion-medium) var(--easing-standard),
     color var(--motion-medium) var(--easing-standard),
@@ -264,10 +167,8 @@ const navGroups = computed(() => {
 
 .label-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 6px;
 }
 
 .label {
@@ -276,39 +177,19 @@ const navGroups = computed(() => {
   text-align: center;
 }
 
-.state-badge {
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: rgba(122, 184, 255, 0.14);
-  color: var(--color-accent-primary);
-  font-size: var(--font-size-2xs);
-  letter-spacing: 0.04em;
-}
-
-.meta {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  line-height: var(--line-height-snug);
-  text-align: center;
-}
-
-.meta-subtle {
-  color: var(--color-text-secondary);
-}
-
 .nav-item.active .active-rail {
-  background: var(--color-accent-secondary);
+  background: var(--color-accent-primary);
 }
 
 .nav-item.active .dot {
   background: var(--color-accent-strong);
   color: var(--color-text-primary);
-  box-shadow: 0 0 0 1px rgba(102, 224, 194, 0.18);
 }
 
 @media (max-width: 980px) {
   .sidebar {
     position: static;
+    height: auto;
     min-height: auto;
     gap: var(--space-3);
     padding: var(--space-3);
@@ -341,9 +222,9 @@ const navGroups = computed(() => {
   }
 
   .nav-item {
-    min-width: 84px;
-    min-height: 72px;
-    padding: var(--space-3) var(--space-2);
+    min-width: 78px;
+    min-height: 64px;
+    padding: var(--space-2);
     touch-action: manipulation;
     scroll-snap-align: start;
   }

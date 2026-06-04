@@ -124,7 +124,7 @@ class SyncJobServiceTest {
                         )),
                         "{\"page\":1}"
                 ));
-        when(externalReviewRawRepository.upsertReviews(eq("onebound"), eq("taobao"), eq("600530677643"), eq(1L), any()))
+        when(externalReviewRawRepository.upsertReviews(eq("onebound"), eq("taobao"), eq("600530677643"), nullable(String.class), eq(1L), any()))
                 .thenReturn(new ExternalReviewPersistenceResult("600530677643", 11L, 1, 0, 1));
 
         SyncJobResponse response = syncJobService.createJob("onebound", "taobao", "600530677643");
