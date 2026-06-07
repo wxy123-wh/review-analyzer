@@ -73,6 +73,6 @@ describe('TaxonomyManagerPanel', () => {
       ]),
     }))
     expect(wrapper.text()).toContain('背囊顶品类')
-    expect(wrapper.text()).toContain('商品品类下拉框可以选择它')
+    expect(wrapper.text()).toContain('taxonomy 下拉框选择它')
   })
 })

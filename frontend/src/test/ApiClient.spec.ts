@@ -52,6 +52,12 @@ describe('api client normalization', () => {
     ])
   })
 
+  it('does not invent fallback UX labels when taxonomy labels are missing', () => {
+    expect(normalizeUxLabelOptions(undefined)).toEqual([])
+    expect(normalizeUxLabelOptions([])).toEqual([])
+    expect(normalizeUxLabelOptions([{ uxPrimaryLabel: '', uxSecondaryLabel: '' }])).toEqual([])
+  })
+
   it('falls back to legacy aspect only when uxSecondaryLabel is missing', () => {
     expect(normalizeUxSecondaryLabel(' 物流与售后 ', 'service')).toBe('物流与售后')
     expect(normalizeUxSecondaryLabel('', 'battery')).toBe('电池与续航')

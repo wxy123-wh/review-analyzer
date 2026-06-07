@@ -14,6 +14,7 @@ import argparse
 import json
 import random
 import re
+import socket
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -33,7 +34,15 @@ RISK_TEXTS = ["访问过于频繁", "操作过于频繁", "安全验证", "请�
 DEFAULT_CATEGORY = "bluetooth-earphone"
 DEFAULT_OUTPUT = "crawler/output/raw_reviews.jsonl"
 DEFAULT_PROGRESS = "crawler/output/jd_progress.json"
+DEFAULT_PROFILE_DIR = "crawler/output/browser-profile/jd"
 COMPLIANCE_NOTICE = "合规提示：脚本只监听你正常浏览产生的评论数据；不会绕过登录、验证码或平台风控。出现验证时请人工处理。"
+JD_COMMENT_ENDPOINT_HINTS = (
+    "comment",
+    "getcomment",
+    "getfoldcommentlist",
+    "pc_club_productpagecomments",
+    "client.action",
+)
 
 
 @dataclass
@@ -151,6 +160,68 @@ def parse_packet_body(packet: Any) -> Any:
             return None
 
 
+def load_payloads_from_file(path: Path) -> list[Any]:
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        return []
+    if path.suffix.lower() in {".jsonl", ".ndjson"}:
+        payloads: list[Any] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if line:
+                payloads.append(json.loads(line))
+        return payloads
+    payload = json.loads(text)
+    if isinstance(payload, dict) and isinstance(payload.get("payloads"), list):
+        return list(payload["payloads"])
+    if isinstance(payload, list):
+        return payload
+    return [payload]
+
+
+def packet_url(packet: Any) -> str:
+    return normalize_text(getattr(packet, "url", ""))
+
+
+def looks_like_jd_comment_endpoint(url: str) -> bool:
+    text = url.lower()
+    return any(hint in text for hint in JD_COMMENT_ENDPOINT_HINTS)
+
+
+def write_payloads_to_jsonl(
+    payloads: Iterable[Any],
+    *,
+    writer: JsonlReviewWriter,
+    product_code: str,
+    category: str,
+    product_name: str,
+) -> tuple[int, int]:
+    captured_packets = 0
+    new_review_count = 0
+    for payload in payloads:
+        reviews = extract_reviews_from_payload(payload, product_code, category, product_name)
+        if not reviews:
+            continue
+        new_review_count += writer.write_many(reviews)
+        captured_packets += 1
+    return captured_packets, new_review_count
+
+
+def dump_debug_payload(debug_dir: Path | None, *, label: str, url: str, payload: Any) -> None:
+    if debug_dir is None:
+        return
+    debug_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    safe_label = re.sub(r"[^a-zA-Z0-9_.-]+", "-", label).strip("-") or "packet"
+    path = debug_dir / f"{stamp}_{safe_label}.json"
+    record = {
+        "capturedAt": datetime.now(timezone.utc).isoformat(),
+        "url": url,
+        "payload": payload,
+    }
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def detect_risk_state(page: Any) -> str:
     for text in RISK_TEXTS:
         try:
@@ -202,6 +273,84 @@ def safe_filename(value: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.-]+", "-", value).strip("-") or "product"
 
 
+def find_browser_path() -> str:
+    candidates = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    ]
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return candidate
+    return ""
+
+
+def get_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def build_browser_page(*, profile_dir: Path | None = None, browser_path: str = "") -> Any:
+    try:
+        from DrissionPage import ChromiumOptions, ChromiumPage
+    except ImportError as exc:
+        raise RuntimeError("缺少 DrissionPage。请先执行：python -m pip install -r crawler/requirements.txt") from exc
+
+    options = ChromiumOptions()
+    resolved_browser = browser_path or find_browser_path()
+    if resolved_browser:
+        options.set_browser_path(resolved_browser)
+        print(f"使用浏览器：{resolved_browser}")
+    if profile_dir is not None:
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        options.set_user_data_path(str(profile_dir))
+        print(f"使用独立浏览器资料目录：{profile_dir}")
+    options.set_local_port(get_free_port())
+    return ChromiumPage(options)
+
+
+def replay_payloads(
+    *,
+    resolved_url: str,
+    product_code: str,
+    product_name: str,
+    category: str,
+    output: Path,
+    progress_path: Path,
+    progress: dict[str, Any],
+    writer: JsonlReviewWriter,
+    payloads: Iterable[Any],
+    reason: str,
+) -> CrawlResult:
+    captured_packets, new_review_count = write_payloads_to_jsonl(
+        payloads,
+        writer=writer,
+        product_code=product_code,
+        category=category,
+        product_name=product_name,
+    )
+    progress["lastRunMode"] = "demo-replay"
+    progress["demoReplayReason"] = reason
+    progress["capturedPackets"] = int(progress.get("capturedPackets", 0)) + captured_packets
+    save_progress(progress_path, progress)
+    message = f"{reason} 已切换为 demo replay：从离线评论包写入 {new_review_count} 条新评论。"
+    print(message)
+    return CrawlResult(
+        productUrl=resolved_url,
+        productCode=product_code,
+        productName=normalize_text(product_name),
+        category=category,
+        outputPath=str(output),
+        progressPath=str(progress_path),
+        status="DEMO_REPLAYED",
+        capturedPackets=captured_packets,
+        newReviewCount=new_review_count,
+        message=message,
+    )
+
+
 def collect_jd_reviews(
     *,
     product_url: str | None = None,
@@ -214,7 +363,12 @@ def collect_jd_reviews(
     max_packets: int = 20,
     wait_seconds: int = 120,
     verification_wait_seconds: int = 180,
+    profile_dir: Path | None = Path(DEFAULT_PROFILE_DIR),
+    browser_path: str = "",
+    debug_dir: Path | None = None,
     dry_run_payloads: Iterable[Any] | None = None,
+    demo_replay_payloads: Iterable[Any] | None = None,
+    demo_replay_on_empty: bool = False,
     sleep_fn: Callable[[float, float], None] = sleep_safely,
 ) -> CrawlResult:
     """Collect JD reviews into JSONL.
@@ -228,14 +382,13 @@ def collect_jd_reviews(
     writer = JsonlReviewWriter(output)
 
     if dry_run_payloads is not None:
-        captured_packets = 0
-        new_review_count = 0
-        for payload in dry_run_payloads:
-            reviews = extract_reviews_from_payload(payload, product_code, category, product_name)
-            if not reviews:
-                continue
-            new_review_count += writer.write_many(reviews)
-            captured_packets += 1
+        captured_packets, new_review_count = write_payloads_to_jsonl(
+            dry_run_payloads,
+            writer=writer,
+            product_code=product_code,
+            category=category,
+            product_name=product_name,
+        )
         progress["capturedPackets"] = int(progress.get("capturedPackets", 0)) + captured_packets
         progress["lastRunMode"] = "dry-run"
         save_progress(progress_path, progress)
@@ -253,11 +406,23 @@ def collect_jd_reviews(
         )
 
     try:
-        from DrissionPage import ChromiumPage
-    except ImportError as exc:
-        raise RuntimeError("缺少 DrissionPage。请先执行：python -m pip install -r crawler/requirements.txt") from exc
+        page = build_browser_page(profile_dir=profile_dir, browser_path=browser_path)
+    except RuntimeError as exc:
+        if demo_replay_on_empty and demo_replay_payloads is not None:
+            return replay_payloads(
+                resolved_url=resolved_url,
+                product_code=product_code,
+                product_name=product_name,
+                category=category,
+                output=output,
+                progress_path=progress_path,
+                progress=progress,
+                writer=writer,
+                payloads=demo_replay_payloads,
+                reason=f"现场浏览器未能启动：{exc}",
+            )
+        raise
 
-    page = ChromiumPage()
     page.listen.start()
     print(f"打开京东商品页：{resolved_url}")
     page.get(resolved_url)
@@ -276,6 +441,19 @@ def collect_jd_reviews(
                 continue
             message = f"检测到平台验证/风控提示：{reason}。人工处理等待超时，请处理后重新运行脚本。"
             print(message)
+            if demo_replay_on_empty and demo_replay_payloads is not None and new_review_count == 0:
+                return replay_payloads(
+                    resolved_url=resolved_url,
+                    product_code=product_code,
+                    product_name=product_name,
+                    category=category,
+                    output=output,
+                    progress_path=progress_path,
+                    progress=progress,
+                    writer=writer,
+                    payloads=demo_replay_payloads,
+                    reason=message,
+                )
             return CrawlResult(
                 productUrl=resolved_url,
                 productCode=product_code,
@@ -293,18 +471,37 @@ def collect_jd_reviews(
         if not packet:
             continue
         payload = parse_packet_body(packet)
+        url = packet_url(packet)
         reviews = extract_reviews_from_payload(payload, product_code, category, product_name)
         if not reviews:
             continue
 
+        if not looks_like_jd_comment_endpoint(url):
+            print(f"捕获到可解析评论包，但 URL 不像标准评论接口，已保守写入并记录：{url}")
+        dump_debug_payload(debug_dir, label=f"packet_{captured_packets + 1}", url=url, payload=payload)
         new_count = writer.write_many(reviews)
         new_review_count += new_count
         captured_packets += 1
-        progress["lastPacketUrl"] = str(getattr(packet, "url", ""))
+        progress["lastPacketUrl"] = url
         progress["capturedPackets"] = int(progress.get("capturedPackets", 0)) + 1
+        progress["lastRunMode"] = "live"
         save_progress(progress_path, progress)
         print(f"捕获评论包 {captured_packets}/{max_packets}，新增 {new_count} 条，输出：{output}")
         sleep_fn(4, 8)
+
+    if demo_replay_on_empty and demo_replay_payloads is not None and new_review_count == 0:
+        return replay_payloads(
+            resolved_url=resolved_url,
+            product_code=product_code,
+            product_name=product_name,
+            category=category,
+            output=output,
+            progress_path=progress_path,
+            progress=progress,
+            writer=writer,
+            payloads=demo_replay_payloads,
+            reason="现场监听时间内没有捕获到可用评论包。",
+        )
 
     message = f"采集结束。当前输出文件：{output}"
     print(message)
@@ -332,10 +529,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--category", default=DEFAULT_CATEGORY, help="Product category for later LLM prompts")
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
     parser.add_argument("--progress", default=DEFAULT_PROGRESS)
+    parser.add_argument("--profile-dir", default=DEFAULT_PROFILE_DIR, help="Independent browser profile dir used to keep normal login state")
+    parser.add_argument("--browser-path", default="", help="Optional Chrome/Edge executable path")
+    parser.add_argument("--debug-dir", default="", help="Optional dir for accepted packet debug JSON files")
     parser.add_argument("--max-packets", type=int, default=20)
     parser.add_argument("--wait-seconds", type=int, default=120)
     parser.add_argument("--verification-wait-seconds", type=int, default=180, help="Seconds to wait for manual captcha/risk verification")
     parser.add_argument("--dry-run-packet", default="", help="Optional JSON file with one captured packet payload for parser testing")
+    parser.add_argument("--demo-replay-packet", default="", help="Optional JSON/JSONL packet file for honest offline demo replay")
+    parser.add_argument("--demo-replay-on-empty", action="store_true", help="Replay demo packet if live capture gets no reviews or needs verification")
     return parser
 
 
@@ -494,6 +696,7 @@ def prompt_interactive_args(
     args.max_packets = max_packets
     args.output = output
     args.progress = progress
+    args.profile_dir = args.profile_dir or DEFAULT_PROFILE_DIR
     args.wait_seconds = wait_seconds
     args.verification_wait_seconds = verification_wait_seconds
     return args
@@ -536,7 +739,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         dry_run_payloads = None
         if args.dry_run_packet:
-            dry_run_payloads = [json.loads(Path(args.dry_run_packet).read_text(encoding="utf-8"))]
+            dry_run_payloads = load_payloads_from_file(Path(args.dry_run_packet))
+        demo_replay_payloads = None
+        if args.demo_replay_packet:
+            demo_replay_payloads = load_payloads_from_file(Path(args.demo_replay_packet))
         result = collect_jd_reviews(
             product_url=args.product_url or None,
             product_id=args.product_id or None,
@@ -545,10 +751,15 @@ def main(argv: list[str] | None = None) -> int:
             category=args.category,
             output=Path(args.output),
             progress_path=Path(args.progress),
+            profile_dir=Path(args.profile_dir) if args.profile_dir else None,
+            browser_path=args.browser_path,
+            debug_dir=Path(args.debug_dir) if args.debug_dir else None,
             max_packets=args.max_packets,
             wait_seconds=args.wait_seconds,
             verification_wait_seconds=args.verification_wait_seconds,
             dry_run_payloads=dry_run_payloads,
+            demo_replay_payloads=demo_replay_payloads,
+            demo_replay_on_empty=args.demo_replay_on_empty,
         )
     except (RuntimeError, ValueError) as exc:
         print(str(exc))

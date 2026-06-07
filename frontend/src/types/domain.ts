@@ -240,6 +240,18 @@ export type JsonlFileCandidate = {
   sampleReviews: CrawlReviewSample[]
 }
 
+export type ProductHistoryItem = {
+  productCode: string
+  productName?: string
+  importedReviewCount: number
+  analyzedReviewCount: number
+  downstreamReady: boolean
+  taxonomyBound: boolean
+  latestAnalysisStatus?: string
+  latestImportedAt?: string
+  createdAt?: string
+}
+
 export type AnalysisJobResponse = {
   jobId: string
   productCode: string

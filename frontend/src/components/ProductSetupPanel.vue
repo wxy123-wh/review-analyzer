@@ -25,7 +25,7 @@
         </select>
       </label>
       <label class="field">
-        <span>商品品类</span>
+        <span>选择 taxonomy</span>
         <select v-model="selectedTaxonomyKey" data-testid="setup-category" :disabled="taxonomyOptions.length === 0" @change="applySelectedTaxonomy">
           <option v-if="taxonomyOptions.length === 0" value="">读取 taxonomy 后选择</option>
           <option v-for="option in taxonomyOptions" :key="taxonomyOptionKey(option)" :value="taxonomyOptionKey(option)">
@@ -45,6 +45,26 @@
       <button type="button" class="secondary-btn" data-testid="setup-import-jsonl" :disabled="busy || !canImportJsonl" @click="importLocalJsonl">导入数据库</button>
       <button type="button" class="primary-btn" data-testid="setup-start-analysis" :disabled="busy || !canStartAnalysis" @click="startProductAnalysis">启动 LLM 分析</button>
     </div>
+
+    <article class="history-panel">
+      <div class="section-head section-head--compact">
+        <h4>数据库商品历史</h4>
+        <button type="button" class="secondary-btn compact" :disabled="productHistoryLoading" data-testid="setup-load-product-history" @click="loadImportedProducts(true)">
+          {{ productHistoryLoading ? '读取中' : '刷新历史' }}
+        </button>
+      </div>
+      <div class="history-picker">
+        <select v-model="selectedHistoryProductCode" data-testid="setup-product-history" :disabled="productHistoryLoading || importedProducts.length === 0">
+          <option value="">{{ importedProducts.length > 0 ? '选择已导入商品' : '暂无已导入商品' }}</option>
+          <option v-for="item in importedProducts" :key="item.productCode" :value="item.productCode">
+            {{ productHistoryLabel(item) }}
+          </option>
+        </select>
+        <button type="button" class="primary-btn compact" :disabled="busy || !selectedHistoryProduct" data-testid="setup-show-product" @click="showSelectedHistoryProduct">
+          展示商品
+        </button>
+      </div>
+    </article>
 
     <div class="panel-body">
       <div class="step-top">
@@ -273,6 +293,7 @@ import {
   DEFAULT_PRODUCT_CODE,
   bindProductTaxonomy,
   cleanJsonlFile,
+  fetchImportedProducts,
   fetchAnalysisJob,
   fetchJsonlFiles,
   fetchProductTaxonomy,
@@ -286,6 +307,7 @@ import type {
   AnalysisJobResponse,
   CrawlImportResponse,
   ProductAnalysisReadyPayload,
+  ProductHistoryItem,
   ProductTaxonomyResponse,
   ReviewIntakeStatusResponse,
   JsonlFileImportPayload,
@@ -295,6 +317,7 @@ import type {
 
 const emit = defineEmits<{
   (event: 'analysis-ready', payload: ProductAnalysisReadyPayload): void
+  (event: 'product-selected', payload: ProductHistoryItem): void
 }>()
 
 const productCode = ref(DEFAULT_PRODUCT_CODE)
@@ -302,6 +325,8 @@ const productName = ref('')
 const platform = ref('jd')
 const category = ref('general-product')
 const rawJsonlPath = ref(defaultRawJsonlPath(DEFAULT_PRODUCT_CODE))
+const importedProducts = ref<ProductHistoryItem[]>([])
+const selectedHistoryProductCode = ref('')
 const jsonlCandidates = ref<JsonlFileCandidate[]>([])
 const selectedJsonlPath = ref('')
 const taxonomyOptions = ref<ProductTaxonomyResponse[]>([])
@@ -315,6 +340,7 @@ const intakeStatus = ref<ReviewIntakeStatusResponse | null>(null)
 const analysisPollCount = ref(0)
 const lastAnalysisReadyMaterializedCount = ref(0)
 const busy = ref(false)
+const productHistoryLoading = ref(false)
 const jsonlLoading = ref(false)
 const statusLoading = ref(false)
 const message = ref('')
@@ -343,9 +369,12 @@ const currentCleaningSummary = computed(() => {
   }
   return latestFileResult.value?.cleaningSummary ?? {}
 })
+const selectedHistoryProduct = computed(() =>
+  importedProducts.value.find((item) => item.productCode === selectedHistoryProductCode.value) ?? null,
+)
 const canCleanJsonl = computed(() => productCode.value.length > 0 && rawJsonlPath.value.length > 0)
 const canImportJsonl = computed(() => productCode.value.length > 0 && rawJsonlPath.value.length > 0)
-const canStartAnalysis = computed(() => productCode.value.length > 0)
+const canStartAnalysis = computed(() => productCode.value.length > 0 && Boolean(activeTaxonomyId.value))
 const visibleSamples = computed(() => {
   const recentReviews = intakeStatus.value?.recentReviews ?? []
   if (recentReviews.length > 0) {
@@ -373,8 +402,13 @@ const cleanStageText = computed(() => {
   return '待清洗'
 })
 const taxonomyStageText = computed(() => {
-  const taxonomyId = taxonomy.value?.taxonomyId ?? intakeStatus.value?.taxonomyId
-  return taxonomyId ? `已绑定 ${taxonomyId}` : '待绑定'
+  if (intakeStatus.value?.taxonomyBound && intakeStatus.value.taxonomyId) {
+    return `已绑定 #${intakeStatus.value.taxonomyId}`
+  }
+  if (taxonomy.value?.taxonomyId) {
+    return `已选择 #${taxonomy.value.taxonomyId}，待绑定`
+  }
+  return '待选择'
 })
 const importStageText = computed(() => {
   const importedCount = intakeStatus.value?.importedReviewCount ?? 0
@@ -614,6 +648,18 @@ function candidateLabel(candidate: JsonlFileCandidate): string {
   return code && name !== code ? `${name} · ${code}` : name
 }
 
+function historyProductName(item: ProductHistoryItem): string {
+  return item.productName?.trim() || item.productCode
+}
+
+function productHistoryLabel(item: ProductHistoryItem): string {
+  const name = historyProductName(item)
+  const code = item.productCode.trim()
+  const status = item.downstreamReady ? '已分析' : item.latestAnalysisStatus || '待分析'
+  const reviewCount = `${item.importedReviewCount} 条`
+  return code && name !== code ? `${name} · ${code} · ${reviewCount} · ${status}` : `${name} · ${reviewCount} · ${status}`
+}
+
 function taxonomyOptionKey(option: ProductTaxonomyResponse): string {
   if (option.taxonomyId) {
     return `id:${option.taxonomyId}`
@@ -623,8 +669,8 @@ function taxonomyOptionKey(option: ProductTaxonomyResponse): string {
 
 function taxonomyOptionLabel(option: ProductTaxonomyResponse): string {
   const name = option.name?.trim() || option.category || '未命名 taxonomy'
-  const id = option.taxonomyId ? `#${option.taxonomyId}` : '草稿'
-  return `${name} · ${id}`
+  const categoryText = option.category || 'general-product'
+  return `${name} · ${categoryText}`
 }
 
 function syncSelectedTaxonomy(option: ProductTaxonomyResponse | null): void {
@@ -663,12 +709,60 @@ function applyJsonlCandidate(candidate: JsonlFileCandidate): void {
   }
 }
 
+function applyHistoryProduct(item: ProductHistoryItem): void {
+  productCode.value = item.productCode
+  productName.value = item.productName?.trim() || ''
+  rawJsonlPath.value = defaultRawJsonlPath(item.productCode)
+  selectedJsonlPath.value = ''
+  cleanResult.value = null
+  importResult.value = null
+  analysisJob.value = null
+  intakeStatus.value = null
+  lastAnalysisReadyMaterializedCount.value = 0
+}
+
 function applySelectedJsonlPath(): void {
   const candidate = jsonlCandidates.value.find((item) => item.path === selectedJsonlPath.value)
   if (candidate) {
     applyJsonlCandidate(candidate)
     void refreshIntakeStatus(false)
   }
+}
+
+async function loadImportedProducts(showToast = false): Promise<void> {
+  productHistoryLoading.value = true
+  try {
+    const items = await fetchImportedProducts()
+    importedProducts.value = items
+    const currentCode = currentProductCode()
+    if (items.some((item) => item.productCode === currentCode)) {
+      selectedHistoryProductCode.value = currentCode
+    } else if (!selectedHistoryProductCode.value && items.length > 0) {
+      selectedHistoryProductCode.value = items[0].productCode
+    }
+    if (showToast) {
+      showMessage(items.length > 0 ? `已读取 ${items.length} 个已导入商品。` : '数据库里暂时没有已导入商品。')
+    }
+  } catch (error) {
+    if (showToast) {
+      showMessage(describeRequestError(error, '读取商品历史'), 'error')
+    }
+  } finally {
+    productHistoryLoading.value = false
+  }
+}
+
+async function showSelectedHistoryProduct(): Promise<void> {
+  const item = selectedHistoryProduct.value
+  if (!item) {
+    showMessage('请先选择一个已导入商品。', 'error')
+    return
+  }
+  applyHistoryProduct(item)
+  await refreshIntakeStatus(false)
+  void loadTaxonomy(false)
+  emit('product-selected', item)
+  showMessage(`已切换当前展示商品：${productHistoryLabel(item)}。`)
 }
 
 async function runTask(action: string, task: () => Promise<void>): Promise<void> {
@@ -685,14 +779,21 @@ async function runTask(action: string, task: () => Promise<void>): Promise<void>
 async function loadTaxonomy(showToast = true): Promise<void> {
   await runTask('读取 taxonomy', async () => {
     const options = await fetchTaxonomies(currentProductCode())
-    taxonomyOptions.value = options
     const response = await fetchProductTaxonomy(productCode.value, category.value || 'general-product')
-    const mergedOptions = [
-      response,
-      ...options.filter((option) => taxonomyOptionKey(option) !== taxonomyOptionKey(response)),
-    ]
-    taxonomyOptions.value = mergedOptions
-    syncSelectedTaxonomy(response)
+    const initialTaxonomy = response.taxonomyId ? response : options[0] ?? null
+    taxonomyOptions.value = initialTaxonomy
+      ? [
+          initialTaxonomy,
+          ...options.filter((option) => taxonomyOptionKey(option) !== taxonomyOptionKey(initialTaxonomy)),
+        ]
+      : []
+    if (initialTaxonomy) {
+      syncSelectedTaxonomy(initialTaxonomy)
+    } else {
+      taxonomy.value = null
+      labels.value = []
+      selectedTaxonomyKey.value = ''
+    }
     if (showToast) {
       showMessage(response.notice || '已读取当前商品绑定的 taxonomy，可从下拉框切换到其他已编辑 taxonomy。')
     }
@@ -896,6 +997,7 @@ async function startProductAnalysis(): Promise<void> {
 }
 
 onMounted(() => {
+  void loadImportedProducts(false)
   void loadTaxonomy(false)
   void (async () => {
     await loadJsonlFiles()
@@ -916,6 +1018,9 @@ watch(productCode, (current, previous) => {
   if (!rawJsonlPath.value || rawJsonlPath.value === defaultRawJsonlPath(previous || DEFAULT_PRODUCT_CODE)) {
     rawJsonlPath.value = defaultRawJsonlPath(current)
   }
+  if (importedProducts.value.some((item) => item.productCode === current)) {
+    selectedHistoryProductCode.value = current
+  }
 })
 </script>
 
@@ -924,7 +1029,7 @@ watch(productCode, (current, previous) => {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: var(--space-3);
   height: 100%;
   min-height: 0;
@@ -938,12 +1043,14 @@ watch(productCode, (current, previous) => {
 .head,
 .form-grid,
 .toolbar,
+.history-panel,
 .panel-body {
   position: relative;
   z-index: var(--z-raised);
 }
 
 .title-block,
+.history-panel,
 .jsonl-controls,
 .taxonomy-main,
 .label-editor,
@@ -1030,6 +1137,20 @@ select:focus-visible {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.history-panel {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  background: var(--color-surface-1);
+}
+
+.history-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .section-head {

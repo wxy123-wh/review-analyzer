@@ -16,8 +16,8 @@
 - Frontend full suite: `npm --prefix frontend test`
   - result: passed
   - files: 12 passed
-  - tests: 54 passed
-  - latest scope includes the standalone `TaxonomyManagerPanel`, sidebar `taxonomy` navigation, data intake product-category dropdown, readonly taxonomy preview, and bind-only taxonomy flow in `ProductSetupPanel`.
+  - tests: 57 passed
+  - latest scope includes the standalone `TaxonomyManagerPanel`, sidebar `taxonomy` navigation, data intake taxonomy dropdown, readonly taxonomy preview, no invented fallback UX labels when taxonomy labels are missing, bind-only taxonomy flow in `ProductSetupPanel`, database imported product history selection, and downstream dashboard refresh after switching the active product.
 
 - Frontend build: `npm --prefix frontend run build`
   - result: passed
@@ -36,9 +36,9 @@
 
 - Backend: `mvn -f backend/pom.xml test`
   - result: passed
-  - tests: 57 passed
+  - tests: 59 passed
   - note: Maven was run with Java 21.
-  - latest scope covers async `POST /api/v1/analysis/jobs` immediate `QUEUED` response, `GET /api/v1/analysis/jobs/{id}` polling across `QUEUED/RUNNING/SUCCEEDED/FAILED`, persisted LLM progress fields and materialization fields in `analysis_jobs`, analysis start clearing stale materialized outputs, per-batch append of review-level materialization and cumulative issue-cluster rebuild, stale `review_id` detection before `review_semantic_labels` / `review_aspects` foreign-key failure, legacy synchronous `POST /api/v1/analysis/start`, `GET /api/v1/reviews/intake-status` reflecting JSONL files, imported/analyzed counts, downstream readiness, recent reviews and latest analysis job, `POST /api/v1/reviews/clean-jsonl` reading raw JSONL and returning cleaned/removed/summary/sample without writing `products`/`reviews_raw`/`sync_jobs`/`data_quality_runs`, `POST /api/v1/reviews/import-jsonl` directly importing `cleaned_reviews_*.jsonl` without re-cleaning raw JSONL, cleaned reimport clearing stale materialized outputs before replacing local raw reviews, blocking `replaceExisting=true` while an analysis job is `QUEUED`/`RUNNING`, persistence integration, positive insights, compare/trends/wordcloud, wordcloud negative/positive VOC bucket balancing and brand/model noise filtering, UX before/after comparison, sync jobs, and fatal NLP LLM-config errors skipping materialization.
+  - latest scope covers async `POST /api/v1/analysis/jobs` immediate `QUEUED` response, `GET /api/v1/analysis/jobs/{id}` polling across `QUEUED/RUNNING/SUCCEEDED/FAILED`, persisted LLM progress fields and materialization fields in `analysis_jobs`, analysis start clearing stale materialized outputs, per-batch append of review-level materialization and cumulative issue-cluster rebuild, stale `review_id` detection before `review_semantic_labels` / `review_aspects` foreign-key failure, legacy synchronous `POST /api/v1/analysis/start`, `GET /api/v1/taxonomies` exposing only the current default taxonomy and leaving one active default record, `GET /api/v1/reviews/intake-status` reflecting JSONL files, imported/analyzed counts, downstream readiness, recent reviews and latest analysis job, `GET /api/v1/reviews/imported-products` listing database imported product history with product name and review counts, `POST /api/v1/reviews/clean-jsonl` reading raw JSONL and returning cleaned/removed/summary/sample without writing `products`/`reviews_raw`/`sync_jobs`/`data_quality_runs`, `POST /api/v1/reviews/import-jsonl` directly importing `cleaned_reviews_*.jsonl` without re-cleaning raw JSONL, cleaned reimport clearing stale materialized outputs before replacing local raw reviews, blocking `replaceExisting=true` while an analysis job is `QUEUED`/`RUNNING`, persistence integration, positive insights, compare/trends/wordcloud, wordcloud negative/positive VOC bucket balancing and brand/model noise filtering, UX before/after comparison, sync jobs, and fatal NLP LLM-config errors skipping materialization.
 
 ## Static Test Inventory
 
@@ -79,15 +79,15 @@ Crawler/pipeline tests:
 
 ## Covered Behaviors
 
-- Frontend coverage currently confirms taxonomy-driven multi-series trend rendering and click highlight behavior, API normalization, sidebar `taxonomy` navigation, standalone taxonomy create/edit/save behavior, data intake dropdown selection of saved taxonomies, readonly taxonomy preview, bind-only product taxonomy flow, persisted intake status restoration, and async LLM progress polling.
+- Frontend coverage currently confirms taxonomy-driven multi-series trend rendering and click highlight behavior, API normalization, sidebar `taxonomy` navigation, standalone taxonomy create/edit/save behavior, data intake dropdown selection of saved taxonomies, no default UX labels invented from missing taxonomy data, readonly taxonomy preview, bind-only product taxonomy flow, database imported product history selection, active product switching into downstream dashboard requests, persisted intake status restoration, and async LLM progress polling.
 - NLP health, explicit rule-mode analyze response behavior for keyword-based aspect/sentiment logic, no-key LLM config failure behavior, LLM prompt construction safety, and JSON error responses for remote LLM connection failures.
 - Crawler/pipeline tests cover parser extraction, output dedupe, dry-run JSONL writing, cleaner summary counts, and platform placeholder removal/追评保留。
-- Backend tests cover persistence integration, API smoke path, analysis lifecycle/degradation/fatal LLM config failure, async analysis job queue/polling with persisted progress and materialization counts, stale review-id materialization guard, active-analysis replacement import guard, intake-status workflow ledger, JSONL clean-only behavior, direct import placeholder filtering, manual JSONL path handling, positive insight aggregation, compare/trends/wordcloud, UX before/after comparison, sync jobs, and validation/action compatibility.
+- Backend tests cover persistence integration, API smoke path, analysis lifecycle/degradation/fatal LLM config failure, async analysis job queue/polling with persisted progress and materialization counts, stale review-id materialization guard, active-analysis replacement import guard, current-only taxonomy listing/default taxonomy de-duplication, intake-status workflow ledger, imported product history listing, JSONL clean-only behavior, direct import placeholder filtering, manual JSONL path handling, positive insight aggregation, compare/trends/wordcloud, UX before/after comparison, sync jobs, and validation/action compatibility.
 
 ## Evidence Gaps
 
 - Docker Compose runtime check passed after rebuilding backend/frontend and restarting `nlp-service`: `docker compose ps`, backend `/api/v1/health`, NLP `/health`, frontend HTTP 200 at `http://127.0.0.1:5175`. The running frontend container has blank `VITE_API_BASE_URL`, so client-side fallback uses the current browser host.
 - Direct runtime API checks after rebuild: `/api/v1/issues`, `/api/v1/positive-insights`, `/api/v1/trends`, and `/api/v1/wordcloud` returned `success`; `/api/v1/ux-change-comparisons` returned `empty` with zero records when no before/after checkpoint exists, which is a business empty state rather than a failed request.
 - Runtime E2E API check passed with `crawler/output/raw_reviews_codex-e2e-20260604.jsonl` and `crawler/output/raw_reviews_codex-e2e-competitor-20260604.jsonl`: JSONL discovery, `clean-jsonl`, taxonomy binding, `import-jsonl`, async `analysis/jobs` polling to `SUCCEEDED`, `/issues`, `/positive-insights`, `/compare`, `/trends`, `/wordcloud`, `/data-quality`, and `/ux-change-comparisons` all returned usable success states.
-- Browser check against the current in-app page `http://127.0.0.1:5175/` and a temporary Vite test-mode page `http://127.0.0.1:5181/` could not run because the Browser automation policy blocked local address access in this session.
+- Browser check against local pages, including temporary Vite `http://127.0.0.1:5179/`, could not run because the Browser automation policy blocked local address access in this session.
 - No production compose validation was run.

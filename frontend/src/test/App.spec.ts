@@ -10,6 +10,7 @@ const clientMocks = vi.hoisted(() => ({
   fetchCompare: vi.fn(),
   fetchCrawlJob: vi.fn(),
   fetchAnalysisJob: vi.fn(),
+  fetchImportedProducts: vi.fn(),
   fetchIssues: vi.fn(),
   fetchJsonlFiles: vi.fn(),
   fetchPositiveInsights: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock('../api/client', () => ({
   fetchCompare: clientMocks.fetchCompare,
   fetchCrawlJob: clientMocks.fetchCrawlJob,
   fetchAnalysisJob: clientMocks.fetchAnalysisJob,
+  fetchImportedProducts: clientMocks.fetchImportedProducts,
   fetchIssues: clientMocks.fetchIssues,
   fetchJsonlFiles: clientMocks.fetchJsonlFiles,
   fetchPositiveInsights: clientMocks.fetchPositiveInsights,
@@ -98,6 +100,26 @@ function makeIntakeStatus(productCode = 'jd-100127936932', inputPath = '') {
 describe('App shell', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    clientMocks.fetchImportedProducts.mockResolvedValue([
+      {
+        productCode: 'jd-100127936932',
+        productName: '小米 Xiaomi Buds 5',
+        importedReviewCount: 746,
+        analyzedReviewCount: 746,
+        downstreamReady: true,
+        taxonomyBound: true,
+        latestAnalysisStatus: 'SUCCEEDED',
+      },
+      {
+        productCode: 'jd-history-switch',
+        productName: 'OPPO Enco Free4',
+        importedReviewCount: 88,
+        analyzedReviewCount: 88,
+        downstreamReady: true,
+        taxonomyBound: true,
+        latestAnalysisStatus: 'SUCCEEDED',
+      },
+    ])
     clientMocks.fetchIssues.mockResolvedValue({
       state: 'success',
       items: [
@@ -573,6 +595,27 @@ describe('App shell', () => {
     expect(clientMocks.fetchWordCloud).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('续航')
     expect(wrapper.text()).toContain('断连')
+  })
+
+  it('switches dashboard data when an imported product history item is selected', async () => {
+    const wrapper = mount(App)
+    await flushPromises()
+    await enterDashboard(wrapper)
+
+    await wrapper.get('[data-testid="setup-product-history"]').setValue('jd-history-switch')
+    await wrapper.get('[data-testid="setup-show-product"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(clientMocks.fetchIssues).toHaveBeenLastCalledWith('jd-history-switch')
+    expect(clientMocks.fetchPositiveInsights).toHaveBeenLastCalledWith('jd-history-switch')
+    expect(clientMocks.fetchTrends).toHaveBeenLastCalledWith('jd-history-switch', 'general', '质量与性能')
+    expect(clientMocks.fetchWordCloud).toHaveBeenLastCalledWith('jd-history-switch', 'all')
+    expect(wrapper.get('[data-testid="current-product-bar"]').text()).toContain('OPPO Enco Free4')
+
+    await wrapper.get('[data-testid="nav-compare"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('[data-testid="compare-product-code"]').element as HTMLInputElement).value).toBe('jd-history-switch')
   })
 
   it('shows compare taxonomy mismatch and lazy-loads word cloud and ux change comparisons', async () => {
